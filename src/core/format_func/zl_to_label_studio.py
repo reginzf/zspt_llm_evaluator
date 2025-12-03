@@ -6,11 +6,12 @@ def retrieve_format_for_label_studio(records):
     """
     res = []
     for data in records:
+        # 去掉title和固定字段，剩余为text
         text_start = len(data["doc_name"] + data["chunk_title"]) + 5
         res.append({
             "text": data["chunk_text"][text_start::],
             # 自定义字段
-            "end": data["chunk_position"] + data["chunk_size"],
+            "size": data["chunk_size"],
             "chunk_title": data["chunk_title"],
             "score": data["score"],
             "metaData": data["metaData"],
