@@ -7,7 +7,8 @@ LABEL_STUDIO_TEMPLATE = {
     "chunk_id": "",
     "score": None,
     "metaData": None,
-    "fileName": ""
+    "fileName": "",
+    "start_at": None
 }
 
 
@@ -24,7 +25,8 @@ def retrieve_format_for_label_studio(records):
         text_start = len(data["doc_name"] + data["chunk_title"]) + 5
         item = LABEL_STUDIO_TEMPLATE.copy()
         item.update({
-            "text": data["chunk_text"][text_start::],
+            # "text": data["chunk_text"][text_start::],
+            "text": data["chunk_text"],
             # 自定义字段
             "size": data["chunk_size"],
             "chunk_title": data["chunk_title"],
@@ -32,6 +34,7 @@ def retrieve_format_for_label_studio(records):
             "score": data["score"],
             "metaData": data["metaData"],
             "fileName": data["fileName"],
+            "start_at": text_start
         })
         res.append(item)
     return res
@@ -57,7 +60,8 @@ def doc_slices_format_for_label_studio(doc_name, records):
             "chunk_id": data["chunk_id"],
             "score": None,
             "metaData": None,
-            "fileName": doc_name
+            "fileName": doc_name,
+            "start_at": text_start
         })
         res.append(item)
     return res

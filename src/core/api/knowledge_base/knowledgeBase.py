@@ -2,7 +2,28 @@ from src.core.api.base_client import BaseClient
 import math
 
 
-class KnowledgeBasePage(BaseClient):
+class KnowledgeBase(BaseClient):
+    def knowledge_list(self, knowledgeBaseName, visibleRange=None):
+        """
+        查询知识库列表
+        :param knowledgeBaseName:
+        :param visibleRange: 1 部分可见
+        :return: {"code": 200, "msg": null, "data": [
+        {"id": 68, "knowledgeName": "ospf_chunk_600", "knowledgeId": "KLB_869cb0ded2c64362a2b5ce722d2e91cf",
+         "description": null, "creatorUserName": "nrgtest", "creatorRealName": null,
+         "createTime": "2025-12-03 15:47:31", "updateTime": "2025-12-03 16:09:25", "docCount": 1, "visibleRange": 0,
+         "deptIdList": [], "manageDeptIdList": [""]},
+       ], "ok": true}
+        """
+        api = f'api/zspt/zsgl/knowledgeBase/knowledgeList'
+        method = 'get'
+        data = {}
+        if visibleRange:
+            res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName, visibleRange=visibleRange)
+        else:
+            res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName)
+        return res
+
     def knowledge_page_list(self, knowledgeId, docName, docSource="0,1,2", current=1, size=10):
         """
         查询指定知识库下的文件列表
@@ -105,7 +126,7 @@ class KnowledgeBasePage(BaseClient):
         doc_name = self.doc_detail(docId)['data']['document']['docName']
         page = 1
         data = []
-        while page < math.ceil(total_size / size):
+        while page < math.ceil(total_size / size) + 1:
             data.extend(self.doc_page_list(docId, total_size, current=page, size=size)['data']['records'])
             page += 1
         return doc_name, data
