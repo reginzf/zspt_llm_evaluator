@@ -1,0 +1,49 @@
+{
+  "doc_name": "ospf标注",
+  "datas": [
+    {
+      "type": "factual",
+      "label_type": "Choice",
+      "label_config": {
+        "choice": "multiple"
+      },
+      "questions": [
+        "ospf中有哪些类型的报文",
+        "ospf中的router Id是用来做什么的"
+      ]
+    },
+    {
+      "type": "contextual",
+      "label_type": "Choice",
+      "label_config": {
+        "choice": "multiple"
+      },
+      "questions": [
+        "如果ospf进程100引入ospf101的区域内路由，在ospf100中应该生成什么样的lsa",
+        "ospf支持哪些网络类型和路由类型"
+      ]
+    },
+    {
+      "type": "conceptual",
+      "label_type": "Choice",
+      "label_config": {
+        "choice": "multiple"
+      },
+      "questions": [
+        "什么ospf路由聚合",
+        "ospf是如何进行主从关系协商、dd报文交换的"
+      ]
+    },
+    {
+      "type": "reasoning",
+      "label_type": "Choice",
+      "label_config": {
+        "choice": "multiple"
+      },
+      "questions": [
+        "如果ospf同时收到1类和2类外部路由，哪一类外部路由优先",
+        "如果ospf邻居处于exstart，没有进入exchange可能是什么原因"
+      ]
+    }
+  ]
+}

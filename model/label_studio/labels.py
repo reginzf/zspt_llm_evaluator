@@ -1,121 +1,248 @@
-class DynamicLabelConfigGenerator:
-    """动态生成标签配置"""
+import json
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, field
+from enum import Enum
 
-    def __init__(self):
-        self.components = []
 
-    def add_header(self, text):
-        """添加标题"""
-        self.components.append(f'<Header value="{text}"/>')
-        return self
+class QuestionType(Enum):
+    """问题类型枚举"""
+    FACTUAL = "factual"
+    CONTEXTUAL = "contextual"
+    CONCEPTUAL = "conceptual"
+    REASONING = "reasoning"
 
-    def add_text(self, name="text", value="$text"):
-        """添加文本组件"""
-        self.components.append(f'<Text name="{name}" value="{value}"/>')
-        return self
 
-    def add_image(self, name="image", value="$image"):
-        """添加图像组件"""
-        self.components.append(
-            f'<Image name="{name}" value="{value}" zoom="true" zoomControl="true"/>'
+@dataclass
+class Question:
+    """问题数据类"""
+    text: str
+    background_color: Optional[str] = None
+
+
+@dataclass
+class QuestionGroup:
+    """问题组数据类"""
+    type: QuestionType
+    questions: List[Question]
+    label_type: str = "Choice"
+    label_config: Dict[str, Any] = field(default_factory=lambda: {"choice": "multiple"})
+
+
+@dataclass
+class LabelConfig:
+    """标签配置数据类"""
+    doc_name: str
+    question_groups: List[QuestionGroup]
+
+
+class LabelStudioXMLGenerator:
+    """Label Studio XML配置生成器"""
+
+    # 默认颜色映射
+    COLOR_MAP = {
+        QuestionType.FACTUAL: None,  # 使用默认颜色
+        QuestionType.CONTEXTUAL: ["#4CAF50", "#FFC107", "#F44336"],  # 绿色、黄色、红色
+        QuestionType.CONCEPTUAL: ["#4CAF50", "#FFC107"],  # 绿色、黄色
+        QuestionType.REASONING: ["#4CAF50", "#FFC107"],  # 绿色、黄色
+    }
+
+    # 类型显示名称映射
+    TYPE_DISPLAY_NAMES = {
+        QuestionType.FACTUAL: "事实型",
+        QuestionType.CONTEXTUAL: "上下文型",
+        QuestionType.CONCEPTUAL: "概念型",
+        QuestionType.REASONING: "推理型",
+    }
+
+    def __init__(self, grid_columns: int = 2, gap: str = "10px"):
+        """
+        初始化XML生成器
+
+        Args:
+            grid_columns: 网格列数
+            gap: 网格间距
+        """
+        self.grid_columns = grid_columns
+        self.gap = gap
+
+    def _create_header(self, text: str, size: int = 4) -> ET.Element:
+        """创建Header元素"""
+        header = ET.Element("Header")
+        header.set("value", text)
+        header.set("size", str(size))
+        return header
+
+    def _create_choice(self, question: Question) -> ET.Element:
+        """创建Choice元素"""
+        choice = ET.Element("Choice")
+        choice.set("value", question.text)
+        if question.background_color:
+            choice.set("background", question.background_color)
+        return choice
+
+    def _create_choices(self, group: QuestionGroup) -> ET.Element:
+        """创建Choices元素"""
+        choices = ET.Element("Choices")
+        choices.set("name", group.type.value)
+        choices.set("toName", "text")
+        choices.set("choice", group.label_config.get("choice", "multiple"))
+
+        # 为每个问题创建Choice元素
+        for i, question in enumerate(group.questions):
+            # 如果没有指定颜色，使用颜色映射中的颜色
+            if not question.background_color and group.type in self.COLOR_MAP:
+                colors = self.COLOR_MAP[group.type]
+                if colors and i < len(colors):
+                    question.background_color = colors[i]
+
+            choice_elem = self._create_choice(question)
+            choices.append(choice_elem)
+
+        return choices
+
+    def _create_question_group_view(self, group: QuestionGroup) -> ET.Element:
+        """创建问题组的View元素"""
+        view = ET.Element("View")
+
+        # 添加Header
+        header_text = self.TYPE_DISPLAY_NAMES.get(group.type, group.type.value)
+        header = self._create_header(header_text, size=5)
+        view.append(header)
+
+        # 添加Choices
+        choices = self._create_choices(group)
+        view.append(choices)
+
+        return view
+
+    def _create_grid_view(self, groups: List[QuestionGroup]) -> ET.Element:
+        """创建网格布局的View元素"""
+        grid_view = ET.Element("View")
+        grid_view.set("style",
+                      f"display: grid; grid-template-columns: repeat({self.grid_columns}, 1fr); gap: {self.gap};")
+
+        for group in groups:
+            group_view = self._create_question_group_view(group)
+            grid_view.append(group_view)
+
+        return grid_view
+
+    def generate_xml(self, config: LabelConfig) -> str:
+        """
+        生成完整的XML配置
+
+        Args:
+            config: 标签配置对象
+
+        Returns:
+            格式化的XML字符串
+        """
+        # 创建根元素
+        root = ET.Element("View")
+
+        # 第一部分：切片文本显示区域
+        text_view = ET.Element("View")
+        text_view.set("style", "background: #f5f5f5; padding: 15px; border-radius: 5px;")
+
+        # 添加切片文本标题
+        text_header = self._create_header("切片文本", size=4)
+        text_view.append(text_header)
+
+        # 添加Text元素
+        text_elem = ET.Element("Text")
+        text_elem.set("name", "text")
+        text_elem.set("value", "$text")
+        text_elem.set("style", "font-family: monospace;")
+        text_view.append(text_elem)
+
+        root.append(text_view)
+
+        # 第二部分：召回问题标注区域
+        recall_view = ET.Element("View")
+        recall_view.set("style", "background: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 15px;")
+
+        # 添加召回问题标题
+        recall_header = self._create_header("召回问题", size=4)
+        recall_view.append(recall_header)
+
+        # 添加网格布局
+        grid_view = self._create_grid_view(config.question_groups)
+        recall_view.append(grid_view)
+
+        root.append(recall_view)
+
+        # 转换为格式化的XML字符串
+        rough_string = ET.tostring(root, 'utf-8')
+        reparsed = minidom.parseString(rough_string)
+        pretty_xml = reparsed.toprettyxml(indent="  ")
+
+        return pretty_xml
+
+    def generate_from_json(self, json_data: Dict[str, Any]) -> str:
+        """
+        从JSON数据生成XML配置
+
+        Args:
+            json_data: JSON格式的数据
+
+        Returns:
+            格式化的XML字符串
+        """
+        # 解析JSON数据
+        doc_name = json_data.get("doc_name", "未命名文档")
+        datas = json_data.get("datas", [])
+
+        # 转换问题组
+        question_groups = []
+        for data in datas:
+            question_type = QuestionType(data.get("type"))
+            questions_data = data.get("questions", [])
+
+            # 创建问题列表
+            questions = [Question(text=q) for q in questions_data]
+
+            # 创建问题组
+            group = QuestionGroup(
+                type=question_type,
+                questions=questions,
+                label_type=data.get("label_type", "Choice"),
+                label_config=data.get("label_config", {"choice": "multiple"})
+            )
+            question_groups.append(group)
+
+        # 创建配置对象
+        config = LabelConfig(
+            doc_name=doc_name,
+            question_groups=question_groups
         )
-        return self
 
-    def add_audio(self, name="audio", value="$audio"):
-        """添加音频组件"""
-        self.components.append(f'<Audio name="{name}" value="{value}"/>')
-        return self
-
-    def add_choices(self, name, labels, choice_type="single", required=False):
-        """添加选择题标签"""
-        required_attr = 'required="true"' if required else ''
-
-        choices_html = '\n    '.join([
-            f'<Choice value="{label}"/>' for label in labels
-        ])
-
-        self.components.append(f'''
-<Choices name="{name}" toName="text" choice="{choice_type}" {required_attr}>
-    {choices_html}
-</Choices>''')
-        return self
-
-    def add_rectangle_labels(self, name, labels):
-        """添加矩形框标签"""
-        labels_html = '\n    '.join([
-            f'<Label value="{label}"/>' for label in labels
-        ])
-
-        self.components.append(f'''
-<RectangleLabels name="{name}" toName="image" strokeWidth="2">
-    {labels_html}
-</RectangleLabels>''')
-        return self
-
-    def add_labels(self, name, labels, show_inline=True):
-        """添加文本标签（用于NER等）"""
-        inline_attr = 'showInline="true"' if show_inline else ''
-        labels_html = '\n    '.join([
-            f'<Label value="{label}"/>' for label in labels
-        ])
-
-        self.components.append(f'''
-<Labels name="{name}" toName="text" {inline_attr}>
-    {labels_html}
-</Labels>''')
-        return self
-
-    def add_textarea(self, name, rows=3, placeholder=""):
-        """添加文本区域"""
-        self.components.append(
-            f'<TextArea name="{name}" toName="text" rows="{rows}" '
-            f'placeholder="{placeholder}"/>'
-        )
-        return self
-
-    def add_number(self, name, min_val=0, max_val=100, step=1, default=50):
-        """添加数字输入"""
-        self.components.append(
-            f'<Number name="{name}" toName="text" min="{min_val}" '
-            f'max="{max_val}" step="{step}" default="{default}"/>'
-        )
-        return self
-
-    def generate(self):
-        """生成完整的XML配置"""
-        components_str = '\n  '.join(self.components)
-        return f'<View>\n  {components_str}\n</View>'
+        return self.generate_xml(config)
 
 
-def create_dynamic_label_config():
-    """使用生成器动态创建标签配置"""
-    generator = DynamicLabelConfigGenerator()
-
-    # 构建配置
-    config = (generator
-              .add_header("产品评论分析")
-              .add_text()
-              .add_choices("sentiment", ["非常满意", "满意", "一般", "不满意", "非常不满意"],
-                           choice_type="single", required=True)
-              .add_choices("aspects", ["价格", "质量", "服务", "物流", "包装"],
-                           choice_type="multiple")
-              .add_textarea("detailed_feedback", rows=4,
-                            placeholder="请详细描述您的使用体验...")
-              .add_number("rating", min_val=1, max_val=5, step=1, default=3)
-              .generate()
-              )
-
-    print("生成的标签配置:")
-    print(config)
-    return config
-if __name__ == '__main__':
-    # from model.label_studio.label_studio_client import label_studio_client
-    # 创建项目
-    config = create_dynamic_label_config()
-    # project = label_studio_client.create_project(
-    #     title="动态生成的产品分析项目",
-    #     description="使用动态配置生成器创建",
-    #     label_config=config
-    # )
+def load_json_file(file_path: str) -> Dict[str, Any]:
+    """从文件加载JSON数据"""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 
+def save_xml_file(xml_content: str, file_path: str):
+    """保存XML到文件"""
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(xml_content)
+
+
+def main():
+    """主函数示例"""
+    # 创建生成器
+    generator = LabelStudioXMLGenerator(grid_columns=2, gap="10px")
+    # 示例：从文件加载
+    json_data = load_json_file(r"D:\pyworkplace\git_place\ai-ken\tests\ospf\question.json")
+    xml_content = generator.generate_from_json(json_data)
+    # 保存到文件
+    save_xml_file(xml_content, "output.xml")
+
+
+if __name__ == "__main__":
+    main()
