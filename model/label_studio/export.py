@@ -1,7 +1,7 @@
 import json
 from label_studio_sdk import Project
 from datetime import datetime
-
+# 将任务数据转换为自定义的格式
 
 def transform_to_custom_format(tasks):
     """将原始数据转换为自定义格式"""

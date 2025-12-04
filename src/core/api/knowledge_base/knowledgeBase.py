@@ -122,8 +122,9 @@ class KnowledgeBase(BaseClient):
              "chunk_title": "#什么是OSPF？#OSPF基础概念#OSPF支持的网络类型",
              "knowledge_id": "KLB_f1b895e57a3e4851939483e11f84ee6a"},....]
         """
-        total_size = self.doc_detail(docId)['data']['document']['sliceNum']
-        doc_name = self.doc_detail(docId)['data']['document']['docName']
+        res =  self.doc_detail(docId)
+        total_size = res['data']['document']['sliceNum']
+        doc_name = res['data']['document']['docName']
         page = 1
         data = []
         while page < math.ceil(total_size / size) + 1:

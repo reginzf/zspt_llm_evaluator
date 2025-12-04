@@ -221,21 +221,10 @@ class LabelStudioXMLGenerator:
         return self.generate_xml(config)
 
 
-def load_json_file(file_path: str) -> Dict[str, Any]:
-    """从文件加载JSON数据"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-
-def save_xml_file(xml_content: str, file_path: str):
-    """保存XML到文件"""
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(xml_content)
-
-
 def main():
     """主函数示例"""
     # 创建生成器
+    from utils.pub_funs import load_json_file, save_xml_file
     generator = LabelStudioXMLGenerator(grid_columns=2, gap="10px")
     # 示例：从文件加载
     json_data = load_json_file(r"D:\pyworkplace\git_place\ai-ken\tests\ospf\question.json")
