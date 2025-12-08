@@ -1,15 +1,24 @@
+import jsonpath
+
 from src.core.api.base_client import BaseClient
 import math
 import os
-from pathlib import Path
-from typing import Dict, Any, Optional
+import json
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 SLICEIDENTIFIER = ["。", "！", "!", "？", "?", "，", ",", "：", ":", "."]
 
 
 class KnowledgeBase(BaseClient):
-    def knowledge_addOrUpdate(self, knowledgeName, description, kno_id=None, visibleRange=0, deptIdList=[],
-                              manageDeptIdList=[""]):
+    def knowledge_addOrUpdate(
+            self,
+            knowledgeName,
+            description,
+            kno_id=None,
+            visibleRange=0,
+            deptIdList=None,
+            manageDeptIdList=None,
+    ):
         """
         创建、更新，当id有值时为更新
         :param knowledgeName:
@@ -19,17 +28,24 @@ class KnowledgeBase(BaseClient):
         :param manageDeptIdList:
         :return:{"code":200,"msg":null,"data":null,"ok":true}
         """
+        if deptIdList is None:
+            deptIdList = []
+        if manageDeptIdList is None:
+            manageDeptIdList = [""]
+
         api = 'api/zspt/zsgl/knowledgeBase/addOrUpdate'
         method = 'POST'
-        data = {"knowledgeName": knowledgeName, "description": description, "visibleRange": visibleRange,
-                "deptIdList": deptIdList,
-                "manageDeptIdList": manageDeptIdList}
+        data = {
+            "knowledgeName": knowledgeName,
+            "description": description,
+            "visibleRange": visibleRange,
+            "deptIdList": deptIdList,
+            "manageDeptIdList": manageDeptIdList
+        }
         if kno_id is not None:
             data["id"] = kno_id
         res = self.send_request(api, method, data)
         return res
-
-
 
     def knowledge_content_tree(self, knowledgeId, name=""):
         """
@@ -47,8 +63,16 @@ class KnowledgeBase(BaseClient):
         res = self.send_request(api, method, data, knowledgeId=knowledgeId, name=name)
         return res
 
-    def doc_addOrUpdate(self, knowledgeId, contentCode, tmpFolderName: list, chunk_size, chunk_overlap=10,
-                        associatedWithName="1", sliceIdentifier=None):
+    def doc_addOrUpdate(
+            self,
+            knowledgeId,
+            contentCode,
+            tmpFolderName: list,
+            chunk_size=500,
+            chunk_overlap=10,
+            associatedWithName="1",
+            sliceIdentifier=None
+    ):
         """
         上传文件
         :param knowledgeId:
@@ -63,99 +87,52 @@ class KnowledgeBase(BaseClient):
         api = 'api/zspt/zsgl/knowledgeBaseDocument/addOrUpdate'
         method = 'POST'
         sliceIdentifier = sliceIdentifier or SLICEIDENTIFIER
-        data = {"knowledgeId": knowledgeId,
-                "contentCode": contentCode, "webUrlDtos": [], "importFileType": 0,
-                "tmpFolderName": tmpFolderName, "analysisType": "0", "parseMethod": "0",
-                "headerHeight": 40, "footerHeight": 40, "sliceMethod": "0", "sliceByParagraph": 1,
-                "sliceIdentifier": sliceIdentifier, "chunk_size": chunk_size,
-                "sliceProportion": chunk_overlap, "associatedWithName": associatedWithName, "ocrOpen": 1, "ocrType": 0,
-                "removeToc": 1,
-                "contextLength": 8000, "metaData": "{\"tags\":[]}"}
+        data = {
+            "knowledgeId": knowledgeId,
+            "contentCode": contentCode,
+            "webUrlDtos": [],
+            "importFileType": 0,
+            "tmpFolderName": tmpFolderName,
+            "analysisType": "0",
+            "parseMethod": "0",
+            "headerHeight": 40,
+            "footerHeight": 40,
+            "sliceMethod": "0",
+            "sliceByParagraph": 1,
+            "sliceIdentifier": sliceIdentifier,
+            "chunk_size": chunk_size,
+            "sliceProportion": chunk_overlap,
+            "associatedWithName": associatedWithName,
+            "ocrOpen": 1,
+            "ocrType": 0,
+            "removeToc": 1,
+            "contextLength": 8000,
+            "metaData": "{\"tags\":[]}"
+        }
         res = self.send_request(api, method, data)
         return res
 
-    def doc_upload_attachment(self, file_path: str, import_file_type: int = 0, **kwargs) -> Dict[str, Any]:
+    def upload_attachment(self, file_path, content_code, import_file_type="0"):
         """
         上传附件文件
 
-        Args:
-            file_path: 要上传的文件路径
-            import_file_type: 导入文件类型，默认为0
-            **kwargs: 其他查询参数
+        该接口用于上传附件到知识库系统，支持单个文件上传。
 
-        Returns:
-            上传结果  {"code":200,"msg":null,"data":"c69e188250e04852b9996cd4587cdf66","ok":true}
+        :param file_path: 要上传的文件路径（字符串）
+        :param content_code: 内容编码，用于关联知识内容（字符串）
+        :param import_file_type: 导入文件类型，默认为0（整数，可选）
+        :return: {"code":200,"msg":null,"data":"c3778a214de84ceb8742705c691afaaf","ok":true}
         """
-        api = 'api/zspt/zsgl/file/attach/uploadAttachment'
-        method = 'POST'
-
-        # 准备文件
-        try:
-            with open(file_path, 'rb') as f:
-                file_content = f.read()
-        except Exception as e:
-            raise IOError(f"读取文件失败: {e}")
-
-        file_name = os.path.basename(file_path)
-
-        # 构建files参数
-        files = {
-            'files': (file_name, file_content, 'text/plain')
-        }
-
-        # 构建data参数
-        data = {
-            'importFileType': str(import_file_type)
-        }
-
-        # 发送请求
-        res = self.send_request(api, method, data=data, files=files, **kwargs)
-        return res
-
-    def doc_upload_attachment_with_params(self, file_path: str,
-                                          import_file_type: int = 0,
-                                          additional_data: Optional[Dict[str, Any]] = None,
-                                          **kwargs) -> Dict[str, Any]:
-        """
-        上传附件文件，支持额外参数
-
-        Args:
-            file_path: 要上传的文件路径
-            import_file_type: 导入文件类型，默认为0
-            additional_data: 额外的表单数据
-            **kwargs: 其他查询参数
-
-        Returns:
-            上传结果
-        """
-        api = 'api/zspt/zsgl/file/attach/uploadAttachment'
-        method = 'POST'
-
-        # 准备文件
-        try:
-            with open(file_path, 'rb') as f:
-                file_content = f.read()
-        except Exception as e:
-            raise IOError(f"读取文件失败: {e}")
-
-        file_name = os.path.basename(file_path)
-
-        # 构建files参数
-        files = {
-            'files': (file_name, file_content, 'text/plain')
-        }
-
-        # 构建data参数
-        data = {
-            'importFileType': str(import_file_type)
-        }
-
-        # 添加额外数据
-        if additional_data:
-            data.update(additional_data)
-
-        # 发送请求
-        res = self.send_request(api, method, data=data, files=files, **kwargs)
+        url = self.base_url + "/api/zspt/zsgl/file/attach/uploadAttachment"
+        m = MultipartEncoder(
+            fields={
+                'files': (os.path.basename(file_path), open(file_path, 'rb'), "application/plain"),
+                'importFileType': import_file_type,
+                'contentCode': content_code
+            }
+        )
+        res = self.sess.post(url, data=m, headers={'Content-Type': m.content_type}, verify=False)
+        res = json.loads(res.content.decode("utf-8"))
         return res
 
     def knowledge_delete(self, knowledgeId):
@@ -183,7 +160,7 @@ class KnowledgeBase(BaseClient):
        ], "ok": true}
         """
         api = f'api/zspt/zsgl/knowledgeBase/knowledgeList'
-        method = 'get'
+        method = 'GET'
         data = {}
         if visibleRange:
             res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName, visibleRange=visibleRange)
@@ -215,10 +192,18 @@ class KnowledgeBase(BaseClient):
         "total": 1,"size": 10, "current": 1, "pages": 1}, "ok": true}
         """
         api = f'api/zspt/zsgl/knowledgeBaseContent/page'
-        method = 'get'
+        method = 'GET'
         data = {}
-        res = self.send_request(api, method, data, knowledgeId=knowledgeId, docName=docName, docSource=docSource,
-                                current=current, size=size)
+        res = self.send_request(
+            api,
+            method,
+            data,
+            knowledgeId=knowledgeId,
+            docName=docName,
+            docSource=docSource,
+            current=current,
+            size=size
+        )
         return res
 
     def doc_detail(self, docId):
@@ -247,7 +232,7 @@ class KnowledgeBase(BaseClient):
                            "ocrOpen": null}}, "ok": true}
         """
         api = f'api/zspt/zsgl/knowledgeBaseDocument/detail'
-        method = 'get'
+        method = 'GET'
         data = {}
         res = self.send_request(api, method, data, docId=docId)
         return res
@@ -271,10 +256,18 @@ class KnowledgeBase(BaseClient):
         ]}}
         """
         api = f'api/zspt/zsgl/knowledgeBaseDocument/page'
-        method = 'get'
+        method = 'GET'
         data = {}
-        res = self.send_request(api, method, data, docId=docId, keyword=keyword, total=total,
-                                current=current, size=size)
+        res = self.send_request(
+            api,
+            method,
+            data,
+            docId=docId,
+            keyword=keyword,
+            total=total,
+            current=current,
+            size=size
+        )
         return res
 
     def doc_get_chunk_all(self, docId, size=10):
@@ -298,3 +291,20 @@ class KnowledgeBase(BaseClient):
             data.extend(self.doc_page_list(docId, total_size, current=page, size=size)['data']['records'])
             page += 1
         return doc_name, data
+
+
+if __name__ == '__main__':
+    from env_config_init import settings
+    from src.core.login import LoginManager
+
+    login_manager = LoginManager(settings.ZLPT_BASE_URL)
+    login_manager.login(settings.USERNAME, settings.PASSWORD, settings.DOMAIN)
+    login_manager.get_auth_key()
+    knowledge_base = KnowledgeBase(login_manager)
+    kno_id = "KLB_869cb0ded2c64362a2b5ce722d2e91cf"
+    target_path = r'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'
+    cont_id = jsonpath.jsonpath(knowledge_base.knowledge_content_tree(kno_id),
+                                '$.data[0].contentCode')[0]
+    file_id = knowledge_base.upload_attachment(target_path, cont_id)['data']
+    print(cont_id, file_id)
+    print(knowledge_base.doc_addOrUpdate(kno_id, cont_id, [file_id]))
