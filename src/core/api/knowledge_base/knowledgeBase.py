@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+SLICEIDENTIFIER = ["。", "！", "!", "？", "?", "，", ",", "：", ":", "."]
+
 
 class KnowledgeBase(BaseClient):
     def knowledge_addOrUpdate(self, knowledgeName, description, kno_id=None, visibleRange=0, deptIdList=[],
@@ -17,17 +19,62 @@ class KnowledgeBase(BaseClient):
         :param manageDeptIdList:
         :return:{"code":200,"msg":null,"data":null,"ok":true}
         """
-        api = f'api/zspt/zsgl/knowledgeBase/addOrUpdate'
+        api = 'api/zspt/zsgl/knowledgeBase/addOrUpdate'
         method = 'POST'
         data = {"knowledgeName": knowledgeName, "description": description, "visibleRange": visibleRange,
                 "deptIdList": deptIdList,
                 "manageDeptIdList": manageDeptIdList}
         if kno_id is not None:
-            data["id"] = id
+            data["id"] = kno_id
         res = self.send_request(api, method, data)
         return res
 
-    def upload_attachment(self, file_path: str, import_file_type: int = 0, **kwargs) -> Dict[str, Any]:
+
+
+    def knowledge_content_tree(self, knowledgeId, name=""):
+        """
+        查询目录结构
+        :param knowledgeId:
+        :param name:
+        :return:     {"code": 200, "msg": null, "data": [{"id": "8050", "knowledgeId": "KLB_869cb0ded2c64362a2b5ce722d2e91cf",
+                                         "contentCode": "5348b1ffa40949d3a955f8f60d64aac6",
+                                         "contentName": "ospf_chunk_600", "children": [], "psort": 1, "plevel": 0,
+                                         "pcontentCode": null}], "ok": true}
+        """
+        api = 'api/zspt/zsgl/knowledgeBaseContent/tree'
+        method = 'GET'
+        data = {}
+        res = self.send_request(api, method, data, knowledgeId=knowledgeId, name=name)
+        return res
+
+    def doc_addOrUpdate(self, knowledgeId, contentCode, tmpFolderName: list, chunk_size, chunk_overlap=10,
+                        associatedWithName="1", sliceIdentifier=None):
+        """
+        上传文件
+        :param knowledgeId:
+        :param contentCode:
+        :param tmpFolderName: 通过doc_upload_attachment 的id获取
+        :param chunk_size:
+        :param chunk_overlap:
+        :param associatedWithName:
+        :param sliceIdentifier:
+        :return:{"code":200,"msg":null,"data":null,"ok":true}
+        """
+        api = 'api/zspt/zsgl/knowledgeBaseDocument/addOrUpdate'
+        method = 'POST'
+        sliceIdentifier = sliceIdentifier or SLICEIDENTIFIER
+        data = {"knowledgeId": knowledgeId,
+                "contentCode": contentCode, "webUrlDtos": [], "importFileType": 0,
+                "tmpFolderName": tmpFolderName, "analysisType": "0", "parseMethod": "0",
+                "headerHeight": 40, "footerHeight": 40, "sliceMethod": "0", "sliceByParagraph": 1,
+                "sliceIdentifier": sliceIdentifier, "chunk_size": chunk_size,
+                "sliceProportion": chunk_overlap, "associatedWithName": associatedWithName, "ocrOpen": 1, "ocrType": 0,
+                "removeToc": 1,
+                "contextLength": 8000, "metaData": "{\"tags\":[]}"}
+        res = self.send_request(api, method, data)
+        return res
+
+    def doc_upload_attachment(self, file_path: str, import_file_type: int = 0, **kwargs) -> Dict[str, Any]:
         """
         上传附件文件
 
@@ -65,10 +112,10 @@ class KnowledgeBase(BaseClient):
         res = self.send_request(api, method, data=data, files=files, **kwargs)
         return res
 
-    def upload_attachment_with_params(self, file_path: str,
-                                      import_file_type: int = 0,
-                                      additional_data: Optional[Dict[str, Any]] = None,
-                                      **kwargs) -> Dict[str, Any]:
+    def doc_upload_attachment_with_params(self, file_path: str,
+                                          import_file_type: int = 0,
+                                          additional_data: Optional[Dict[str, Any]] = None,
+                                          **kwargs) -> Dict[str, Any]:
         """
         上传附件文件，支持额外参数
 
