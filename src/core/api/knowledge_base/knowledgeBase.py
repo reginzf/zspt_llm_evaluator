@@ -1,8 +1,128 @@
 from src.core.api.base_client import BaseClient
 import math
+import os
+from pathlib import Path
+from typing import Dict, Any, Optional
 
 
 class KnowledgeBase(BaseClient):
+    def knowledge_addOrUpdate(self, knowledgeName, description, kno_id=None, visibleRange=0, deptIdList=[],
+                              manageDeptIdList=[""]):
+        """
+        创建、更新，当id有值时为更新
+        :param knowledgeName:
+        :param description:
+        :param visibleRange:
+        :param deptIdList:
+        :param manageDeptIdList:
+        :return:{"code":200,"msg":null,"data":null,"ok":true}
+        """
+        api = f'api/zspt/zsgl/knowledgeBase/addOrUpdate'
+        method = 'POST'
+        data = {"knowledgeName": knowledgeName, "description": description, "visibleRange": visibleRange,
+                "deptIdList": deptIdList,
+                "manageDeptIdList": manageDeptIdList}
+        if kno_id is not None:
+            data["id"] = id
+        res = self.send_request(api, method, data)
+        return res
+
+    def upload_attachment(self, file_path: str, import_file_type: int = 0, **kwargs) -> Dict[str, Any]:
+        """
+        上传附件文件
+
+        Args:
+            file_path: 要上传的文件路径
+            import_file_type: 导入文件类型，默认为0
+            **kwargs: 其他查询参数
+
+        Returns:
+            上传结果  {"code":200,"msg":null,"data":"c69e188250e04852b9996cd4587cdf66","ok":true}
+        """
+        api = 'api/zspt/zsgl/file/attach/uploadAttachment'
+        method = 'POST'
+
+        # 准备文件
+        try:
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+        except Exception as e:
+            raise IOError(f"读取文件失败: {e}")
+
+        file_name = os.path.basename(file_path)
+
+        # 构建files参数
+        files = {
+            'files': (file_name, file_content, 'text/plain')
+        }
+
+        # 构建data参数
+        data = {
+            'importFileType': str(import_file_type)
+        }
+
+        # 发送请求
+        res = self.send_request(api, method, data=data, files=files, **kwargs)
+        return res
+
+    def upload_attachment_with_params(self, file_path: str,
+                                      import_file_type: int = 0,
+                                      additional_data: Optional[Dict[str, Any]] = None,
+                                      **kwargs) -> Dict[str, Any]:
+        """
+        上传附件文件，支持额外参数
+
+        Args:
+            file_path: 要上传的文件路径
+            import_file_type: 导入文件类型，默认为0
+            additional_data: 额外的表单数据
+            **kwargs: 其他查询参数
+
+        Returns:
+            上传结果
+        """
+        api = 'api/zspt/zsgl/file/attach/uploadAttachment'
+        method = 'POST'
+
+        # 准备文件
+        try:
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+        except Exception as e:
+            raise IOError(f"读取文件失败: {e}")
+
+        file_name = os.path.basename(file_path)
+
+        # 构建files参数
+        files = {
+            'files': (file_name, file_content, 'text/plain')
+        }
+
+        # 构建data参数
+        data = {
+            'importFileType': str(import_file_type)
+        }
+
+        # 添加额外数据
+        if additional_data:
+            data.update(additional_data)
+
+        # 发送请求
+        res = self.send_request(api, method, data=data, files=files, **kwargs)
+        return res
+
+    def knowledge_delete(self, knowledgeId):
+        """
+        删除数据库
+        :param knowledgeId:
+        :return: {"code":200,"msg":null,"data":null,"ok":true}
+        """
+        api = f'api/zspt/zsgl/knowledgeBase/delete'
+        method = 'DELETE'
+        data = {}
+        res = self.send_request(api, method, data, knowledgeId=knowledgeId)
+        return res
+
     def knowledge_list(self, knowledgeBaseName, visibleRange=None):
         """
         查询知识库列表
@@ -24,7 +144,7 @@ class KnowledgeBase(BaseClient):
             res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName)
         return res
 
-    def knowledge_page_list(self, knowledgeId, docName, docSource="0,1,2", current=1, size=10):
+    def knowledge_doc_list(self, knowledgeId, docName, docSource="0,1,2", current=1, size=10):
         """
         查询指定知识库下的文件列表
         :param knowledgeId:
@@ -122,7 +242,7 @@ class KnowledgeBase(BaseClient):
              "chunk_title": "#什么是OSPF？#OSPF基础概念#OSPF支持的网络类型",
              "knowledge_id": "KLB_f1b895e57a3e4851939483e11f84ee6a"},....]
         """
-        res =  self.doc_detail(docId)
+        res = self.doc_detail(docId)
         total_size = res['data']['document']['sliceNum']
         doc_name = res['data']['document']['docName']
         page = 1
