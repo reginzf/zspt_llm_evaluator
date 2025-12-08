@@ -4,7 +4,7 @@ def create_tasks(project, json_datas, step=10):
     :param project:
     :param json_datas:
     :param step:
-    :return:
+    :return:[task_id...]
     """
     # 批量创建任务
     len_tasks = len(json_datas)

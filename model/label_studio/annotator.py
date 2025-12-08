@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Union
 from enum import Enum
 import json
 
+__all__ = ["AnnotationOperation", "AnnotationGenerator", "AnnotateToAdd", "AnnotateToCreate"]
 VALUE_KEY_MAP = {
     "choices": 'choices',
     "labels": 'labels',
@@ -28,15 +29,15 @@ class AnnotationGenerator:
     """标注数据生成器"""
 
     @staticmethod
-    def generate_choice_annotation(from_name: str, to_name: str,
-                                   choices: List[str], type: str = "choices") -> Dict:
+    def generate_choice_annotation(from_name: str, to_name: str = 'text',
+                                   choices: List[str] = None, type: str = "choices") -> Dict:
         """
         生成选择题标注数据
 
         Args:
             from_name: 标签名称
             to_name: 目标名称
-            choices: 选择的选项列表
+            choices: 选择的选项列表/question
             type: 标注类型
 
         Returns:

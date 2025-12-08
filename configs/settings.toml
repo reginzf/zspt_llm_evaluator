@@ -11,3 +11,5 @@ DOMAIN = "default"
 # label studio
 LABEL_STUDIO_URL = "http://localhost:8080"
 LABEL_STUDIO_API_KEY = "ad4386c571434507c07f682c34df630a01145bf9"
+# 问题配置
+QUESTION_PATH = "D:\\pyworkplace\\git_place\\ai-ken\\tests\\ospf\\question.json"

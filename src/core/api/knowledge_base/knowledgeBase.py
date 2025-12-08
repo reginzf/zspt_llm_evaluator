@@ -13,7 +13,7 @@ class KnowledgeBase(BaseClient):
     def knowledge_addOrUpdate(
             self,
             knowledgeName,
-            description,
+            description='',
             kno_id=None,
             visibleRange=0,
             deptIdList=None,
@@ -168,7 +168,7 @@ class KnowledgeBase(BaseClient):
             res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName)
         return res
 
-    def knowledge_doc_list(self, knowledgeId, docName, docSource="0,1,2", current=1, size=10):
+    def knowledge_doc_list(self, knowledgeId, docName='', docSource="0,1,2", current=1, size=10):
         """
         查询指定知识库下的文件列表
         :param knowledgeId:
@@ -291,7 +291,6 @@ class KnowledgeBase(BaseClient):
             data.extend(self.doc_page_list(docId, total_size, current=page, size=size)['data']['records'])
             page += 1
         return doc_name, data
-
 
 if __name__ == '__main__':
     from env_config_init import settings

@@ -11,18 +11,20 @@ from model.label_studio.task import create_tasks
 from model.label_studio.label_studio_client import label_studio_client
 from model.label_studio.labels import LabelStudioXMLGenerator
 from model.label_studio.annotator import Annotator, AnnotationGenerator
-from utils.pub_funs import load_json_file, save_xml_file
+from utils.pub_funs import load_json_file
 
-BASE_URL = 'https://10.220.49.200'
-USERNAME = "nrgtest"
-PASSWORD = "Admin@123"
-DOMAIN = "default"
-
-QUESTION_JSON = load_json_file(r'D:\pyworkplace\git_place\ai-ken\tests\ospf\question.json')
+QUESTION_JSON = load_json_file(settings.QUESTION_PATH)
 annotation_generator = AnnotationGenerator()
+label_generator = LabelStudioXMLGenerator()
 
 
 def login_zlpt():
+    """
+    登录紫鸾平台并获取认证密钥
+
+    Returns:
+        LoginManager: 已登录的登录管理器实例
+    """
     login_manager = LoginManager(settings.ZLPT_BASE_URL)
     login_manager.login(settings.USERNAME, settings.PASSWORD, settings.DOMAIN)
     login_manager.get_auth_key()
@@ -30,35 +32,98 @@ def login_zlpt():
 
 
 def login_label_studio():
+    """
+     获取Label Studio客户端实例
+
+     Returns:
+         label_studio_client: Label Studio客户端实例
+     """
     return label_studio_client
 
 
 def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size, chunk_overlap):
+    """
+    在紫鸾平台创建知识库
+
+    Args:
+        know_client (KnowledgeBase): 知识库客户端实例
+        doc_name (str): 文档名称
+        chunk_size (int): 切片大小
+        chunk_overlap (int): 切片重叠大小
+
+    Returns:
+        str: 创建的知识库名称
+    """
     name = f'{doc_name}_{chunk_size}_{chunk_overlap}'
     know_client.knowledge_addOrUpdate(name)
     return name
 
 
 def zlpt_upload_files(know_client: KnowledgeBase, filepath, kno_id, content_code, chunk_size, chunk_overlap, **kwargs):
+    """
+    上传文件到紫鸾平台的知识库中
+
+    Args:
+        know_client (KnowledgeBase): 知识库客户端实例
+        filepath (str): 文件路径
+        kno_id (str): 知识库ID
+        content_code (str): 内容编码
+        chunk_size (int): 切片大小
+        chunk_overlap (int): 切片重叠大小
+        **kwargs: 其他可选参数
+
+    Returns:
+        tuple: 包含上传结果和数据ID的元组
+    """
     data_id = know_client.upload_attachment(filepath, content_code)['data']
     res = know_client.doc_addOrUpdate(kno_id, content_code, [data_id], chunk_size, chunk_overlap, **kwargs)
     return res, data_id
 
 
 def lzpt_get_chunk_all_by_docId(know_client, doc_id):
-    # 通过doc_id获取对应文档的名称和所有切片
+    """
+      通过文档ID获取对应文档的名称和所有切片
+
+      Args:
+          know_client: 知识库客户端实例
+          doc_id (str): 文档ID
+
+      Returns:
+          tuple: 包含文档名称和所有切片的元组
+      """
     doc_name, chunk_all = know_client.doc_get_chunk_all(doc_id)
     return doc_name, chunk_all
 
 
 def zlpt_get_chunk_by_question(zlpt_user, kno_id, question):
+    """
+    根据问题从知识库中检索相关切片
+
+    Args:
+        zlpt_user: 紫鸾平台用户实例
+        kno_id (str): 知识库ID
+        question (str): 查询问题
+
+    Returns:
+        dict: 检索结果数据
+    """
     retrieve = Retrieve(zlpt_user)
     retrieve_data = retrieve.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
     return retrieve_data
 
 
 def ls_create_project(ls_user, title, description=''):
-    # 返回label studio的Project对象
+    """
+    在Label Studio中创建项目并设置标签配置
+
+    Args:
+        ls_user: Label Studio用户实例
+        title (str): 项目标题
+        description (str, optional): 项目描述，默认为空字符串
+
+    Returns:
+        Project: 创建好的Label Studio项目对象
+    """
     label_config = LabelStudioXMLGenerator().generate_from_json(QUESTION_JSON)
     project = ls_user.create_project(
         title=title,
@@ -69,14 +134,18 @@ def ls_create_project(ls_user, title, description=''):
     )
     return project
 
-def ls_create_label_interface(project,question_json):
-    from label_studio_sdk._legacy import Project
-    project:Project
-    generator = LabelStudioXMLGenerator(grid_columns=2, gap="10px")
-    # 示例：从文件加载
-    xml_content = generator.generate_from_json(QUESTION_JSON)
 
 def ls_create_tasks(project, chunk_all):
+    """
+    将切片数据转换为Label Studio任务格式并创建任务
+
+    Args:
+        project: Label Studio项目对象
+        chunk_all (list): 所有切片数据列表
+
+    Returns:
+        list: 创建的任务ID列表
+    """
     # 转换为ls的格式
     tasks = doc_slices_format_for_label_studio(chunk_all)
     # 在ls上创建任务
@@ -85,11 +154,16 @@ def ls_create_tasks(project, chunk_all):
 
 
 def label_chunks_by_chunk_id(project, question, chunks):
-    # 对返回的切片进行标注
-    # 获取问题的类型和标签
+    """
+       根据切片ID对返回的切片进行标注
+
+       Args:
+           project: Label Studio项目对象
+           question (str): 查询问题
+           chunks (list): 需要标注的切片列表
+       """
     q_type, q_label = get_question_type_and_label
     t_filter = "filter:tasks:data.chunk_id"
-
     annotator = Annotator(project)
     for chunk in chunks:
         target_filter = annotator.generate_filter_item(chunk['chunk_id'], t_filter, operator="equal")
@@ -97,6 +171,19 @@ def label_chunks_by_chunk_id(project, question, chunks):
 
 
 def lzpt_init(name, chunk_size, chunk_overlap, target_path, knowledge_dict):
+    """
+    初始化紫鸾平台：登录、创建知识库、上传文件
+
+    Args:
+        name (str): 知识库名称
+        chunk_size (int): 切片大小
+        chunk_overlap (int): 切片重叠大小
+        target_path (str): 目标文件路径
+        knowledge_dict (dict): 存储知识库信息的字典
+
+    Returns:
+        tuple: 包含紫鸾平台用户、知识库ID、知识库根ID和文档ID的元组
+    """
     # 登录紫鸾平台，完成文件上传
     zlpt_user = login_zlpt()
     know_client = KnowledgeBase(zlpt_user)
@@ -110,33 +197,52 @@ def lzpt_init(name, chunk_size, chunk_overlap, target_path, knowledge_dict):
     # 上传文件
     zlpt_upload_files(know_client, target_path, kno_id, kno_root_id, chunk_size, chunk_overlap)
     doc_name = os.path.basename(target_path).split('.')[0]
-    print(f'kno_id : {kno_id}')
     doc_id = know_client.knowledge_doc_list(kno_id, doc_name)['data']['records'][0]['docId']
-
     return zlpt_user, kno_id, kno_root_id, doc_id
 
 
-def main():
-    name, chunk_size, chunk_overlap = 'test', 500, 10
-    target_path = r'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'
-    # knowledge_dict = {}
-    #
-    # zlpt_user, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
-    #                                                    knowledge_dict)
-    # know_client = KnowledgeBase(zlpt_user)
+def ls_project_init(knowledge_dict, kno_id, lzpt_doc_chunk_all):
+    """
+    初始化Label Studio项目：创建项目、标签界面和任务
+
+    Args:
+        knowledge_dict (dict): 知识库信息字典
+        kno_id (str): 知识库ID
+        lzpt_doc_chunk_all (list): 所有文档切片数据
+
+    Returns:
+        tuple: 包含Label Studio用户和项目对象的元组
+    """
+    know_info = knowledge_dict[kno_id]
+    name = know_info['name']
+    chunk_size = know_info['chunk_size']
+    chunk_overlap = know_info['chunk_overlap']
 
     ls_user = login_label_studio()
-    # 将切片全部创建到ls上
-    know_client = KnowledgeBase(login_zlpt())
-    kno_id = "KLB_07d5af8a8e1244af9fce796b5a627a1b"
-    doc_id = "DOC_03968fee8f9f4e5b8a2a9c411c3ec537"
     project = ls_create_project(ls_user, f'{name}_{chunk_size}_{chunk_overlap}')
-    # 为project创建label
-    pass
+    ls_create_tasks(project, lzpt_doc_chunk_all)
+
+    return ls_user, project
+
+
+def main():
+    """
+     主函数：执行完整的流程包括知识库创建、文件上传、切片获取和Label Studio项目初始化
+     """
+    name, chunk_size, chunk_overlap = 'test', 500, 10
+    target_path = r'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'
+    knowledge_dict = {}
+
+    zlpt_user, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
+                                                       knowledge_dict)
+    know_client = KnowledgeBase(zlpt_user)
+    time.sleep(60)  # 等待学习完成
     # 获取切片
-    lzpt_get_doc_chunk_all = lzpt_get_chunk_all_by_docId(know_client, doc_id)
-    # 创建任务
-    ls_create_tasks(project, lzpt_get_doc_chunk_all)
+    doc_name, lzpt_get_doc_chunk_all = lzpt_get_chunk_all_by_docId(know_client, doc_id)
+    # 登录ls创建项目、label interface、任务
+    ls_user, project = ls_project_init(knowledge_dict, kno_id, lzpt_get_doc_chunk_all)
+    # todo 向模型提问，获取回答
+    # todo 按回答的chunk_id和question参数在ls中标注切片
 
 
 if __name__ == '__main__':
