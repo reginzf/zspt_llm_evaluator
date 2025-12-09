@@ -71,7 +71,8 @@ class KnowledgeBase(BaseClient):
             chunk_size=500,
             chunk_overlap=10,
             associatedWithName="1",
-            sliceIdentifier=None
+            sliceIdentifier=None,
+            sliceMethod='1'
     ):
         """
         上传文件
@@ -82,6 +83,7 @@ class KnowledgeBase(BaseClient):
         :param chunk_overlap:
         :param associatedWithName:
         :param sliceIdentifier:
+        :param sliceMethod: # 0 默认切片 1 自定义切片 2 放入一整个切片
         :return:{"code":200,"msg":null,"data":null,"ok":true}
         """
         api = 'api/zspt/zsgl/knowledgeBaseDocument/addOrUpdate'
@@ -97,10 +99,10 @@ class KnowledgeBase(BaseClient):
             "parseMethod": "0",
             "headerHeight": 40,
             "footerHeight": 40,
-            "sliceMethod": "0",
+            "sliceMethod": sliceMethod,
             "sliceByParagraph": 1,
             "sliceIdentifier": sliceIdentifier,
-            "chunk_size": chunk_size,
+            "sliceMaxLength": chunk_size,
             "sliceProportion": chunk_overlap,
             "associatedWithName": associatedWithName,
             "ocrOpen": 1,
@@ -291,6 +293,7 @@ class KnowledgeBase(BaseClient):
             data.extend(self.doc_page_list(docId, total_size, current=page, size=size)['data']['records'])
             page += 1
         return doc_name, data
+
 
 if __name__ == '__main__':
     from env_config_init import settings

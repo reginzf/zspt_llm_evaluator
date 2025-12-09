@@ -1,5 +1,5 @@
 import os.path
-import time
+import jsonpath
 
 from env_config_init import settings
 from src.core.login import LoginManager
@@ -12,6 +12,7 @@ from model.label_studio.label_studio_client import label_studio_client
 from model.label_studio.labels import LabelStudioXMLGenerator
 from model.label_studio.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
 from utils.pub_funs import load_json_file
+from utils.decorators import check
 
 QUESTION_JSON = load_json_file(settings.QUESTION_PATH)
 annotation_generator = AnnotationGenerator()
@@ -113,6 +114,12 @@ def zlpt_get_chunk_by_question(zlpt_user, kno_id, question):
     return retrieve_data
 
 
+@check(10, '检查是否完成学习', 20)
+def zlpt_wait_learning(know_client,kno_id):
+    msgs = set(jsonpath.jsonpath(know_client.knowledge_doc_list(kno_id), '$.data.records..msg'))
+    assert len(msgs) == 1 and msgs.pop() == '学习成功'
+
+
 def ls_create_project(ls_user, title, description=''):
     """
     在Label Studio中创建项目并设置标签配置
@@ -207,7 +214,8 @@ def lzpt_init(name, chunk_size, chunk_overlap, target_path, knowledge_dict):
     zlpt_upload_files(know_client, target_path, kno_id, kno_root_id, chunk_size, chunk_overlap)
     doc_name = os.path.basename(target_path).split('.')[0]
     doc_id = know_client.knowledge_doc_list(kno_id, doc_name)['data']['records'][0]['docId']
-    return zlpt_user, kno_id, kno_root_id, doc_id
+    zlpt_wait_learning(know_client,kno_id)
+    return zlpt_user, know_client, kno_id, kno_root_id, doc_id
 
 
 def ls_project_init(knowledge_dict, kno_id, lzpt_doc_chunk_all):
@@ -228,56 +236,50 @@ def ls_project_init(knowledge_dict, kno_id, lzpt_doc_chunk_all):
     chunk_overlap = know_info['chunk_overlap']
 
     ls_user = login_label_studio()
-    project = ls_create_project(ls_user, f'{name}_{chunk_size}_{chunk_overlap}')
+    project = ls_create_project(ls_user, name)
     ls_create_tasks(project, lzpt_doc_chunk_all)
 
     return ls_user, project
 
 
-def label_chunks(project_title_name, kno_id):
-    zlpt_user = login_zlpt()
-    ls_user = login_label_studio()
-    retrieve_client = Retrieve(zlpt_user)
-    project = ls_user.get_projects(title=project_title_name)[0]
-    annotator = Annotator(project)
-
+def label_chunks(retrieve_client, annotator, kno_id):
     for question_dict in QUESTION_JSON['datas']:
         questions = question_dict['questions']
         for question in questions:
             retrieve_data = retrieve_client.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
-            print(retrieve_data)
             chunks = retrieve_data['data']['records']
             label_chunks_by_chunk_id(annotator, question, chunks, 'text')
 
 
-def main():
-    """
-     主函数：执行完整的流程包括知识库创建、文件上传、切片获取和Label Studio项目初始化
-     """
-    chunk_size, chunk_overlap = 500, 10
+def zlpt_init_and_ls_label():
+    chunk_size, chunk_overlap = 600, 10
     name = QUESTION_JSON['doc_name']
     knowledge_dict = {}
 
-    zlpt_user, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
-                                                       knowledge_dict)
-    know_client = KnowledgeBase(zlpt_user)
-    time.sleep(120)  # 等待学习完成 # todo 动态查询是否学习完成
+    zlpt_user, know_client, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
+                                                                    knowledge_dict)
     # 获取切片
     doc_name, lzpt_get_doc_chunk_all = lzpt_get_chunk_all_by_docId(know_client, doc_id)
     # 登录ls创建项目、label interface、任务
     ls_user, project = ls_project_init(knowledge_dict, kno_id, lzpt_get_doc_chunk_all)
     # 初始化项目标注器
     annotator = Annotator(project)
-
+    # 初始化召回器
     retrieve_client = Retrieve(zlpt_user)
-    for question_dict in QUESTION_JSON['datas']:
-        questions = question_dict['questions']
-        for question in questions:
-            retrieve_data = retrieve_client.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
-            print(retrieve_data)
-            chunks = retrieve_data['data']['records']
-            label_chunks_by_chunk_id(annotator, question, chunks, 'text')
-    # todo 按回答的chunk_id和question参数在ls中标注切片
+    # 召回并标注
+    label_chunks(retrieve_client, annotator, kno_id)
+    return knowledge_dict, zlpt_user, ls_user, kno_id, project
+
+
+def main():
+    """
+     主函数：执行完整的流程包括知识库创建、文件上传、切片获取和Label Studio项目初始化
+     """
+    # 上传文件并解析，获取切片数据并标注
+    knowledge_dict, zlpt_user, ls_user, kno_id, project = zlpt_init_and_ls_label()
+
+    # todo 手动过一遍切片标注
+    # todo 比较不同chunk_size的召回结果
 
 
 if __name__ == '__main__':
