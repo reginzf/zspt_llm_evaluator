@@ -10,12 +10,13 @@ from src.core.questions import get_question_type_and_label
 from model.label_studio.task import create_tasks
 from model.label_studio.label_studio_client import label_studio_client
 from model.label_studio.labels import LabelStudioXMLGenerator
-from model.label_studio.annotator import Annotator, AnnotationGenerator
+from model.label_studio.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
 from utils.pub_funs import load_json_file
 
 QUESTION_JSON = load_json_file(settings.QUESTION_PATH)
 annotation_generator = AnnotationGenerator()
 label_generator = LabelStudioXMLGenerator()
+target_path = settings.TARGET_FILE_PATH
 
 
 def login_zlpt():
@@ -153,21 +154,29 @@ def ls_create_tasks(project, chunk_all):
     return res  # [task_id1,task_id2...]
 
 
-def label_chunks_by_chunk_id(project, question, chunks):
+def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text'):
     """
        根据切片ID对返回的切片进行标注
 
        Args:
-           project: Label Studio项目对象
+           annotator: Annotator项目对象
            question (str): 查询问题
            chunks (list): 需要标注的切片列表
        """
-    q_type, q_label = get_question_type_and_label
+    q_type, q_label = get_question_type_and_label(QUESTION_JSON, question)
     t_filter = "filter:tasks:data.chunk_id"
-    annotator = Annotator(project)
     for chunk in chunks:
         target_filter = annotator.generate_filter_item(chunk['chunk_id'], t_filter, operator="equal")
-        annotation_generator.generate_choice_annotation(q_type, 'text')
+        target_task = annotator.get_task_by_filter([target_filter])[0]
+        # 创建标注
+        annotation_data = [annotation_generator.generate_choice_annotation(q_type, to_name, [question])]
+        annotate_to_create = AnnotateToCreate(
+            annotation_data=annotation_data,
+            lead_time=35.0,
+            merge_existing=True  # 启用合并功能
+        )
+        result = annotator.task_annotate_create(target_task, annotate_to_create)
+        print(result)
 
 
 def lzpt_init(name, chunk_size, chunk_overlap, target_path, knowledge_dict):
@@ -229,20 +238,48 @@ def main():
     """
      主函数：执行完整的流程包括知识库创建、文件上传、切片获取和Label Studio项目初始化
      """
-    name, chunk_size, chunk_overlap = 'test', 500, 10
-    target_path = r'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'
-    knowledge_dict = {}
+    # name, chunk_size, chunk_overlap = 'test', 500, 10
+    # knowledge_dict = {}
+    #
+    # zlpt_user, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
+    #                                                    knowledge_dict)
+    # zlpt_user = login_zlpt()
+    # know_client = KnowledgeBase(zlpt_user)
+    # time.sleep(60)  # 等待学习完成
+    # # 获取切片
+    # doc_id = ''
+    # doc_name, lzpt_get_doc_chunk_all = lzpt_get_chunk_all_by_docId(know_client, doc_id)
+    # # 登录ls创建项目、label interface、任务
+    # ls_user, project = ls_project_init(knowledge_dict, kno_id, lzpt_get_doc_chunk_all)
+    # # 初始化项目标注器
+    # ls_user = login_label_studio()
 
-    zlpt_user, kno_id, kno_root_id, doc_id = lzpt_init(name, chunk_size, chunk_overlap, target_path,
-                                                       knowledge_dict)
-    know_client = KnowledgeBase(zlpt_user)
-    time.sleep(60)  # 等待学习完成
-    # 获取切片
-    doc_name, lzpt_get_doc_chunk_all = lzpt_get_chunk_all_by_docId(know_client, doc_id)
-    # 登录ls创建项目、label interface、任务
-    ls_user, project = ls_project_init(knowledge_dict, kno_id, lzpt_get_doc_chunk_all)
-    # todo 向模型提问，获取回答
+    # annotator = Annotator(project)
+    #
+    # retrieve_client = Retrieve(zlpt_user)
+    # for question_dict in QUESTION_JSON['datas']:
+    #     questions = question_dict['questions']
+    #     for question in questions:
+    #         retrieve_data = retrieve_client.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
+    #         for chunks in retrieve_data['data']['records']:
+    #             label_chunks_by_chunk_id(annotator, question, chunks, 'text')
     # todo 按回答的chunk_id和question参数在ls中标注切片
+
+    zlpt_user = login_zlpt()
+    ls_user = login_label_studio()
+    retrieve_client = Retrieve(zlpt_user)
+
+    project = ls_user.get_projects(title='test_500_10')[0]
+    annotator = Annotator(project)
+    kno_id = 'KLB_d38252f4cf9845dfa207baae201d1a71'
+
+    for question_dict in QUESTION_JSON['datas']:
+        questions = question_dict['questions']
+        for question in questions:
+            retrieve_data = retrieve_client.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
+            print(retrieve_data)
+            chunks = retrieve_data['data']['records']
+            label_chunks_by_chunk_id(annotator, question, chunks, 'text')
 
 
 if __name__ == '__main__':
