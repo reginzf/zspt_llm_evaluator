@@ -12,5 +12,8 @@ DOMAIN = "default"
 LABEL_STUDIO_URL = "http://localhost:8080"
 LABEL_STUDIO_API_KEY = "ad4386c571434507c07f682c34df630a01145bf9"
 # 问题配置
-QUESTION_PATH = 'D:\pyworkplace\git_place\ai-ken\tests\ospf\question.json'  # 问题文件路径
+QUESTION_PATH = 'D:\pyworkplace\git_place\ai-ken\tests\ospf\ospfv2_detailed_questions.json'  # 问题文件路径
 TARGET_FILE_PATH = 'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'  # 资料文件路径
+
+CHUNK_SIZE = [400, 500, 600]
+CHUNK_OVERLAP = [10, 20, 30]

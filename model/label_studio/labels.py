@@ -12,7 +12,7 @@ class QuestionType(Enum):
     CONTEXTUAL = "contextual"
     CONCEPTUAL = "conceptual"
     REASONING = "reasoning"
-
+    APPLICATION = "application"
 
 @dataclass
 class Question:
@@ -46,6 +46,7 @@ class LabelStudioXMLGenerator:
         QuestionType.CONTEXTUAL: ["#4CAF50", "#FFC107", "#F44336"],  # 绿色、黄色、红色
         QuestionType.CONCEPTUAL: ["#4CAF50", "#FFC107"],  # 绿色、黄色
         QuestionType.REASONING: ["#4CAF50", "#FFC107"],  # 绿色、黄色
+        QuestionType.APPLICATION:["#4CAF50", "#FFC107"]
     }
 
     # 类型显示名称映射
@@ -54,6 +55,7 @@ class LabelStudioXMLGenerator:
         QuestionType.CONTEXTUAL: "上下文型",
         QuestionType.CONCEPTUAL: "概念型",
         QuestionType.REASONING: "推理型",
+        QuestionType.APPLICATION: "应用型",
     }
 
     def __init__(self, grid_columns: int = 2, gap: str = "10px"):
@@ -146,9 +148,6 @@ class LabelStudioXMLGenerator:
         text_view = ET.Element("View")
         text_view.set("style", "background: #f5f5f5; padding: 15px; border-radius: 5px;")
 
-        # 添加切片文本标题
-        text_header = self._create_header("切片文本", size=4)
-        text_view.append(text_header)
 
         # 添加Text元素
         text_elem = ET.Element("Text")
@@ -163,9 +162,6 @@ class LabelStudioXMLGenerator:
         recall_view = ET.Element("View")
         recall_view.set("style", "background: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 15px;")
 
-        # 添加召回问题标题
-        recall_header = self._create_header("召回问题", size=4)
-        recall_view.append(recall_header)
 
         # 添加网格布局
         grid_view = self._create_grid_view(config.question_groups)
@@ -227,7 +223,7 @@ def main():
     from utils.pub_funs import load_json_file, save_xml_file
     generator = LabelStudioXMLGenerator(grid_columns=2, gap="10px")
     # 示例：从文件加载
-    json_data = load_json_file(r"D:\pyworkplace\git_place\ai-ken\tests\ospf\question.json")
+    json_data = load_json_file(r"D:\pyworkplace\git_place\ai-ken\tests\ospf\ospfv2_detailed_questions.json")
     xml_content = generator.generate_from_json(json_data)
     # 保存到文件
     save_xml_file(xml_content, "output.xml")
