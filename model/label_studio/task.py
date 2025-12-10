@@ -21,10 +21,46 @@ def create_tasks(project, json_datas, step=10):
     return res
 
 
-# 运行
+def get_tasks_with_specific_choice(project, target_choice):
+    """
+    获取包含特定choice的所有任务
+
+    Args:
+        project: Label Studio Project对象
+        target_choice: 要查找的choice文本
+
+    Returns:
+        list: 包含目标choice的任务列表
+    """
+    # 获取项目中的所有任务
+    tasks = project.get_tasks()
+
+    matching_tasks = []
+
+    for task in tasks:
+        # 检查每个任务的annotations
+        if 'annotations' in task and task['annotations']:
+            for annotation in task['annotations']:
+                if 'result' in annotation:
+                    for result in annotation['result']:
+                        # 检查是否是choices类型
+                        if (result.get('type') == 'choices' and
+                                'value' in result and
+                                'choices' in result['value']):
+
+                            # 检查是否包含目标choice
+                            if target_choice in result['value']['choices']:
+                                matching_tasks.append(task)
+                                break  # 找到就跳出内层循环
+                    else:
+                        continue
+                    break  # 找到就跳出外层循环
+    return matching_tasks
+
 if __name__ == "__main__":
     from label_studio_sdk import Client, Project
-
+    from model.label_studio.label_studio_client import label_studio_client
     label_studio_client: Client
-    project: Project = label_studio_client.get_projects(title='切片项目1')[0]
-    create_tasks(project, {})
+    project: Project = label_studio_client.get_projects(title='OSPFv2_RFC2328_Detailed_500_10')[0]
+    tasks = get_tasks_with_specific_choice(project, "在广播网络中，OSPF路由器如何发现邻居？")
+    print(tasks)
