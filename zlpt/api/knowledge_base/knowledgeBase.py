@@ -1,6 +1,6 @@
 import jsonpath
 
-from src.core.api.base_client import BaseClient
+from zlpt.api.base_client import BaseClient
 import math
 import os
 import json
@@ -297,14 +297,14 @@ class KnowledgeBase(BaseClient):
 
 if __name__ == '__main__':
     from env_config_init import settings
-    from src.core.login import LoginManager
+    from zlpt.login import LoginManager
 
     login_manager = LoginManager(settings.ZLPT_BASE_URL)
     login_manager.login(settings.USERNAME, settings.PASSWORD, settings.DOMAIN)
     login_manager.get_auth_key()
     knowledge_base = KnowledgeBase(login_manager)
     kno_id = "KLB_869cb0ded2c64362a2b5ce722d2e91cf"
-    target_path = r'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'
+    target_path = r'/tests/ospf/context/OSPFv2.txt'
     cont_id = jsonpath.jsonpath(knowledge_base.knowledge_content_tree(kno_id),
                                 '$.data[0].contentCode')[0]
     file_id = knowledge_base.upload_attachment(target_path, cont_id)['data']

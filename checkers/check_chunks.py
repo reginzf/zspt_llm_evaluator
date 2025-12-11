@@ -1,5 +1,5 @@
 from typing import List, Dict
-from src.core.chunk_checkers import CorrespondenceChecker, PositionBasedCorrespondenceChecker, \
+from checkers.chunk_checkers import CorrespondenceChecker, PositionBasedCorrespondenceChecker, \
     SemanticCorrespondenceChecker
 
 

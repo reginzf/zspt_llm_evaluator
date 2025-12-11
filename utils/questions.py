@@ -57,8 +57,3 @@ def get_question_type_and_label(question_json, question_text: str) -> Tuple[Opti
     if info:
         return info["type"], info["label_type"]
     return None, None
-
-
-def main():
-    """主函数"""
-    # 文件路径

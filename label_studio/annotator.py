@@ -3,7 +3,6 @@ from label_studio_sdk._legacy import Project
 import requests
 from typing import List, Dict, Any, Optional, Union
 from enum import Enum
-import json
 
 __all__ = ["AnnotationOperation", "AnnotationGenerator", "AnnotateToAdd", "AnnotateToCreate"]
 VALUE_KEY_MAP = {
@@ -936,7 +935,7 @@ def example_merge_annotation():
 if __name__ == '__main__':
     # 在project下获得对应的task
     from label_studio_sdk._legacy import Project
-    from model.label_studio.label_studio_client import label_studio_client
+    from label_studio.label_studio_client import label_studio_client
 
     try:
         project = label_studio_client.get_projects(title="ospf_chunk_test")[0]

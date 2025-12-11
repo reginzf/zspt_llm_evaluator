@@ -223,7 +223,7 @@ def main():
     from utils.pub_funs import load_json_file, save_xml_file
     generator = LabelStudioXMLGenerator(grid_columns=2, gap="10px")
     # 示例：从文件加载
-    json_data = load_json_file(r"D:\pyworkplace\git_place\ai-ken\tests\ospf\ospfv2_detailed_questions.json")
+    json_data = load_json_file(r"/tests/ospf/ospfv2_detailed_questions.json")
     xml_content = generator.generate_from_json(json_data)
     # 保存到文件
     save_xml_file(xml_content, "output.xml")

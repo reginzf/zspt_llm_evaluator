@@ -577,7 +577,7 @@ def example_usage():
     使用示例
     """
     # 1. 初始化测试器
-    tester = SliceConsistencyTester(r'D:\pyworkplace\git_place\ai-ken\tests\ospf\ospfv2_detailed_questions.json')
+    tester = SliceConsistencyTester(r'/tests/ospf/ospfv2_detailed_questions.json')
 
     # 2. 模拟一个分类函数（实际使用时替换为你的分类函数）
     def mock_classifier(text: str) -> List[Dict]:

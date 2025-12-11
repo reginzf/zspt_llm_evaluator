@@ -59,7 +59,7 @@ def get_tasks_with_specific_choice(project, target_choice):
 
 if __name__ == "__main__":
     from label_studio_sdk import Client, Project
-    from model.label_studio.label_studio_client import label_studio_client
+
     label_studio_client: Client
     project: Project = label_studio_client.get_projects(title='OSPFv2_RFC2328_Detailed_500_10')[0]
     tasks = get_tasks_with_specific_choice(project, "在广播网络中，OSPF路由器如何发现邻居？")

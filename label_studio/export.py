@@ -1,6 +1,7 @@
 import json
 from label_studio_sdk import Project
-from datetime import datetime
+
+
 # 将任务数据转换为自定义的格式
 
 def transform_to_custom_format(tasks):
@@ -66,6 +67,6 @@ def export_custom_json_format(project: Project, export_type='JSON'):
 
 
 if __name__ == '__main__':
-    from model.label_studio.label_studio_client import label_studio_client
+    from label_studio.label_studio_client import label_studio_client
     project = label_studio_client.get_projects(title='OSPFv2_RFC2328_Detailed_400_10')[0]
     export_custom_json_format(project)

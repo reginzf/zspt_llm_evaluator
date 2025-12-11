@@ -123,5 +123,5 @@ if __name__ == '__main__':
     os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
     os.environ['HF_HUB_OFFLINE'] = '0'  # 确保在线模式
 
-    model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
-    model.save('./models/paraphrase-multilingual-MiniLM-L12-v2')
+    model = SentenceTransformer('BAAI/bge-reranker-base')
+    model.save('./models/BAAI/bge-reranker-base')

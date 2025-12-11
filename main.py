@@ -2,16 +2,16 @@ import os.path
 import jsonpath
 
 from env_config_init import settings
-from src.core.login import LoginManager
-from src.core.api.knowledge_base.retriveve import Retrieve
-from src.core.api.knowledge_base.knowledgeBase import KnowledgeBase
-from src.core.format_func.zl_to_label_studio import doc_slices_format_for_label_studio
-from src.core.questions import get_question_type_and_label
-from src.core.chunk_checkers import calculate_chunk_recall_metrics
-from model.label_studio.task import create_tasks, get_tasks_with_specific_choice
-from model.label_studio.label_studio_client import label_studio_client
-from model.label_studio.labels import LabelStudioXMLGenerator
-from model.label_studio.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
+from zlpt.login import LoginManager
+from zlpt.api.knowledge_base.retriveve import Retrieve
+from zlpt.api.knowledge_base.knowledgeBase import KnowledgeBase
+from utils.zl_to_label_studio import doc_slices_format_for_label_studio
+from utils.questions import get_question_type_and_label
+from checkers.chunk_checkers import calculate_chunk_recall_metrics,CHUNK_KEY_MAP
+from label_studio.task import create_tasks, get_tasks_with_specific_choice
+from label_studio.label_studio_client import label_studio_client
+from label_studio.labels import LabelStudioXMLGenerator
+from label_studio.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
 from utils.pub_funs import load_json_file
 from utils.decorators import check
 
@@ -253,7 +253,7 @@ def label_chunks(retrieve_client, annotator, kno_id):
 
 
 def zlpt_init_and_ls_label():
-    chunk_size, chunk_overlap = 600, 10
+    chunk_size, chunk_overlap = 600, 0
     name = QUESTION_JSON['doc_name']
     knowledge_dict = {}
 
@@ -297,11 +297,11 @@ def main():
     metrics = calculate_chunk_recall_metrics(labeled_tasks_chunk_ids,zlpt_retrieve_data_chunk_ids)
     for key, value in metrics.items():
         if isinstance(value, dict):
-            print(f"  {key}:")
+            print(f"  {CHUNK_KEY_MAP[key]}:")
             for k, v in value.items():
                 print(f"    @{k}: {v:.4f}")
         else:
-            print(f"  {key}: {value}")
+            print(f"  {CHUNK_KEY_MAP[key]}: {value}")
 if __name__ == '__main__':
     main()
 

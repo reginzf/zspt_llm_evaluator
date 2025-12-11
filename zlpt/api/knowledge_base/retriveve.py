@@ -1,4 +1,4 @@
-from src.core.api.base_client import BaseClient
+from zlpt.api.base_client import BaseClient
 
 
 class Retrieve(BaseClient):
