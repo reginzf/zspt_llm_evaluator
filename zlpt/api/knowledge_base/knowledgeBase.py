@@ -170,7 +170,7 @@ class KnowledgeBase(BaseClient):
             res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName)
         return res
 
-    def knowledge_doc_list(self, knowledgeId, docName='', docSource="0,1,2", current=1, size=10):
+    def knowledge_doc_list(self, knowledgeId, docName='', docSource="0,1,2", current=1, size=25):
         """
         查询指定知识库下的文件列表
         :param knowledgeId:
