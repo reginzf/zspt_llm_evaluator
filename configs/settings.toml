@@ -1,4 +1,6 @@
 [default]
+TEST_PATH = 'tests\ospf'
+QUESTION_TYPE = 'BASIC' # BASIC 基础集，DETAILED 详细集， MECHANISM 机制集 THEMATIC 主题集
 # zlpt
 ZLPT_BASE_URL = "https://10.220.49.200"
 KEY1 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCbPqaFZ0lgebihx"
@@ -12,8 +14,5 @@ DOMAIN = "default"
 LABEL_STUDIO_URL = "http://localhost:8080"
 LABEL_STUDIO_API_KEY = "ad4386c571434507c07f682c34df630a01145bf9"
 # 问题配置
-QUESTION_PATH = 'D:\pyworkplace\git_place\ai-ken\tests\ospf\ospfv2_detailed_questions.json'  # 问题文件路径
-TARGET_FILE_PATH = 'D:\pyworkplace\git_place\ai-ken\tests\ospf\context\OSPFv2.txt'  # 资料文件路径
-
-CHUNK_SIZE = [400, 500, 600]
-CHUNK_OVERLAP = [10, 20, 30]
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 0
