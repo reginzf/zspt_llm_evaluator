@@ -1,7 +1,6 @@
 from typing import Dict, Any
 from pathlib import Path
 import json
-import os
 
 
 def load_json_file(file_path: str) -> Dict[str, Any]:
