@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问答系统召回质量评估报告</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-container h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-wrapper {
+            height: 300px;
+            position: relative;
+        }
+        
+        .questions-table {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+        
+        .questions-table h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            color: #667eea;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge-good {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-poor {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        
+        .progress-good {
+            background-color: #28a745;
+        }
+        
+        .progress-medium {
+            background-color: #ffc107;
+        }
+        
+        .progress-poor {
+            background-color: #dc3545;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #e9ecef;
+            margin-top: 30px;
+        }
+        
+        .toggle-btn {
+            background-color: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .toggle-btn:hover {
+            background-color: #5a67d8;
+        }
+        
+        .details-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .details-section.active {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-wrapper {
+                height: 250px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>问答系统召回质量评估报告</h1>
+        <p>基于{{question_count}}个问题的向量检索结果分析</p>
+        <p>生成时间：{{timestamp}}</p>
+    </div>
+
+    <div class="summary-cards">
+        <div class="card">
+            <h3>平均准确率</h3>
+            <div class="metric-value">{{avg_precision}}%</div>
+            <div class="metric-label">所有问题的平均准确率</div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-good" style="width: {{avg_precision}}%"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>平均召回率</h3>
+            <div class="metric-value">{{avg_recall}}%</div>
+            <div class="metric-label">所有问题的平均召回率</div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-medium" style="width: {{avg_recall}}%"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>平均F1分数</h3>
+            <div class="metric-value">{{avg_f1}}%</div>
+            <div class="metric-label">准确率和召回率的调和平均</div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-good" style="width: {{avg_f1}}%"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>平均NDCG</h3>
+            <div class="metric-value">{{avg_ndcg}}%</div>
+            <div class="metric-label">排序质量指标</div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-medium" style="width: {{avg_ndcg}}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Top K指标分析</h2>
+        <div class="chart-row">
+            <div class="chart-wrapper">
+                <canvas id="precisionChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="recallChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>问题性能分布</h2>
+        <div class="chart-row">
+            <div class="chart-wrapper">
+                <canvas id="f1DistributionChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="rankingMetricsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="questions-table">
+        <h2>详细问题性能分析</h2>
+        <button class="toggle-btn" onclick="toggleDetails()">显示/隐藏详细指标</button>
+
+        <div class="details-section" id="detailsSection">
+            <table>
+                <thead>
+                <tr>
+                    <th>问题</th>
+                    <th>准确率</th>
+                    <th>召回率</th>
+                    <th>F1分数</th>
+                    <th>NDCG</th>
+                    <th>MRR</th>
+                    <th>状态</th>
+                </tr>
+                </thead>
+                <tbody id="questionsTableBody">
+                <!-- 问题数据将通过JavaScript填充 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>相关性分析</h2>
+        <div class="chart-row">
+            <div class="chart-wrapper">
+                <canvas id="correlationChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="performanceHeatmap"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>问答系统质量评估报告 | 生成时间：{{timestamp}}</p>
+        <p>注：所有指标基于向量检索结果与人工标注的对比分析</p>
+    </div>
+</div>
+
+<script>
+    // 从Python传递的数据
+    const metricsData = {{metrics_data|safe}};
+    const questionCount = {{question_count}};
+
+    // 初始化图表
+    document.addEventListener('DOMContentLoaded', function() {
+        renderCharts();
+        populateQuestionsTable();
+    });
+
+    function renderCharts() {
+        // 1. Top K准确率图表
+        const precisionCtx = document.getElementById('precisionChart').getContext('2d');
+        new Chart(precisionCtx, {
+            type: 'line',
+            data: {
+                labels: metricsData.top_k_labels,
+                datasets: [{
+                    label: '准确率@K',
+                    data: metricsData.avg_precision_at_k,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '不同K值下的准确率变化'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `准确率@${context.label}: ${(context.raw * 100).toFixed(2)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return (value * 100) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Top K召回率图表
+        const recallCtx = document.getElementById('recallChart').getContext('2d');
+        new Chart(recallCtx, {
+            type: 'line',
+            data: {
+                labels: metricsData.top_k_labels,
+                datasets: [{
+                    label: '召回率@K',
+                    data: metricsData.avg_recall_at_k,
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '不同K值下的召回率变化'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `召回率@${context.label}: ${(context.raw * 100).toFixed(2)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return (value * 100) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. F1分数分布图表
+        const f1Ctx = document.getElementById('f1DistributionChart').getContext('2d');
+        new Chart(f1Ctx, {
+            type: 'bar',
+            data: {
+                labels: metricsData.f1_distribution_labels,
+                datasets: [{
+                    label: '问题数量',
+                    data: metricsData.f1_distribution_data,
+                    backgroundColor: [
+                        'rgba(220, 53, 69, 0.7)',  // 差
+                        'rgba(255, 193, 7, 0.7)',   // 中
+                        'rgba(40, 167, 69, 0.7)'    // 好
+                    ],
+                    borderColor: [
+                        'rgb(220, 53, 69)',
+                        'rgb(255, 193, 7)',
+                        'rgb(40, 167, 69)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'F1分数分布（按性能等级）'
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        font: {
+                            weight: 'bold'
+                        },
+                        formatter: function(value) {
+                            return value;
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '问题数量'
+                        }
+                    }
+                }
+            }
+        });
+
+        // 4. 排序指标图表
+        const rankingCtx = document.getElementById('rankingMetricsChart').getContext('2d');
+        new Chart(rankingCtx, {
+            type: 'radar',
+            data: {
+                labels: ['平均准确率', 'NDCG', 'MRR', '命中率', '覆盖率'],
+                datasets: [{
+                    label: '排序质量指标',
+                    data: [
+                        metricsData.avg_average_precision,
+                        metricsData.avg_ndcg,
+                        metricsData.avg_mrr,
+                        metricsData.avg_hit_rate,
+                        metricsData.avg_coverage
+                    ],
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderColor: '#667eea',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '排序质量指标雷达图'
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return (value * 100) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 5. 相关性分析图表
+        const correlationCtx = document.getElementById('correlationChart').getContext('2d');
+        new Chart(correlationCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '问题性能分布',
+                    data: metricsData.correlation_data,
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: '#667eea',
+                    borderWidth: 1,
+                    pointRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '准确率 vs 召回率 相关性分析'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const data = context.raw;
+                                return [
+                                    `问题: ${data.label}`,
+                                    `准确率: ${(data.x * 100).toFixed(2)}%`,
+                                    `召回率: ${(data.y * 100).toFixed(2)}%`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '准确率'
+                        },
+                        min: 0,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return (value * 100) + '%';
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '召回率'
+                        },
+                        min: 0,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return (value * 100) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function populateQuestionsTable() {
+        const tbody = document.getElementById('questionsTableBody');
+        tbody.innerHTML = '';
+
+        metricsData.questions.forEach((question, index) => {
+            const metrics = question.metrics;
+            const f1Score = metrics.f1_score;
+
+            // 根据F1分数确定状态
+            let statusClass, statusText;
+            if (f1Score >= 0.7) {
+                statusClass = 'badge-good';
+                statusText = '优秀';
+            } else if (f1Score >= 0.4) {
+                statusClass = 'badge-medium';
+                statusText = '中等';
+            } else {
+                statusClass = 'badge-poor';
+                statusText = '需改进';
+            }
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td title="${question.text}">${question.text.substring(0, 50)}${question.text.length > 50 ? '...' : ''}</td>
+                <td>${(metrics.precision * 100).toFixed(2)}%</td>
+                <td>${(metrics.recall * 100).toFixed(2)}%</td>
+                <td>${(f1Score * 100).toFixed(2)}%</td>
+                <td>${(metrics.ndcg * 100).toFixed(2)}%</td>
+                <td>${(metrics.mrr * 100).toFixed(2)}%</td>
+                <td><span class="badge ${statusClass}">${statusText}</span></td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function toggleDetails() {
+        const detailsSection = document.getElementById('detailsSection');
+        detailsSection.classList.toggle('active');
+    }
+
+    // 添加窗口调整大小时重新渲染图表
+    window.addEventListener('resize', function() {
+        // 这里可以添加图表重新渲染的逻辑
+    });
+</script>
+</body>
+</html>

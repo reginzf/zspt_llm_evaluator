@@ -1,0 +1,58 @@
+{
+  "report_settings": {
+    "title": "问答系统召回质量评估报告",
+    "description": "基于向量检索的切片召回质量分析",
+    "author": "AI知识库系统",
+    "version": "1.0.0",
+    
+    "visualization": {
+      "chart_colors": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "success": "#28a745",
+        "warning": "#ffc107",
+        "danger": "#dc3545"
+      },
+      "chart_animation": true,
+      "show_data_labels": true,
+      "interactive_tooltips": true
+    },
+    
+    "metrics_thresholds": {
+      "excellent": 0.8,
+      "good": 0.6,
+      "fair": 0.4,
+      "poor": 0.0
+    },
+    
+    "top_k_values": [1, 3, 5, 10],
+    
+    "output": {
+      "format": "html",
+      "include_summary": true,
+      "include_charts": true,
+      "include_details": true,
+      "auto_open_browser": true
+    },
+    
+    "analysis": {
+      "calculate_correlations": true,
+      "identify_outliers": true,
+      "group_by_performance": true,
+      "generate_recommendations": true
+    }
+  },
+  
+  "sample_questions": [
+    "OSPF中Router ID的长度是多少位？",
+    "OSPF报文头部长度是多少字节？",
+    "在广播网络中，OSPF路由器如何发现邻居？",
+    "在点到点网络中，OSPF路由器如何建立邻接关系？",
+    "解释OSPF中链路状态通告（LSA）的概念和结构",
+    "解释OSPF中链路状态数据库（LSDB）的组织方式",
+    "在一个复杂的OSPF网络中，如果出现路由环路，如何诊断和解决？",
+    "如何配置ospf邻居?",
+    "OSPF支持的最大度量值是多少？",
+    "OSPF中，DR和BDR的作用是什么？"
+  ]
+}

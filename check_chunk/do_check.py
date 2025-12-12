@@ -1,40 +1,29 @@
+from src.lzpt_ls_operate import *
+from label_studio.task import get_tasks_with_specific_choice
+from check_chunk.checker_funcs import calculate_chunk_recall_metrics
 
 
-def main():
-    from zlpt.login import LoginManager
-    from env_config_init import settings
-    # 登录紫光云平台
-    login_manager = LoginManager(settings.ZLPT_BASE_URL)
-    login_manager.login(settings.USERNAME, settings.PASSWORD, settings.DOMAIN)
-    login_manager.get_auth_key()
-    # 获取知识库id
-    from zlpt.api.knowledge_base.knowledgeBase import KnowledgeBase
-    knowledge_base = KnowledgeBase(login_manager)
-    knowledge_base_infos = knowledge_base.knowledge_list('ospf')['data']
-    # 获取知识库的问题切片
-    from zlpt.api.knowledge_base.retriveve import Retrieve
-    from utils.zl_to_label_studio import retrieve_format_for_label_studio
-    retrieve = Retrieve(login_manager)
-    chunk_res = []
-    for base in knowledge_base_infos:
-        knowledge_id = base['knowledgeId']
-        knowledge_name = base['knowledgeName']
-        knowledge_slices = \
-            retrieve.webKnowledgeRetrieve('augmentedSearch', "ospf有哪些报文类型", knowledge_id)['data'][
-                'records']
-        # 转化为label studio格式
-        chunk_res.append(retrieve_format_for_label_studio(knowledge_slices))
-        # 获取doc的切片
-    # 进行比较
-    original_text = open(r'/tests/ospf/context/OSPFv2.txt', 'r').read()
-    correspondence_checker = CorrespondenceChecker(original_text)
-    postion_checker = PositionBasedCorrespondenceChecker()
-    semantic_checker = SemanticCorrespondenceChecker()
+def get_chunk_all(project_name, kno_id, search_type):
+    zlpt_user = login_zlpt()
+    ls_user = login_label_studio()
+    retrieve_client = Retrieve(zlpt_user)
+    project = ls_user.get_projects(title=project_name)[0]
+    # 获取json中的问题
+    questions = []
+    metric_all = {}
+    for qs in jsonpath.jsonpath(QUESTION_JSON, '$..datas..questions'):
+        questions.extend(qs)
+    # 为每个问题获取切片
+    for question in questions:
+        # 获取知识平台的切片
+        zlpt_retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
+        # 获取ls中标注过的数据
+        labeled_tasks = get_tasks_with_specific_choice(project, question)
+        # 由于chunk_id一样，直接提取chunk_id
+        zlpt_retrieve_data_chunk_ids = jsonpath.jsonpath(zlpt_retrieve_data, '$.data.records..chunk_id')
+        labeled_tasks_chunk_ids = [task['data']['chunk_id'] for task in labeled_tasks]
+        # 直接使用chunk_id计算切片质量
+        metrics = calculate_chunk_recall_metrics(labeled_tasks_chunk_ids, zlpt_retrieve_data_chunk_ids)
+        metric_all[question] = metrics
+    save_json_file(metric_all, 'metric_all.json')
 
-    print(correspondence_checker.check_content_overlap_correspondence(chunk_res[0], chunk_res[1]))
-    print(postion_checker.check_position_correspondence(chunk_res[0], chunk_res[1], original_text))
-    print(semantic_checker.check_semantic_correspondence(chunk_res[0], chunk_res[1]))
-
-
-if __name__ == '__main__':
-    main()

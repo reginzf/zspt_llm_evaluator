@@ -33,8 +33,11 @@ def get_tasks_with_specific_choice(project, target_choice):
         list: 包含目标choice的任务列表
     """
     # 获取项目中的所有任务
-    tasks = project.get_tasks()
-
+    try:
+        tasks = project.get_tasks()
+    except Exception as e:
+        print(e)
+        return []
     matching_tasks = []
 
     for task in tasks:
