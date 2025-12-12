@@ -4,7 +4,7 @@
 """
 
 from typing import List, Dict, Any, Tuple, Optional
-from .ChunkRecallMetrics import ChunkRecallEvaluator
+from check_chunk.checkers.ChunkRecallMetrics import ChunkRecallEvaluator
 
 
 def calculate_chunk_recall_metrics(

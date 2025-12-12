@@ -7,7 +7,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 class SemanticCorrespondenceChecker:
     """基于语义相似度的对应关系判断"""
 
-    def __init__(self, model_name: str = r'D:\pyworkplace\git_place\ai-ken\models\paraphrase-multilingual-MiniLM-L12-v2'):
+    def __init__(self,
+                 model_name: str = r'D:\pyworkplace\git_place\ai-ken\models\paraphrase-multilingual-MiniLM-L12-v2'):
         self.model = SentenceTransformer(model_name)
 
     def check_semantic_correspondence(self,

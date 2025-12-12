@@ -459,7 +459,7 @@ class ChunkRecallEvaluator:
 
 
 # 使用示例
-def example_usage():
+def main():
     """使用示例"""
     # 创建评估器
     evaluator = ChunkRecallEvaluator(top_n_values=[1, 3, 5, 10])
@@ -499,4 +499,4 @@ def example_usage():
 
 
 if __name__ == "__main__":
-    example_usage()
+    main()

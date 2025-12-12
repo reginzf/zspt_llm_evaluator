@@ -1,5 +1,5 @@
 from typing import List, Dict
-from checkers.chunk_checkers import CorrespondenceChecker, PositionBasedCorrespondenceChecker, \
+from check_chunk.checkers import CorrespondenceChecker, PositionBasedCorrespondenceChecker, \
     SemanticCorrespondenceChecker
 
 
@@ -70,4 +70,3 @@ class ComprehensiveCorrespondenceChecker:
         """计算置信度分数"""
         # 基于三种方法的一致性计算置信度
         pass
-

@@ -1,5 +1,3 @@
-from checkers.chunk_checkers import CorrespondenceChecker, PositionBasedCorrespondenceChecker, \
-    SemanticCorrespondenceChecker
 
 
 def main():
