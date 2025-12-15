@@ -18,5 +18,6 @@ CHUNK_SIZE = 600
 CHUNK_OVERLAP = 0
 # 当使用text计算时的参数
 OVERLAP_THRESHOLD = 0.8   # 字符串重叠阈值
-SIMILARITY_THRESHOLD = 0.8  # 语义相似度阈值
-semantic_weight = 1.0  # 语义权重
+SIMILARITY_THRESHOLD = 0.3  # 语义相似度阈值
+semantic_weight = 0.9  # 语义匹配权重
+MODEL_PATH = 'D:\pyworkplace\git_place\ai-ken\models\bge-base-zh-v1.5'
