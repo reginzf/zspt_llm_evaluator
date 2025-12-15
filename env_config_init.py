@@ -23,7 +23,7 @@ ZLPT_CHUNKS_DIR = str(Path(paths["lzpt_chunks_dir"]) / CHUNK_NAME)
 Path(LS_LABELED_CHUNKS_DIR).mkdir(parents=True, exist_ok=True)
 Path(ZLPT_CHUNKS_DIR).mkdir(parents=True, exist_ok=True)
 
-QUESTION_TYPE_MAP = {
+QUESTION_TYPE_MAP = {  # 问题类型映射
     "BASIC": 'basic_question.json',
     "DETAILED": 'detailed_question.json',
     "MECHANISM": 'mechanism_question.json',
@@ -33,3 +33,6 @@ q_dir = Path(QUESTION_PATH)
 q_path = str(q_dir / QUESTION_TYPE_MAP[settings.QUESTION_TYPE])
 # 问题的JSON
 QUESTION_JSON = load_json_file(q_path)
+# knowledge_dict
+KNOWLEDGE_PATH = str(
+    Path(PROJECT_ROOT) / 'tests' / fr'{settings.TEST_PATH}' / f'knowledge_{settings.CHUNK_SIZE}_{settings.CHUNK_OVERLAP}.json')

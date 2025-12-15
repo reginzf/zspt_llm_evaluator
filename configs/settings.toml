@@ -1,5 +1,5 @@
 [default]
-TEST_PATH = 'tests\ospf'
+TEST_PATH = 'ospf'
 QUESTION_TYPE = 'BASIC' # BASIC 基础集，DETAILED 详细集， MECHANISM 机制集 THEMATIC 主题集
 # zlpt
 ZLPT_BASE_URL = "https://10.220.49.200"

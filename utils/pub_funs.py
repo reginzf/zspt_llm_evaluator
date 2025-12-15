@@ -46,7 +46,7 @@ def get_test_paths(relative_path) -> Dict[str, str]:
             break
 
     # 构建完整路径
-    target_dir = project_root / relative_path
+    target_dir = project_root / 'tests' /relative_path    # 固定放在tests目录下
     # 验证路径是否存在
     if not target_dir.exists():
         raise FileNotFoundError(f"测试目录不存在: {target_dir}")
@@ -65,7 +65,7 @@ def get_test_paths(relative_path) -> Dict[str, str]:
         path = Path(path_str)
         if key not in ["project_root"] and not path.exists():
             print(f"警告: {key} 路径不存在: {path_str}")
-            raise FileNotFoundError(f"{key} 路径不存在: {path_str}")
+            path.mkdir()
 
     return paths
 
