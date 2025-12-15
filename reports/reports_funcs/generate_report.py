@@ -103,6 +103,11 @@ def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> Li
     """
     从REPORT_PATH读取所有metric开头的JSON文件，为每个文件生成对应的报告
     
+    功能实现：
+    1. 读取REPORT_PATH，过滤以"metric"开头".json"结尾的文件，作为数据的输入文件
+    2. 分析数据，生成analysis_results并生成报告，报告名称和输入文件名称一一对应
+    3. 完成之后保存报告文件到REPORT_PATH下面
+    
     Args:
         report_path: 报告路径，如果为None则使用默认的REPORT_PATH
     

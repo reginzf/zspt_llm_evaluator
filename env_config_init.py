@@ -35,4 +35,7 @@ q_path = str(q_dir / QUESTION_TYPE_MAP[settings.QUESTION_TYPE])
 QUESTION_JSON = load_json_file(q_path)
 # knowledge_dict
 KNOWLEDGE_PATH = str(
-    Path(PROJECT_ROOT) / 'tests' / fr'{settings.TEST_PATH}' / f'knowledge_{settings.CHUNK_SIZE}_{settings.CHUNK_OVERLAP}.json')
+    Path(
+        PROJECT_ROOT) / 'tests' / fr'{settings.TEST_PATH}' / f'knowledge_{settings.CHUNK_SIZE}_{settings.CHUNK_OVERLAP}.json')
+# report的目录
+REPORT_PATH = Path(PROJECT_ROOT) / 'reports' / 'report_data' / fr'{settings.TEST_PATH}'
