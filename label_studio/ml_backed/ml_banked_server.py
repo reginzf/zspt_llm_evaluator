@@ -1,20 +1,15 @@
 from label_studio_ml.model import LabelStudioMLBase
 from flask import Flask, request, jsonify
-import logging
+from utils.logger import logger
 import torch
 from transformers import AutoTokenizer, AutoModel
-import os
+
 import numpy as np
 import json
-from pathlib import Path
+
 from env_config_init import QUESTION_JSON, settings
 
-# 初始化 Flask 应用
 app = Flask(__name__)
-
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class MyModel(LabelStudioMLBase):
@@ -126,8 +121,7 @@ class MyModel(LabelStudioMLBase):
             # 获取文本数据
             text_data = task['data'].get('text', '')
             task_id = task.get('id', 'unknown')
-            logger.info(f"Processing task {task_id}")
-            logger.debug(f"Text preview: {text_data[:200]}...")
+            logger.info(f"Processing task {task_id}:{text_data}")
 
             if not text_data:
                 logger.warning(f"Task {task_id}: Empty text data")
@@ -140,6 +134,7 @@ class MyModel(LabelStudioMLBase):
             query_embedding = self._get_embedding(text_data)
 
             results = []
+            from_name_types = []
             total_score = 0.0
             matched_count = 0
 
@@ -159,16 +154,21 @@ class MyModel(LabelStudioMLBase):
                 # 如果相似度超过阈值，则添加到结果中
                 if max_similarity >= self.SIMILARITY_THRESHOLD:
                     matched_choice = choices[max_idx]
-
-                    results.append({
-                        'from_name': config["from_name"],
-                        'to_name': 'text',
-                        'type': 'choices',
-                        'value': {
-                            'choices': [matched_choice]
-                        }
-                    })
-
+                    if config["from_name"] not in from_name_types:
+                        from_name_types.append(config["from_name"])
+                        results.append({
+                            'from_name': config["from_name"],
+                            'to_name': 'text',
+                            'type': 'choices',
+                            'value': {
+                                'choices': [matched_choice]
+                            }
+                        })
+                    else:
+                        for result in results:
+                            if result['from_name'] == config["from_name"]:
+                                result['value']['choices'].append(matched_choice)
+                                break
                     total_score += max_similarity
                     matched_count += 1
 
@@ -228,7 +228,6 @@ def health():
     return jsonify({
         'status': 'UP',
         'model': 'bge-base-zh-v1.5',
-        'label_config_path': model.label_config_path,
         'similarity_threshold': model.SIMILARITY_THRESHOLD,
         'categories': list(model.LABEL_CONFIG.keys())
     })
@@ -244,7 +243,6 @@ def setup():
     return jsonify({
         'status': 'ok',
         'model_version': 'bge-base-zh-v1.5',
-        'label_config_path': model.label_config_path,
         'labels': list(model.LABEL_CONFIG.keys()),
         'similarity_threshold': model.SIMILARITY_THRESHOLD
     })
@@ -263,7 +261,6 @@ def get_config():
     """获取当前配置信息"""
     return jsonify({
         'label_config': model.LABEL_CONFIG,
-        'label_config_path': model.label_config_path,
         'similarity_threshold': model.SIMILARITY_THRESHOLD,
         'model_path': model.model_path
     })
