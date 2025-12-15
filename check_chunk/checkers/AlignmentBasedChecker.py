@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Union, Tuple
 from difflib import SequenceMatcher
 import re
 import numpy as np
@@ -6,6 +6,425 @@ import numpy as np
 
 class AlignmentBasedChecker:
     """基于对齐算法的对应关系判断"""
+
+    # 默认模型路径配置
+    DEFAULT_ENGLISH_MODEL = r'D:\pyworkplace\git_place\ai-ken\models\paraphrase-multilingual-MiniLM-L12-v2'
+    DEFAULT_CHINESE_MODEL = r'D:\pyworkplace\git_place\ai-ken\models\text2vec-base-chinese'
+
+    def __init__(self,
+                 english_model_path: str = None,
+                 chinese_model_path: str = None):
+        """
+        初始化AlignmentBasedChecker
+        
+        Args:
+            english_model_path: 英文语义模型路径
+            chinese_model_path: 中文/多语言语义模型路径
+        """
+        self.english_model_path = english_model_path or self.DEFAULT_ENGLISH_MODEL
+        self.chinese_model_path = chinese_model_path or self.DEFAULT_CHINESE_MODEL
+        self._english_model = None
+        self._chinese_model = None
+
+    def _get_semantic_model(self, is_english: bool):
+        """
+        懒加载语义模型
+        
+        Args:
+            is_english: 是否为英文模型
+            
+        Returns:
+            SentenceTransformer模型实例
+        """
+        from sentence_transformers import SentenceTransformer
+        
+        if is_english:
+            if self._english_model is None:
+                self._english_model = SentenceTransformer(self.english_model_path)
+            return self._english_model
+        else:
+            if self._chinese_model is None:
+                self._chinese_model = SentenceTransformer(self.chinese_model_path)
+            return self._chinese_model
+
+    def _is_english_text(self, text: str) -> bool:
+        """
+        判断文本是否主要为英文
+        
+        Args:
+            text: 待判断的文本
+            
+        Returns:
+            True if primarily English, False otherwise
+        """
+        if not text:
+            return False
+        
+        # 统计英文字符和中文字符的数量
+        english_chars = len(re.findall(r'[a-zA-Z]', text))
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+        
+        # 如果英文字符数量大于中文字符数量，则认为是英文
+        return english_chars > chinese_chars
+
+    def calculate_overlap_ratio(self, text1: str, text2: str) -> Tuple[float, str]:
+        """
+        计算两个文本的重叠比例和重叠类型
+        
+        Args:
+            text1: 第一个文本（来自chunk_list1）
+            text2: 第二个文本（来自chunk_list2，人工标注）
+            
+        Returns:
+            (重叠比例, 重叠类型)
+            重叠类型: 'exact' - 完全重叠, 'contains' - 包含, 'partial' - 部分重叠, 'none' - 无重叠
+        """
+        if not text1 or not text2:
+            return 0.0, 'none'
+        
+        # 去除首尾空白进行比较
+        text1_stripped = text1.strip()
+        text2_stripped = text2.strip()
+        
+        # 完全匹配
+        if text1_stripped == text2_stripped:
+            return 1.0, 'exact'
+        
+        # 检查包含关系
+        if text1_stripped in text2_stripped:
+            # text1 被 text2 包含
+            ratio = len(text1_stripped) / len(text2_stripped)
+            return ratio, 'contains'
+        
+        if text2_stripped in text1_stripped:
+            # text2 被 text1 包含
+            ratio = len(text2_stripped) / len(text1_stripped)
+            return ratio, 'contains'
+        
+        # 部分重叠 - 使用SequenceMatcher计算
+        matcher = SequenceMatcher(None, text1_stripped, text2_stripped)
+        
+        # 获取所有匹配块
+        matching_blocks = matcher.get_matching_blocks()
+        
+        # 计算总匹配字符数
+        total_match_chars = sum(block.size for block in matching_blocks)
+        
+        # 计算重叠比例（相对于较短文本）
+        min_len = min(len(text1_stripped), len(text2_stripped))
+        overlap_ratio = total_match_chars / min_len if min_len > 0 else 0.0
+        
+        if overlap_ratio > 0:
+            return overlap_ratio, 'partial'
+        
+        return 0.0, 'none'
+
+    def check_chunk_match(self, 
+                          chunk_list1: List[Union[str, Dict]], 
+                          chunk_list2: List[Union[str, Dict]],
+                          overlap_threshold: float = 0.8,
+                          similarity_threshold: float = 0.7,
+                          semantic_weight: float = 1.0) -> List[float]:
+        """
+        检查chunk_list1中的每个切片与chunk_list2的匹配情况
+        
+        Args:
+            chunk_list1: 知识平台召回的切片正文列表
+            chunk_list2: 人工标注的结果列表
+            overlap_threshold: 部分重叠的阈值，超过此阈值视为完全匹配 (默认0.8)
+            similarity_threshold: 语义相似度阈值，低于此阈值不计入结果 (默认0.7)
+            semantic_weight: 语义相似度的权重系数 (默认1.0)
+            
+        Returns:
+            匹配结果列表，与chunk_list1一一对应:
+            - 1: 完全匹配（完全重叠、包含或部分重叠>=overlap_threshold）
+            - 小数: 语义相似度分数（>= similarity_threshold）
+            - 0: 未匹配
+        """
+        if not chunk_list1:
+            return []
+        
+        if not chunk_list2:
+            return [0.0] * len(chunk_list1)
+        
+        # 提取所有文本
+        texts1 = [self._extract_text(chunk) for chunk in chunk_list1]
+        texts2 = [self._extract_text(chunk) for chunk in chunk_list2]
+        
+        # 初始化结果列表
+        result = [0.0] * len(chunk_list1)
+        
+        # 记录已匹配的chunk2索引（避免重复匹配）
+        matched_chunk2_indices = set()
+        
+        # 记录需要进行语义匹配的chunk1索引
+        unmatched_indices = []
+        
+        # 步骤2: 基于文本重叠进行匹配
+        for i, text1 in enumerate(texts1):
+            best_overlap = 0.0
+            best_match_idx = -1
+            best_overlap_type = 'none'
+            
+            for j, text2 in enumerate(texts2):
+                if j in matched_chunk2_indices:
+                    continue
+                
+                overlap_ratio, overlap_type = self.calculate_overlap_ratio(text1, text2)
+                
+                # 完全重叠或包含，直接标记为完全匹配
+                if overlap_type in ('exact', 'contains') and overlap_ratio >= overlap_threshold:
+                    if overlap_ratio > best_overlap:
+                        best_overlap = overlap_ratio
+                        best_match_idx = j
+                        best_overlap_type = overlap_type
+                
+                # 部分重叠超过阈值，也标记为完全匹配
+                elif overlap_type == 'partial' and overlap_ratio >= overlap_threshold:
+                    if overlap_ratio > best_overlap:
+                        best_overlap = overlap_ratio
+                        best_match_idx = j
+                        best_overlap_type = overlap_type
+            
+            if best_match_idx >= 0:
+                result[i] = 1.0
+                matched_chunk2_indices.add(best_match_idx)
+            else:
+                unmatched_indices.append(i)
+        
+        # 步骤3和4: 对未匹配的切片进行语义相似度计算
+        if unmatched_indices and texts2:
+            # 获取未匹配的文本和可用的chunk2文本
+            unmatched_texts1 = [texts1[i] for i in unmatched_indices]
+            
+            # 可用的chunk2文本（排除已完全匹配的）
+            available_chunk2_indices = [j for j in range(len(texts2)) if j not in matched_chunk2_indices]
+            available_texts2 = [texts2[j] for j in available_chunk2_indices]
+            
+            if available_texts2:
+                # 根据文本语言选择模型
+                # 取第一个未匹配文本判断语言
+                sample_text = unmatched_texts1[0] if unmatched_texts1 else ""
+                is_english = self._is_english_text(sample_text)
+                
+                try:
+                    from sklearn.metrics.pairwise import cosine_similarity
+                    
+                    model = self._get_semantic_model(is_english)
+                    
+                    # 计算嵌入向量
+                    embeddings1 = model.encode(unmatched_texts1, convert_to_tensor=True)
+                    embeddings2 = model.encode(available_texts2, convert_to_tensor=True)
+                    
+                    # 计算相似度矩阵
+                    similarity_matrix = cosine_similarity(
+                        embeddings1.cpu().numpy(),
+                        embeddings2.cpu().numpy()
+                    )
+                    
+                    # 为每个未匹配的chunk1找最佳语义匹配
+                    for idx, orig_i in enumerate(unmatched_indices):
+                        max_similarity = np.max(similarity_matrix[idx])
+                        
+                        if max_similarity >= similarity_threshold:
+                            # 应用权重
+                            result[orig_i] = float(max_similarity) * semantic_weight
+                            # 确保不超过1（除非权重>1）
+                            if semantic_weight <= 1.0:
+                                result[orig_i] = min(result[orig_i], 0.99)  # 保持小于1以区分完全匹配
+                
+                except ImportError as e:
+                    print(f"Warning: Could not import required modules for semantic matching: {e}")
+                except Exception as e:
+                    print(f"Warning: Semantic matching failed: {e}")
+        
+        return result
+
+    def check_chunk_match_detailed(self, 
+                                   chunk_list1: List[Union[str, Dict]], 
+                                   chunk_list2: List[Union[str, Dict]],
+                                   overlap_threshold: float = 0.8,
+                                   similarity_threshold: float = 0.7,
+                                   semantic_weight: float = 1.0) -> Dict:
+        """
+        检查chunk匹配情况并返回详细信息
+        
+        Args:
+            chunk_list1: 知识平台召回的切片正文列表
+            chunk_list2: 人工标注的结果列表
+            overlap_threshold: 部分重叠的阈值
+            similarity_threshold: 语义相似度阈值
+            semantic_weight: 语义相似度的权重系数
+            
+        Returns:
+            详细的匹配结果字典，包含:
+            - scores: 匹配分数列表
+            - details: 每个chunk的详细匹配信息
+            - stats: 统计信息
+        """
+        if not chunk_list1:
+            return {
+                'scores': [],
+                'details': [],
+                'stats': {
+                    'total_chunks': 0,
+                    'exact_matches': 0,
+                    'semantic_matches': 0,
+                    'unmatched': 0,
+                    'exact_match_rate': 0.0,
+                    'overall_match_rate': 0.0
+                }
+            }
+        
+        if not chunk_list2:
+            return {
+                'scores': [0.0] * len(chunk_list1),
+                'details': [{'index': i, 'match_type': 'unmatched', 'score': 0.0} for i in range(len(chunk_list1))],
+                'stats': {
+                    'total_chunks': len(chunk_list1),
+                    'exact_matches': 0,
+                    'semantic_matches': 0,
+                    'unmatched': len(chunk_list1),
+                    'exact_match_rate': 0.0,
+                    'overall_match_rate': 0.0
+                }
+            }
+        
+        texts1 = [self._extract_text(chunk) for chunk in chunk_list1]
+        texts2 = [self._extract_text(chunk) for chunk in chunk_list2]
+        
+        result = [0.0] * len(chunk_list1)
+        details = []
+        matched_chunk2_indices = set()
+        unmatched_indices = []
+        
+        # 第一轮：基于文本重叠匹配
+        for i, text1 in enumerate(texts1):
+            best_overlap = 0.0
+            best_match_idx = -1
+            best_overlap_type = 'none'
+            
+            for j, text2 in enumerate(texts2):
+                if j in matched_chunk2_indices:
+                    continue
+                
+                overlap_ratio, overlap_type = self.calculate_overlap_ratio(text1, text2)
+                
+                if overlap_type in ('exact', 'contains', 'partial') and overlap_ratio >= overlap_threshold:
+                    if overlap_ratio > best_overlap:
+                        best_overlap = overlap_ratio
+                        best_match_idx = j
+                        best_overlap_type = overlap_type
+            
+            if best_match_idx >= 0:
+                result[i] = 1.0
+                matched_chunk2_indices.add(best_match_idx)
+                details.append({
+                    'index': i,
+                    'match_type': 'exact',
+                    'overlap_type': best_overlap_type,
+                    'overlap_ratio': best_overlap,
+                    'matched_chunk2_index': best_match_idx,
+                    'score': 1.0,
+                    'chunk1_text_preview': text1[:100] + '...' if len(text1) > 100 else text1,
+                    'chunk2_text_preview': texts2[best_match_idx][:100] + '...' if len(texts2[best_match_idx]) > 100 else texts2[best_match_idx]
+                })
+            else:
+                unmatched_indices.append(i)
+        
+        # 第二轮：语义匹配
+        semantic_match_count = 0
+        if unmatched_indices and texts2:
+            unmatched_texts1 = [texts1[i] for i in unmatched_indices]
+            available_chunk2_indices = [j for j in range(len(texts2)) if j not in matched_chunk2_indices]
+            available_texts2 = [texts2[j] for j in available_chunk2_indices]
+            
+            if available_texts2:
+                sample_text = unmatched_texts1[0] if unmatched_texts1 else ""
+                is_english = self._is_english_text(sample_text)
+                
+                try:
+                    from sklearn.metrics.pairwise import cosine_similarity
+                    
+                    model = self._get_semantic_model(is_english)
+                    embeddings1 = model.encode(unmatched_texts1, convert_to_tensor=True)
+                    embeddings2 = model.encode(available_texts2, convert_to_tensor=True)
+                    
+                    similarity_matrix = cosine_similarity(
+                        embeddings1.cpu().numpy(),
+                        embeddings2.cpu().numpy()
+                    )
+                    
+                    for idx, orig_i in enumerate(unmatched_indices):
+                        max_similarity = np.max(similarity_matrix[idx])
+                        best_match_local_idx = np.argmax(similarity_matrix[idx])
+                        best_match_original_idx = available_chunk2_indices[best_match_local_idx]
+                        
+                        if max_similarity >= similarity_threshold:
+                            score = float(max_similarity) * semantic_weight
+                            if semantic_weight <= 1.0:
+                                score = min(score, 0.99)
+                            result[orig_i] = score
+                            semantic_match_count += 1
+                            details.append({
+                                'index': orig_i,
+                                'match_type': 'semantic',
+                                'similarity': float(max_similarity),
+                                'matched_chunk2_index': best_match_original_idx,
+                                'score': score,
+                                'model_used': 'english' if is_english else 'chinese',
+                                'chunk1_text_preview': texts1[orig_i][:100] + '...' if len(texts1[orig_i]) > 100 else texts1[orig_i],
+                                'chunk2_text_preview': texts2[best_match_original_idx][:100] + '...' if len(texts2[best_match_original_idx]) > 100 else texts2[best_match_original_idx]
+                            })
+                        else:
+                            details.append({
+                                'index': orig_i,
+                                'match_type': 'unmatched',
+                                'best_similarity': float(max_similarity),
+                                'score': 0.0,
+                                'chunk1_text_preview': texts1[orig_i][:100] + '...' if len(texts1[orig_i]) > 100 else texts1[orig_i]
+                            })
+                
+                except Exception as e:
+                    for orig_i in unmatched_indices:
+                        details.append({
+                            'index': orig_i,
+                            'match_type': 'unmatched',
+                            'error': str(e),
+                            'score': 0.0,
+                            'chunk1_text_preview': texts1[orig_i][:100] + '...' if len(texts1[orig_i]) > 100 else texts1[orig_i]
+                        })
+            else:
+                for orig_i in unmatched_indices:
+                    details.append({
+                        'index': orig_i,
+                        'match_type': 'unmatched',
+                        'score': 0.0,
+                        'chunk1_text_preview': texts1[orig_i][:100] + '...' if len(texts1[orig_i]) > 100 else texts1[orig_i]
+                    })
+        
+        # 按索引排序details
+        details.sort(key=lambda x: x['index'])
+        
+        # 计算统计信息
+        exact_matches = sum(1 for d in details if d['match_type'] == 'exact')
+        unmatched = sum(1 for d in details if d['match_type'] == 'unmatched')
+        
+        stats = {
+            'total_chunks': len(chunk_list1),
+            'exact_matches': exact_matches,
+            'semantic_matches': semantic_match_count,
+            'unmatched': unmatched,
+            'exact_match_rate': exact_matches / len(chunk_list1) * 100 if chunk_list1 else 0,
+            'overall_match_rate': (exact_matches + semantic_match_count) / len(chunk_list1) * 100 if chunk_list1 else 0,
+            'average_score': np.mean(result) if result else 0
+        }
+        
+        return {
+            'scores': result,
+            'details': details,
+            'stats': stats
+        }
 
     def find_optimal_alignment(self, chunk_list1: List[Dict], chunk_list2: List[Dict]) -> Dict:
         """
@@ -144,3 +563,47 @@ class AlignmentBasedChecker:
         if isinstance(chunk, dict) and 'chunk_id' in chunk:
             return chunk['chunk_id']
         return f'chunk_{index}'
+
+
+# 使用示例
+if __name__ == '__main__':
+    # 示例数据
+    chunk_list1 = [
+        "这是知识平台召回的第一个切片内容，包含一些重要信息。",
+        "The quick brown fox jumps over the lazy dog.",
+        "部分重叠的文本内容，这里有一些相同的部分。",
+        "这是一段完全不同的内容，可能无法匹配。",
+        "语义相似但文字不同的表述方式。"
+    ]
+    
+    chunk_list2 = [
+        "这是知识平台召回的第一个切片内容，包含一些重要信息。",  # 完全匹配
+        "The quick brown fox jumps over the lazy dog. Additional text here.",  # 包含关系
+        "部分重叠的文本内容，这里有一些相同的部分，但也有不同。",  # 部分重叠
+        "用不同的词语来表达相似的含义和意思。"  # 语义相似
+    ]
+    
+    checker = AlignmentBasedChecker()
+    
+    # 简单版本 - 只返回分数列表
+    scores = checker.check_chunk_match(
+        chunk_list1, 
+        chunk_list2,
+        overlap_threshold=0.8,
+        similarity_threshold=0.7
+    )
+    print("匹配分数:", scores)
+    
+    # 详细版本 - 返回完整信息
+    result = checker.check_chunk_match_detailed(
+        chunk_list1, 
+        chunk_list2,
+        overlap_threshold=0.8,
+        similarity_threshold=0.7
+    )
+    print("\n详细结果:")
+    print(f"分数列表: {result['scores']}")
+    print(f"统计信息: {result['stats']}")
+    print("\n每个切片的详细信息:")
+    for detail in result['details']:
+        print(f"  索引 {detail['index']}: {detail['match_type']} - 分数: {detail['score']}")
