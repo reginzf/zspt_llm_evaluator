@@ -8,9 +8,10 @@ import json
 import os
 import sys
 from datetime import datetime
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 import numpy as np
 from pathlib import Path
+from env_config_init import REPORT_PATH
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent
@@ -19,38 +20,32 @@ sys.path.insert(0, str(project_root))
 from visualize_metrics import analyze_metrics, generate_html_report
 
 
-def load_metric_data() -> Dict[str, Any]:
+def load_metric_data(filepath: str, report_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
     """
     加载metric_all数据
-    这里假设metric_all已经通过main.py运行并保存到文件
-    或者可以直接从内存中获取
+    
+    Args:
+        filepath: 文件名
+        report_path: 报告路径，如果为None则使用默认的REPORT_PATH
+    
+    Returns:
+        metric数据字典，如果加载失败则返回None
     """
-    # 方法1: 如果metric_all已经保存到文件
-    metric_file = project_root.parent / "report_data" / "metric_all.json"
+    # 使用指定的report_path或默认的REPORT_PATH
+    target_path = report_path if report_path else REPORT_PATH
+    metric_file = target_path / filepath
+    
     if metric_file.exists():
         print(f"从文件加载metric数据: {metric_file}")
-        with open(metric_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
-
-    # 方法2: 运行main.py获取metric_all
-    # print("运行main.py获取metric数据...")
-    # try:
-    #     # 导入main模块并运行
-    #     import main
-    #     from main import main as run_main
-    #
-    #     # 这里需要修改main.py，使其返回metric_all
-    #     # 或者通过其他方式获取metric_all
-    #     print("注意: 需要修改main.py使其返回metric_all")
-    #     print("或者手动提供metric_all数据")
-    #
-    #     # 临时示例数据
-    #     return generate_sample_data()
-    #
-    # except Exception as e:
-    #     print(f"运行main.py时出错: {e}")
-    #     print("使用示例数据生成报告...")
-    #     return generate_sample_data()
+        try:
+            with open(metric_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"加载文件 {metric_file} 时出错: {e}")
+            return None
+    else:
+        print(f"无法加载metric数据: {metric_file} 不存在")
+        return None
 
 
 def generate_sample_data() -> Dict[str, Any]:
@@ -104,61 +99,96 @@ def generate_sample_data() -> Dict[str, Any]:
     return metric_all
 
 
-def save_metric_data(metric_all: Dict[str, Any], output_file: str = "metric_all.json"):
-    """保存metric_all数据到文件"""
-    output_path = project_root.parent / "report_data" / output_file
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(metric_all, f, ensure_ascii=False, indent=2)
-    print(f"metric数据已保存到: {output_path}")
-
-
-def main():
-    """主函数：生成评估报告"""
+def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> List[Path]:
+    """
+    从REPORT_PATH读取所有metric开头的JSON文件，为每个文件生成对应的报告
+    
+    Args:
+        report_path: 报告路径，如果为None则使用默认的REPORT_PATH
+    
+    Returns:
+        list: 生成的报告文件路径列表
+    """
+    from datetime import datetime
+    
+    # 使用指定的report_path或默认的REPORT_PATH
+    target_path = report_path if report_path else REPORT_PATH
+    
     print("=" * 60)
     print("问答系统召回质量评估报告生成器")
     print("=" * 60)
 
-    # 1. 加载metric_all数据
+    # 1、查看REPORT_PATH下有几个metric_all_xxx.json文件，并加载数据
     print("\n1. 加载metric数据...")
-    metric_all = load_metric_data()
+    metric_json_files = [f for f in os.listdir(target_path) if f.startswith("metric") and f.endswith(".json")]
+    
+    if not metric_json_files:
+        print(f"错误: {target_path}不存在metric开头的json文件")
+        return []
+    
+    name_file_map = {}
+    for metric_json_file in metric_json_files:
+        metric_data = load_metric_data(metric_json_file, target_path)
+        if metric_data:
+            name_file_map[metric_json_file] = metric_data
+            print(f"已加载 {metric_json_file}, 问题{len(metric_data)}个")
+        else:
+            print(f"警告: 无法加载 {metric_json_file}")
 
-    if not metric_all:
-        print("错误: 无法加载metric数据")
+    if not name_file_map:
+        print("错误: 没有成功加载任何metric数据文件")
+        return []
+
+    # 2. 分析数据并生成报告
+    print("\n2. 分析metric数据并生成报告...")
+    report_files = []
+    for file_name, metric_data in name_file_map.items():
+        # 提取文件名（不含扩展名）
+        base_name = Path(file_name).stem
+        
+        # 分析数据
+        analysis_results = analyze_metrics(metric_data)
+        
+        # 生成html报告
+        html_content = generate_html_report(analysis_results)
+        
+        # 保存html报告，使用输入文件名作为报告名称的一部分
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = target_path / f"report_{base_name}_{timestamp}.html"
+        
+        try:
+            with open(report_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            file_size_kb = os.path.getsize(report_file) / 1024
+            print(f"\n报告已生成: {report_file}")
+            print(f"文件大小: {file_size_kb:.1f} KB")
+            report_files.append(report_file)
+        except Exception as e:
+            print(f"保存报告文件 {report_file} 时出错: {e}")
+    
+    return report_files
+
+
+def main():
+    """主函数：生成评估报告"""
+    # 使用新的函数生成报告
+    report_files = generate_reports_from_metric_files()
+    
+    if not report_files:
         return
-
-    print(f"加载了 {len(metric_all)} 个问题的metric数据")
-
-    # 2. 分析数据
-    print("\n2. 分析metric数据...")
-    analysis_results = analyze_metrics(metric_all)
-
-    # 3. 生成HTML报告
-    print("\n3. 生成HTML报告...")
-    html_content = generate_html_report(analysis_results)
-
-    # 4. 保存报告
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = project_root.parent / "report_data" / f"metrics_report_{timestamp}.html"
-
-    with open(report_file, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-
-    print(f"\n报告已生成: {report_file}")
-    print(f"文件大小: {os.path.getsize(report_file) / 1024:.1f} KB")
-
-    # 5. 在浏览器中打开报告（可选）
+    
+    # 尝试在浏览器中打开报告
+    print("\n3. 尝试打开报告...")
     try:
         import webbrowser
-        webbrowser.open(f"file://{report_file}")
-        print("已在浏览器中打开报告")
-    except:
+        for file in report_files:
+            webbrowser.open(f"file://{file}")
+            print(f"已在浏览器中打开报告: {file.name}")
+    except Exception as e:
+        print(f"打开浏览器时出错: {e}")
         print("请手动打开报告文件查看")
-
-    # 6. 保存原始数据（可选）
-    save_option = input("\n是否保存metric_all数据到文件？(y/n): ")
-    if save_option.lower() == 'y':
-        save_metric_data(metric_all)
-
+    
     print("\n" + "=" * 60)
     print("报告生成完成！")
     print("=" * 60)
