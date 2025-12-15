@@ -1,8 +1,9 @@
 import os.path
 import jsonpath
+from pathlib import Path
 from utils.logger import logger
 
-from env_config_init import settings, QUESTION_JSON, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR
+from env_config_init import settings, QUESTION_JSON, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR, KNOWLEDGE_PATH
 from zlpt.login import LoginManager
 from zlpt.api.knowledge_base.retriveve import Retrieve
 from zlpt.api.knowledge_base.knowledgeBase import KnowledgeBase
@@ -254,7 +255,7 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text'):
     logger.info(f"标注完成 - 成功: {success_count}, 失败: {failed_count}")
 
 
-def lzpt_init(name, chunk_size, chunk_overlap, doc_dir, knowledge_dict):
+def lzpt_init(name, chunk_size, chunk_overlap, doc_dir):
     """
     初始化紫鸾平台：登录、创建知识库、上传文件
 
@@ -263,8 +264,6 @@ def lzpt_init(name, chunk_size, chunk_overlap, doc_dir, knowledge_dict):
         chunk_size (int): 切片大小
         chunk_overlap (int): 切片重叠大小
         doc_dir (str): 目标文件路径
-        knowledge_dict (dict): 存储知识库信息的字典
-
     Returns:
         tuple: 包含紫鸾平台用户、知识库ID、知识库根ID和文档ID的元组
     """
@@ -278,7 +277,8 @@ def lzpt_init(name, chunk_size, chunk_overlap, doc_dir, knowledge_dict):
         knowledge_name = zlpt_create_knowledge_base(know_client, name, chunk_size, chunk_overlap)
         # 获取知识库id
         kno_id = know_client.knowledge_list(knowledge_name)['data'][0]['knowledgeId']
-        knowledge_dict[kno_id] = {'name': knowledge_name, 'chunk_size': chunk_size, 'chunk_overlap': chunk_overlap}
+        knowledge_dict = {'kno_id': kno_id, 'name': knowledge_name, 'chunk_size': chunk_size,
+                          'chunk_overlap': chunk_overlap}
         # 获取知识库的根id
         kno_root_id = know_client.knowledge_content_tree(kno_id)['data'][0]['contentCode']
         # 上传文件
@@ -286,27 +286,24 @@ def lzpt_init(name, chunk_size, chunk_overlap, doc_dir, knowledge_dict):
 
         zlpt_wait_learning(know_client, kno_id)
         logger.info("紫鸾平台初始化流程完成")
-        return zlpt_user, know_client, kno_id, kno_root_id, filenames
+        return zlpt_user, know_client, kno_root_id, filenames, knowledge_dict
     except Exception as e:
         logger.error(f"紫鸾平台初始化流程失败: {e}")
         raise
 
 
-def ls_project_init(knowledge_dict, kno_id):
+def ls_project_init(knowledge_dict):
     """
     初始化Label Studio项目：创建项目、标签界面和任务
 
     Args:
         knowledge_dict (dict): 知识库信息字典
-        kno_id (str): 知识库ID
         lzpt_doc_chunk_all (list): 所有文档切片数据
 
     Returns:
         tuple: 包含Label Studio用户和项目对象的元组
     """
-    know_info = knowledge_dict[kno_id]
-    name = know_info['name']
-
+    name = knowledge_dict['name']
     ls_user = login_label_studio()
     project = ls_create_project(ls_user, name)
     return ls_user, project
@@ -327,17 +324,16 @@ def zlpt_init_and_ls_label():
     try:
         chunk_size = settings.CHUNK_SIZE
         chunk_overlap = settings.CHUNK_OVERLAP
-        knowledge_dict = {}
-
         logger.info(f"配置参数 - CHUNK_SIZE: {chunk_size}, CHUNK_OVERLAP: {chunk_overlap}")
-
         # 创建知识库和上传文件
-        zlpt_user, know_client, kno_id, kno_root_id, filenames = lzpt_init(QUESTION_JSON['doc_name'], chunk_size,
-                                                                           chunk_overlap, DOC_DIR, knowledge_dict)
-
+        zlpt_user, know_client, kno_root_id, filenames, knowledge_dict = lzpt_init(QUESTION_JSON['doc_name'],
+                                                                                   chunk_size,
+                                                                                   chunk_overlap, DOC_DIR)
+        kno_id = knowledge_dict['kno_id']
         # 登录ls创建项目、label interface
-        ls_user, project = ls_project_init(knowledge_dict, kno_id)
-
+        ls_user, project = ls_project_init(knowledge_dict)
+        # 保存knowledge_dict到本地
+        save_json_file(knowledge_dict, KNOWLEDGE_PATH)
         # 获取知识库下的所有doc_id
         doc_ids = jsonpath.jsonpath(know_client.knowledge_doc_list(kno_id), '$.data.records..docId')
         logger.info(f"发现 {len(doc_ids)} 个文档")
@@ -374,7 +370,6 @@ def zlpt_init_and_ls_label():
         file_path = os.path.join(LS_LABELED_CHUNKS_DIR, f"{QUESTION_JSON['doc_name']}.json")
         save_json_file(project_raw_data, file_path)
         logger.info(f"已保存标注数据到: {file_path}")
-
         logger.info("=== 完整流程执行完成 ===")
         return knowledge_dict, zlpt_user, ls_user, kno_id, project
     except Exception as e:
