@@ -935,7 +935,7 @@ def example_merge_annotation():
 if __name__ == '__main__':
     # 在project下获得对应的task
     from label_studio_sdk._legacy import Project
-    from label_studio.label_studio_client import label_studio_client
+    from label_studio_api.label_studio_client import label_studio_client
 
     try:
         project = label_studio_client.get_projects(title="ospf_chunk_test")[0]

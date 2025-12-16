@@ -71,5 +71,4 @@ class Logger:
         return self.logger
 
 logger = Logger(log_dir=settings.LOG_DIR if hasattr(settings, 'LOG_DIR') else './logs',
-                      log_level=logging.INFO,
-                      name="zlpt_ls_operate")
+                      log_level=logging.INFO)

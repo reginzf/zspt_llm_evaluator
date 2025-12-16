@@ -132,7 +132,7 @@ class MyModel(LabelStudioMLBase):
 
             # 获取输入文本的 embedding
             query_embedding = self._get_embedding(text_data)
-
+            # 初始化结果列表
             results = []
             from_name_types = []
             total_score = 0.0
@@ -171,7 +171,6 @@ class MyModel(LabelStudioMLBase):
                                 break
                     total_score += max_similarity
                     matched_count += 1
-
                     logger.info(
                         f"Task {task_id}: Matched {category} -> '{matched_choice}' (score: {max_similarity:.4f})")
                 else:
@@ -180,14 +179,11 @@ class MyModel(LabelStudioMLBase):
 
             # 计算平均置信度
             avg_score = total_score / matched_count if matched_count > 0 else 0.0
-
             logger.info(f"Task {task_id}: {matched_count} matches, average score: {avg_score:.4f}")
-
             return {
                 'result': results,
                 'score': float(avg_score)
             }
-
         except Exception as e:
             logger.error(f"Prediction error for task {task.get('id', 'unknown')}: {str(e)}", exc_info=True)
             return {

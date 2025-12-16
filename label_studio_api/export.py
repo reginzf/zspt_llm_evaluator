@@ -67,6 +67,6 @@ def export_custom_json_format(project: Project, export_type='JSON'):
 
 
 if __name__ == '__main__':
-    from label_studio.label_studio_client import label_studio_client
+    from label_studio_api.label_studio_client import label_studio_client
     project = label_studio_client.get_projects(title='OSPFv2_RFC2328_Detailed_400_10')[0]
     export_custom_json_format(project)

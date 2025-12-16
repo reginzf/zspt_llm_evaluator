@@ -1,6 +1,7 @@
 [default]
 TEST_PATH = 'ospf'
 QUESTION_TYPE = 'BASIC' # BASIC 基础集，DETAILED 详细集， MECHANISM 机制集 THEMATIC 主题集
+CAL_BY = 'CHUNK_ID' # CHUNK_ID 按chunk_id进行计算，TEXT 按text进行语义计算
 # zlpt
 ZLPT_BASE_URL = "https://10.220.49.200"
 KEY1 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCbPqaFZ0lgebihx"

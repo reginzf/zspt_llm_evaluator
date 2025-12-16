@@ -1,5 +1,5 @@
 from src.lzpt_ls_operate import login_zlpt, login_label_studio
-from label_studio.task import get_tasks_with_specific_choice
+from label_studio_api.task import get_tasks_with_specific_choice
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics
 from zlpt.api.knowledge_base.retriveve import Retrieve
 from utils.logger import logger
