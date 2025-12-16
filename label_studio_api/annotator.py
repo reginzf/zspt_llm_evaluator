@@ -4,7 +4,7 @@ import requests
 from typing import List, Dict, Any, Optional, Union
 from enum import Enum
 
-__all__ = ["AnnotationOperation", "AnnotationGenerator", "AnnotateToAdd", "AnnotateToCreate"]
+__all__ = ["AnnotationOperation", "AnnotationGenerator", "AnnotateToAdd", "AnnotateToCreate", "Annotator"]
 VALUE_KEY_MAP = {
     "choices": 'choices',
     "labels": 'labels',
@@ -332,9 +332,10 @@ class Annotator:
         return result
 
     def create_annotation(self, task_id, annotation_data, http_method='POST',
-                          lead_time=30.0, ground_truth=False, created_by="auto_annotator"):
+                          lead_time=30.0, ground_truth=False, created_by="auto_annotator",
+                          prediction=False):
         """
-        创建或更新标注
+        创建或更新标注/预测
 
         Args:
             task_id: 任务ID
@@ -343,11 +344,15 @@ class Annotator:
             lead_time: 标注耗时
             ground_truth: 是否为基准标注
             created_by: 创建者
+            prediction: 是否为预测（True则创建预测，False则创建标注）
 
         Returns:
             操作结果
         """
-        url = f"{self.url}/api/tasks/{task_id}/annotations?project={self.project.id}"
+        if prediction:
+            url = f"{self.url}/api/predictions/"
+        else:
+            url = f"{self.url}/api/tasks/{task_id}/annotations?project={self.project.id}"
 
         # 构建完整的标注数据
         ann_data = {
@@ -358,32 +363,52 @@ class Annotator:
             "created_by": created_by
         }
 
+        if prediction:
+            # 对于预测，需要添加task和project信息
+            ann_data["task"] = task_id
+            ann_data["project"] = self.project.id
+
         if http_method == 'POST':
             response = requests.post(url, headers=self.headers, json=ann_data)
         elif http_method == 'PATCH':
-            # 对于PATCH请求，需要先获取现有标注ID
-            existing_annotations = self.get_task_annotations(task_id)
-            if existing_annotations:
-                # 更新第一个标注
-                annotation_id = existing_annotations[0].get('id')
-                patch_url = f"{self.url}/api/annotations/{annotation_id}/"
-                response = requests.patch(patch_url, headers=self.headers, json=ann_data)
+            if prediction:
+                # 对于预测的PATCH请求，需要先获取现有预测ID
+                existing_predictions = self.get_task_predictions(task_id)
+                if existing_predictions:
+                    # 更新第一个预测
+                    prediction_id = existing_predictions[0].get('id')
+                    patch_url = f"{self.url}/api/predictions/{prediction_id}"
+                    response = requests.patch(patch_url, headers=self.headers, json=ann_data)
+                else:
+                    # 如果没有现有预测，则创建新预测
+                    response = requests.post(url, headers=self.headers, json=ann_data)
             else:
-                # 如果没有现有标注，则创建新标注
-                response = requests.post(url, headers=self.headers, json=ann_data)
+                # 对于标注的PATCH请求，需要先获取现有标注ID
+                existing_annotations = self.get_task_annotations(task_id)
+                if existing_annotations:
+                    # 更新第一个标注
+                    annotation_id = existing_annotations[0].get('id')
+                    patch_url = f"{self.url}/api/annotations/{annotation_id}/"
+                    response = requests.patch(patch_url, headers=self.headers, json=ann_data)
+                else:
+                    # 如果没有现有标注，则创建新标注
+                    response = requests.post(url, headers=self.headers, json=ann_data)
         else:
             raise ValueError("http_method参数错误,支持POST|PATCH")
 
         if response.status_code in [200, 201]:
-            annotation_id = response.json().get('id')
-            print(f"✅ 标注操作成功！标注ID: {annotation_id}")
+            result_id = response.json().get('id')
+            result_type = "预测" if prediction else "标注"
+            print(f"✅ {result_type}操作成功！ID: {result_id}")
             return {
                 "success": True,
-                "annotation_id": annotation_id,
+                "id": result_id,
+                "type": "prediction" if prediction else "annotation",
                 "data": response.json()
             }
         else:
-            print(f"❌ 标注操作失败: {response.status_code},错误信息: {response.text}")
+            result_type = "预测" if prediction else "标注"
+            print(f"❌ {result_type}操作失败: {response.status_code},错误信息: {response.text}")
             return {
                 "success": False,
                 "error": response.text,
@@ -407,6 +432,26 @@ class Annotator:
             return response.json()
         else:
             print(f"❌ 获取标注失败: {response.status_code}")
+            return []
+
+    def get_task_predictions(self, task_id: int) -> List[Dict]:
+        """
+               获取任务的所有预测
+
+               Args:
+                   task_id: 任务ID
+
+               Returns:
+                   预测列表
+               """
+        url = f"{self.url}/api/predictions/"
+        j_data = {"project": self.project.id, "task": task_id}
+        response = requests.get(url, headers=self.headers, json=j_data)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"❌ 获取预测失败: {response.status_code}")
             return []
 
     def task_annotate_add(self, task: dict, annotate_to_add: AnnotateToAdd) -> Dict:
@@ -490,13 +535,14 @@ class Annotator:
                 "status_code": response.status_code
             }
 
-    def task_annotate_create(self, task: dict, annotate_to_create: AnnotateToCreate) -> Dict:
+    def task_annotate_create(self, task: dict, annotate_to_create: AnnotateToCreate, prediction=False) -> Dict:
         """
         创建新标注
 
         Args:
             task: 任务信息
             annotate_to_create: 要创建的标注配置
+            prediction: 是否为预测（True则保存到predictions，False则保存到annotations）
 
         Returns:
             操作结果
@@ -509,7 +555,10 @@ class Annotator:
             }
 
         # 获取现有标注
-        existing_annotations = self.get_task_annotations(task_id)
+        if prediction:
+            existing_annotations = self.get_task_predictions(task_id)
+        else:
+            existing_annotations = self.get_task_annotations(task_id)
 
         if existing_annotations:
             # 有现有标注，检查是否需要合并
@@ -569,33 +618,16 @@ class Annotator:
                     # 添加新项
                     updated_results.append(new_item)
 
-            # 如果有合并操作，使用PATCH更新现有标注
-            if merged_items:
-                url = f"{self.url}/api/annotations/{annotation_id}/"
+            # 使用PATCH更新现有标注
+            if prediction:
+                url = f"{self.url}/api/predictions/{annotation_id}"
                 update_data = {
-                    "result": updated_results,
-                    "lead_time": annotate_to_create.lead_time,
-                    "ground_truth": annotate_to_create.ground_truth,
-                    "updated_at": "auto"
+                    "task": task_id,
+                    "result": updated_results
                 }
-
                 response = requests.patch(url, headers=self.headers, json=update_data)
 
-                if response.status_code == 200:
-                    return {
-                        "success": True,
-                        "annotation_id": annotation_id,
-                        "merged_items": merged_items,
-                        "message": f"成功合并标注项: {', '.join(merged_items)}"
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": response.text,
-                        "status_code": response.status_code
-                    }
             else:
-                # 没有合并，直接添加新标注项到现有标注
                 url = f"{self.url}/api/annotations/{annotation_id}/"
                 update_data = {
                     "result": updated_results,
@@ -606,18 +638,23 @@ class Annotator:
 
                 response = requests.patch(url, headers=self.headers, json=update_data)
 
-                if response.status_code == 200:
-                    return {
-                        "success": True,
-                        "annotation_id": annotation_id,
-                        "message": "成功添加新标注项到现有标注"
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": response.text,
-                        "status_code": response.status_code
-                    }
+            if response.status_code == 200:
+                message = "成功添加新标注项到现有标注"
+                if merged_items:
+                    message = f"成功合并标注项: {', '.join(merged_items)}"
+
+                return {
+                    "success": True,
+                    "annotation_id": annotation_id,
+                    "merged_items": merged_items,
+                    "message": message
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.text,
+                    "status_code": response.status_code
+                }
 
         else:
             # 没有现有标注，创建新标注
@@ -627,8 +664,23 @@ class Annotator:
                 http_method='POST',
                 lead_time=annotate_to_create.lead_time,
                 ground_truth=annotate_to_create.ground_truth,
-                created_by=annotate_to_create.created_by
+                created_by=annotate_to_create.created_by,
+                prediction=prediction
             )
+
+    def task_prediction_create(self, task: dict, annotate_to_create: AnnotateToCreate) -> Dict:
+        """
+        创建新预测
+
+        Args:
+            task: 任务信息
+            annotate_to_create: 要创建的预测配置
+
+        Returns:
+            操作结果
+        """
+        # 调用task_annotate_create，设置prediction=True
+        return self.task_annotate_create(task, annotate_to_create, prediction=True)
 
     def task_annotate_delete(self, task: dict, annotate_to_delete: AnnotateToDelete) -> Dict:
         """
@@ -741,11 +793,12 @@ class Annotator:
                 "status_code": response.status_code
             }
 
-    def task_annotate(self, task: dict, annotation_data):
+    def task_annotate(self, task: dict, annotation_data, prediction=False):
         """
         对task进行标注（兼容旧版本）
-        :param task_id:
-        :param annotation_data:
+        :param task: 任务信息
+        :param annotation_data: 标注数据
+        :param prediction: 是否为预测
         :return:
         """
         if task.get("total_annotations", 0) != 0:
@@ -754,9 +807,9 @@ class Annotator:
             if results:
                 results = results[0]
                 results.append(annotation_data)
-                return self.create_annotation(task["id"], results, http_method='PATCH')
+                return self.create_annotation(task["id"], results, http_method='PATCH', prediction=prediction)
 
-        return self.create_annotation(task["id"], annotation_data)
+        return self.create_annotation(task["id"], annotation_data, prediction=prediction)
 
 
 # 使用示例
