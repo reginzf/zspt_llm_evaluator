@@ -801,14 +801,21 @@ class Annotator:
         :param prediction: 是否为预测
         :return:
         """
-        if task.get("total_annotations", 0) != 0:
+        task_id = task.get("id")
+        if task_id is None:
+            raise ValueError("Task must contain 'id' key")
+        # 根据是否为预测模式确定计数键名和JSON路径表达式
+        count_key = "total_predictions" if prediction else "total_annotations"
+        jsonpath_expr = "$.predictions[*].result" if prediction else "$.annotations[*].result"
+
+        data_count = task.get(count_key, 0)
+        if data_count != 0:
             # 获取所有的result
-            results = jsonpath.jsonpath(task, "$.annotations[*].result")
-            if results:
+            results = jsonpath.jsonpath(task, jsonpath_expr)
+            if results and len(results) > 0 and isinstance(results[0], list):
                 results = results[0]
                 results.append(annotation_data)
-                return self.create_annotation(task["id"], results, http_method='PATCH', prediction=prediction)
-
+                return self.create_annotation(task_id, results, http_method='PATCH', prediction=prediction)
         return self.create_annotation(task["id"], annotation_data, prediction=prediction)
 
 
