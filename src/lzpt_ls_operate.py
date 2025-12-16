@@ -1,6 +1,5 @@
 import os.path
 import jsonpath
-from pathlib import Path
 from utils.logger import logger
 
 from env_config_init import settings, QUESTION_JSON, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR, KNOWLEDGE_PATH
@@ -8,10 +7,10 @@ from zlpt.login import LoginManager
 from zlpt.api.knowledge_base.retriveve import Retrieve
 from zlpt.api.knowledge_base.knowledgeBase import KnowledgeBase
 
-from label_studio.task import create_tasks
-from label_studio.label_studio_client import label_studio_client
-from label_studio.labels import LabelStudioXMLGenerator
-from label_studio.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
+from label_studio_api.task import create_tasks
+from label_studio_api.label_studio_client import label_studio_client
+from label_studio_api.labels import LabelStudioXMLGenerator
+from label_studio_api.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
 
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.questions import get_question_type_and_label
@@ -352,17 +351,7 @@ def zlpt_init_and_ls_label():
         logger.info("开始创建Label Studio任务")
         ls_create_tasks(project, zlpt_get_chunk_all)
 
-        # 初始化项目标注器
-        logger.info("初始化项目标注器")
-        annotator = Annotator(project)
-
-        # 初始化召回器
-        logger.info("初始化召回器")
-        retrieve_client = Retrieve(zlpt_user)
-
-        # 召回并标注
-        logger.info("开始召回并标注")
-        label_chunks(retrieve_client, annotator, 'augmentedSearch', kno_id)
+        # 标注任务移出去做
 
         # 查询所有任务，并保存到本地
         logger.info("导出任务数据")
