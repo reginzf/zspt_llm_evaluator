@@ -211,7 +211,7 @@ def ls_create_tasks(project, chunk_all):
     return res  # [task_id1,task_id2...]
 
 
-def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text'):
+def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', prediction=False):
     """
        根据切片ID对返回的切片进行标注
 
@@ -239,9 +239,13 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text'):
                 lead_time=35.0,
                 merge_existing=True  # 启用合并功能
             )
-            result = annotator.task_annotate_create(target_task, annotate_to_create)
+            if prediction:
+                result = annotator.task_prediction_create(target_task, annotate_to_create)
+            else:
+                result = annotator.task_annotate_create(target_task, annotate_to_create)
+
             success_count += 1
-            logger.debug(f"成功标注切片: {chunk['chunk_id']}")
+            logger.debug(f"成功标注切片: {chunk['chunk_id']},{result}")
         except IndexError:
             logger.warning(f"未找到任务：{chunk['chunk_id']}")
             failed_count += 1
@@ -250,7 +254,6 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text'):
             logger.error(f"标注切片 {chunk['chunk_id']} 时出错: {e}")
             failed_count += 1
             continue
-
     logger.info(f"标注完成 - 成功: {success_count}, 失败: {failed_count}")
 
 
@@ -308,13 +311,49 @@ def ls_project_init(knowledge_dict):
     return ls_user, project
 
 
-def label_chunks(retrieve_client, annotator, search_type, kno_id):
+def label_chunks(retrieve_client, annotator, search_type, kno_id, prediction):
+    """
+     对检索到的知识片段进行标注处理
+
+     参数:
+         retrieve_client: 召回客户端对象，用于执行知识检索操作
+         annotator: 标注器对象，用于对文本片段进行标注
+         search_type: 搜索类型，指定检索的方式或范围
+         kno_id: 知识库ID，标识要检索的知识库
+         prediction: True 写入到预测中 False 写入到标注中
+
+     返回值:
+         无返回值
+     """
+    # 遍历问题数据，对每个问题检索相关知识片段并进行标注
     for question_dict in QUESTION_JSON['datas']:
         questions = question_dict['questions']
         for question in questions:
+            # 执行知识检索，获取与问题相关的知识片段
             retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
             chunks = retrieve_data['data']['records']
-            label_chunks_by_chunk_id(annotator, question, chunks, 'text')
+            # 根据chunk_id对检索到的知识片段进行标注
+            label_chunks_by_chunk_id(annotator, question, chunks, 'text', prediction)
+
+
+def label_by_retrieve(zlpt_user, kno_id, ls_project, search_type, prediction=False):
+    """
+    通过召回进行标记或预测
+    :param zlpt_user:
+    :param kno_id:
+    :param ls_project:
+    :param search_type:
+    :param prediction:
+    :return:
+    """
+    logger.info("初始化项目标注器")
+    annotator = Annotator(ls_project)
+    # 初始化召回器
+    logger.info("初始化召回器")
+    retrieve_client = Retrieve(zlpt_user)
+    # 召回并标注
+    logger.info("开始召回并标注")
+    label_chunks(retrieve_client, annotator, search_type, kno_id, prediction)
 
 
 def zlpt_init_and_ls_label():
