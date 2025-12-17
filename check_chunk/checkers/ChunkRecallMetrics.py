@@ -595,6 +595,96 @@ class ChunkRecallEvaluator:
 
         return avg_metrics
 
+    def calculate_metrics_similarity(
+            self,
+            matched_list: List[float],
+            len_relevant_chunks: int,
+            threshold: float = 0.5,
+            top_n: Optional[int] = None
+    ) -> RecallMetrics:
+        """
+        根据匹配列表计算召回质量指标
+        
+        Args:
+            matched_list: 匹配分数列表，1表示完全匹配，0表示没有匹配，小数表示相似度
+                        例如: [1, 0, 0.911, 1, 0, 0.611, 0]
+            len_relevant_chunks: 对应问题标注的切片数量
+            threshold: 判断为相关文档的阈值，默认0.5
+            top_n: 如果指定，只考虑前top_n个结果
+            
+        Returns:
+            RecallMetrics: 包含所有评估指标的结果对象
+        """
+        # 如果指定了top_n，只取前top_n个结果
+        if top_n is not None and top_n > 0:
+            matched_list = matched_list[:top_n]
+
+        # 根据阈值判断相关文档
+        relevant_indices = [i for i, score in enumerate(matched_list) if score >= threshold]
+
+        # 计算基础统计
+        total_retrieved = len(matched_list)
+        total_relevant = len(relevant_indices)
+        true_positives = total_relevant  # 所有超过阈值的都被视为真正例
+        false_positives = total_retrieved - total_relevant  # 低于阈值的为假正例
+
+        # 计算假反例：使用len_relevant_chunks作为总相关文档数
+        false_negatives = max(0, len_relevant_chunks - total_relevant)
+
+        # 计算基础指标
+        precision = self._calculate_precision(true_positives, total_retrieved)
+        recall = self._calculate_recall(true_positives, len_relevant_chunks)
+        f1_score = self._calculate_f1_score(precision, recall)
+
+        # 计算Top K指标（基于分数排序）
+        # 首先按分数降序排序，然后计算指标
+        sorted_indices = sorted(range(len(matched_list)),
+                                key=lambda i: matched_list[i],
+                                reverse=True)
+        sorted_scores = [matched_list[i] for i in sorted_indices]
+
+        # 创建虚拟的chunk IDs用于计算
+        retrieved_chunks = [f"chunk_{i}" for i in range(len(matched_list))]
+        retrieved_set = set(retrieved_chunks)
+        relevant_set = set([f"chunk_{i}" for i in relevant_indices])
+
+        precision_at_k = self._calculate_precision_at_k(retrieved_chunks, relevant_set)
+        recall_at_k = self._calculate_recall_at_k(retrieved_chunks, relevant_set)
+
+        # 计算排序质量指标（使用分数作为相关性判断）
+        average_precision = self._calculate_average_precision(retrieved_chunks, relevant_set)
+
+        # 对于NDCG，使用分数作为增益
+        ndcg = self._calculate_ndcg_with_scores(sorted_scores, threshold)
+
+        # 计算MRR
+        mrr = self._calculate_mrr(retrieved_chunks, relevant_set)
+
+        # 计算其他指标
+        hit_rate = self._calculate_hit_rate(retrieved_chunks, relevant_set)
+        coverage = self._calculate_coverage(retrieved_set, relevant_set)
+        redundancy = self._calculate_redundancy(retrieved_chunks)
+
+        return RecallMetrics(
+            precision=precision,
+            recall=recall,
+            f1_score=f1_score,
+            precision_at_k=precision_at_k,
+            recall_at_k=recall_at_k,
+            average_precision=average_precision,
+            mean_average_precision=average_precision,  # 单查询时MAP=AP
+            ndcg=ndcg,
+            mrr=mrr,
+            hit_rate=hit_rate,
+            coverage=coverage,
+            redundancy=redundancy,
+            true_positives=true_positives,
+            false_positives=false_positives,
+            false_negatives=false_negatives,
+            total_relevant=len_relevant_chunks,
+            total_retrieved=total_retrieved,
+        )
+
     def evaluate_scores_batch(
             self,
             scores_queries: List[Tuple[List[float], str]],
@@ -653,130 +743,3 @@ class ChunkRecallEvaluator:
             "detailed_results": detailed_results,
             "query_count": len(scores_queries)
         }
-
-
-# 使用示例
-def main():
-    """使用示例"""
-    # 创建评估器
-    evaluator = ChunkRecallEvaluator(top_n_values=[1, 3, 5, 10])
-
-    # 示例数据
-    retrieved_chunks = ["chunk_1", "chunk_2", "chunk_3", "chunk_4", "chunk_5"]
-    relevant_chunks = ["chunk_2", "chunk_4", "chunk_6"]
-
-    # 计算单个查询的指标
-    metrics = evaluator.calculate_metrics(retrieved_chunks, relevant_chunks)
-    print("单个查询评估结果:")
-    print(metrics)
-    print("\n详细指标:")
-    for key, value in metrics.to_dict().items():
-        if isinstance(value, dict):
-            print(f"  {key}:")
-            for k, v in value.items():
-                print(f"    @{k}: {v:.4f}")
-        else:
-            print(f"  {key}: {value}")
-
-    # 批量评估示例
-    print("\n" + "=" * 50)
-    print("批量评估示例:")
-
-    queries_results = [
-        (["chunk_1", "chunk_2", "chunk_3"], ["chunk_2", "chunk_4"]),
-        (["chunk_4", "chunk_5", "chunk_6"], ["chunk_4", "chunk_6"]),
-        (["chunk_7", "chunk_8"], ["chunk_7"]),
-    ]
-
-    batch_results = evaluator.evaluate_batch(queries_results)
-    print(f"查询数量: {batch_results['query_count']}")
-    print("\n平均指标:")
-    for key, value in batch_results["average_metrics"].items():
-        print(f"  {key}: {value:.4f}")
-
-    # 新增：分数列表评估示例
-    print("\n" + "=" * 50)
-    print("分数列表评估示例:")
-
-    # 示例分数列表
-    similarity_scores = [1.0, 0.9333488941192627, 1.0, 0.0, 0.895878791809082]
-    question = "测试问题：如何配置数据库连接？"
-
-    # 使用新方法计算指标（不提供len_chunk2）
-    scores_metrics = evaluator.calculate_metrics_from_scores(
-        similarity_scores,
-        threshold=0.5,
-        len_chunk2=0
-    )
-
-    print(f"问题: {question}")
-    print(f"分数列表: {similarity_scores}")
-    print("\n评估结果（不提供len_chunk2）:")
-    print(scores_metrics)
-    print("\n详细指标:")
-    for key, value in scores_metrics.to_dict().items():
-        if isinstance(value, dict):
-            print(f"  {key}:")
-            for k, v in value.items():
-                print(f"    @{k}: {v:.4f}")
-        else:
-            print(f"  {key}: {value}")
-
-    # 使用新方法计算指标（提供len_chunk2）
-    scores_metrics_with_len = evaluator.calculate_metrics_from_scores(
-        similarity_scores,
-        threshold=0.5,
-        len_chunk2=5  # 假设人工标注了5个相关切片
-    )
-
-    print("\n" + "=" * 50)
-    print("评估结果（提供len_chunk2=5）:")
-    print(scores_metrics_with_len)
-    print("\n详细指标:")
-    for key, value in scores_metrics_with_len.to_dict().items():
-        if isinstance(value, dict):
-            print(f"  {key}:")
-            for k, v in value.items():
-                print(f"    @{k}: {v:.4f}")
-        else:
-            print(f"  {key}: {value}")
-
-    # 批量分数评估示例
-    print("\n" + "=" * 50)
-    print("批量分数评估示例:")
-
-    scores_queries = [
-        ([1.0, 0.8, 0.6, 0.3, 0.9], "问题1：如何安装Python？"),
-        ([0.7, 0.5, 0.9, 0.2, 0.4], "问题2：如何配置环境变量？"),
-        ([0.3, 0.1, 0.8, 0.95, 0.6], "问题3：如何调试代码？"),
-    ]
-
-    # 对应的len_chunk2列表
-    len_chunk2_list = [3, 4, 2]
-
-    # 批量评估（不提供len_chunk2_list）
-    scores_batch_results = evaluator.evaluate_scores_batch(
-        scores_queries,
-        threshold=0.5
-    )
-
-    print(f"查询数量: {scores_batch_results['query_count']}")
-    print("\n平均指标（不提供len_chunk2_list）:")
-    for key, value in scores_batch_results["average_metrics"].items():
-        print(f"  {key}: {value:.4f}")
-
-    # 批量评估（提供len_chunk2_list）
-    scores_batch_results_with_len = evaluator.evaluate_scores_batch(
-        scores_queries,
-        threshold=0.5,
-        len_chunk2_list=len_chunk2_list
-    )
-
-    print("\n" + "=" * 50)
-    print("平均指标（提供len_chunk2_list）:")
-    for key, value in scores_batch_results_with_len["average_metrics"].items():
-        print(f"  {key}: {value:.4f}")
-
-
-if __name__ == "__main__":
-    main()
