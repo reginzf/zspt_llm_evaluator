@@ -1,7 +1,4 @@
 from src.lzpt_ls_operate import *
-from label_studio_api.task import get_tasks_with_specific_choice
-from check_chunk.checker_funcs import calculate_chunk_recall_metrics
-from check_chunk.checkers.ChunkRecallMetrics import CHUNK_KEY_MAP
 from env_config_init import KNOWLEDGE_PATH,REPORT_PATH
 from utils.pub_funs import load_json_file
 
@@ -12,6 +9,10 @@ def main():
      """
     # step 1：上传文件并解析，获取切片数据并标注
     knowledge_dict, zlpt_user, ls_user, kno_id, project = zlpt_init_and_ls_label()
+
+    # step 2: 标注 知识平台召回标注 | 本地模型预测标注 | llm模型预测标注 三选一
+    # 初始化项目标注器
+
     from check_chunk.do_check import cal_metric_all
     # 需要读取的字典文件
     knowledge_dict = load_json_file(KNOWLEDGE_PATH)

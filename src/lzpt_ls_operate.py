@@ -4,21 +4,26 @@ from utils.logger import logger
 
 from env_config_init import settings, QUESTION_JSON, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR, KNOWLEDGE_PATH
 from zlpt.login import LoginManager
-from zlpt.api.knowledge_base.retriveve import Retrieve
-from zlpt.api.knowledge_base.knowledgeBase import KnowledgeBase
+from zlpt.api.knowledge_base import Retrieve
+from zlpt.api.knowledge_base import KnowledgeBase
 
-from label_studio_api.task import create_tasks
-from label_studio_api.label_studio_client import label_studio_client
-from label_studio_api.labels import LabelStudioXMLGenerator
+from label_studio_api import create_tasks
+from label_studio_api import label_studio_client
+from label_studio_api import LabelStudioXMLGenerator
 from label_studio_api.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
 
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.questions import get_question_type_and_label
 from utils.decorators import check
-from utils.pub_funs import save_json_file
+from utils.pub_funs import save_json_file, load_json_file
 
 annotation_generator = AnnotationGenerator()
 label_generator = LabelStudioXMLGenerator(grid_columns=2)
+chunk_size = settings.CHUNK_SIZE
+chunk_overlap = settings.CHUNK_OVERLAP
+
+
+# 登录知识平台
 
 
 def login_zlpt():
@@ -38,6 +43,10 @@ def login_zlpt():
     except Exception as e:
         logger.error(f"紫鸾平台登录失败: {e}")
         raise
+
+
+zlpt_user = login_zlpt()
+know_client = KnowledgeBase(zlpt_user)
 
 
 def login_label_studio():
@@ -135,6 +144,18 @@ def zlpt_get_chunk_all_by_doc_id(know_client, doc_id):
         raise e
 
 
+def zlpt_get_chunk_save(doc_ids):
+    zlpt_get_chunk_all = []
+    for doc_id in doc_ids:
+        doc_name, zlpt_get_doc_chunk_all = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
+        zlpt_get_chunk_all.extend(zlpt_get_doc_chunk_all)
+        # 保存到本地
+        file_path = os.path.join(ZLPT_CHUNKS_DIR, f"{doc_name}.json")
+        save_json_file({"chunks": zlpt_get_doc_chunk_all}, file_path)
+        logger.info(f"已保存切片数据到: {file_path}")
+    return zlpt_get_chunk_all
+
+
 def zlpt_get_chunk_by_question(zlpt_user, kno_id, question):
     """
     根据问题从知识库中检索相关切片
@@ -164,12 +185,13 @@ def zlpt_wait_learning(know_client, kno_id):
         raise e
 
 
-def ls_create_project(ls_user, title, description=''):
+ls_user = login_label_studio()
+
+
+def ls_create_project(title, description=''):
     """
     在Label Studio中创建项目并设置标签配置
-
     Args:
-        ls_user: Label Studio用户实例
         title (str): 项目标题
         description (str, optional): 项目描述，默认为空字符串
 
@@ -257,60 +279,6 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', predic
     logger.info(f"标注完成 - 成功: {success_count}, 失败: {failed_count}")
 
 
-def lzpt_init(name, chunk_size, chunk_overlap, doc_dir):
-    """
-    初始化紫鸾平台：登录、创建知识库、上传文件
-
-    Args:
-        name (str): 知识库名称
-        chunk_size (int): 切片大小
-        chunk_overlap (int): 切片重叠大小
-        doc_dir (str): 目标文件路径
-    Returns:
-        tuple: 包含紫鸾平台用户、知识库ID、知识库根ID和文档ID的元组
-    """
-    logger.info(f"开始初始化紫鸾平台流程 - 知识库: {name}")
-    # 登录紫鸾平台，完成文件上传
-    try:
-        # 登录紫鸾平台，完成文件上传
-        zlpt_user = login_zlpt()
-        know_client = KnowledgeBase(zlpt_user)
-        # 创建知识库
-        knowledge_name = zlpt_create_knowledge_base(know_client, name, chunk_size, chunk_overlap)
-        # 获取知识库id
-        kno_id = know_client.knowledge_list(knowledge_name)['data'][0]['knowledgeId']
-        knowledge_dict = {'kno_id': kno_id, 'name': knowledge_name, 'chunk_size': chunk_size,
-                          'chunk_overlap': chunk_overlap}
-        # 获取知识库的根id
-        kno_root_id = know_client.knowledge_content_tree(kno_id)['data'][0]['contentCode']
-        # 上传文件
-        res, filenames = zlpt_upload_files(know_client, doc_dir, kno_id, kno_root_id, chunk_size, chunk_overlap)
-
-        zlpt_wait_learning(know_client, kno_id)
-        logger.info("紫鸾平台初始化流程完成")
-        return zlpt_user, know_client, kno_root_id, filenames, knowledge_dict
-    except Exception as e:
-        logger.error(f"紫鸾平台初始化流程失败: {e}")
-        raise
-
-
-def ls_project_init(knowledge_dict):
-    """
-    初始化Label Studio项目：创建项目、标签界面和任务
-
-    Args:
-        knowledge_dict (dict): 知识库信息字典
-        lzpt_doc_chunk_all (list): 所有文档切片数据
-
-    Returns:
-        tuple: 包含Label Studio用户和项目对象的元组
-    """
-    name = knowledge_dict['name']
-    ls_user = login_label_studio()
-    project = ls_create_project(ls_user, name)
-    return ls_user, project
-
-
 def label_chunks(retrieve_client, annotator, search_type, kno_id, prediction):
     """
      对检索到的知识片段进行标注处理
@@ -356,50 +324,51 @@ def label_by_retrieve(zlpt_user, kno_id, ls_project, search_type, prediction=Fal
     label_chunks(retrieve_client, annotator, search_type, kno_id, prediction)
 
 
-def zlpt_init_and_ls_label():
-    # 初始化完整流程
-    logger.info("=== 开始完整的初始化和标注流程 ===")
+def zlpt_create_project():
+    logger.info("=== 开始紫鸾知识库创建和文件上传 ===")
     try:
-        chunk_size = settings.CHUNK_SIZE
-        chunk_overlap = settings.CHUNK_OVERLAP
         logger.info(f"配置参数 - CHUNK_SIZE: {chunk_size}, CHUNK_OVERLAP: {chunk_overlap}")
-        # 创建知识库和上传文件
-        zlpt_user, know_client, kno_root_id, filenames, knowledge_dict = lzpt_init(QUESTION_JSON['doc_name'],
-                                                                                   chunk_size,
-                                                                                   chunk_overlap, DOC_DIR)
-        kno_id = knowledge_dict['kno_id']
-        # 登录ls创建项目、label interface
-        ls_user, project = ls_project_init(knowledge_dict)
-        # 保存knowledge_dict到本地
-        save_json_file(knowledge_dict, KNOWLEDGE_PATH)
+        # 创建知识库
+        knowledge_name = zlpt_create_knowledge_base(know_client, QUESTION_JSON['doc_name'], chunk_size, chunk_overlap)
+        # 获取知识库id
+        kno_id = know_client.knowledge_list(knowledge_name)['data'][0]['knowledgeId']
+        knowledge_dict = {'kno_id': kno_id, 'name': knowledge_name, 'chunk_size': chunk_size,
+                          'chunk_overlap': chunk_overlap}
+        # 获取知识库的根id
+        kno_root_id = know_client.knowledge_content_tree(kno_id)['data'][0]['contentCode']
+        # 上传文件
+        zlpt_upload_files(know_client, DOC_DIR, kno_id, kno_root_id, chunk_size, chunk_overlap)
+        # 等待学习完成
+        zlpt_wait_learning(know_client, kno_id)
+        logger.info("紫鸾平台初始化流程完成")
         # 获取知识库下的所有doc_id
         doc_ids = jsonpath.jsonpath(know_client.knowledge_doc_list(kno_id), '$.data.records..docId')
+        knowledge_dict['doc_ids'] = doc_ids
         logger.info(f"发现 {len(doc_ids)} 个文档")
-
-        # 获取所有切片
-        zlpt_get_chunk_all = []
-        for doc_id in doc_ids:
-            doc_name, zlpt_get_doc_chunk_all = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
-            zlpt_get_chunk_all.extend(zlpt_get_doc_chunk_all)
-            # 保存到本地
-            file_path = os.path.join(ZLPT_CHUNKS_DIR, f"{doc_name}.json")
-            save_json_file({"chunks": zlpt_get_doc_chunk_all}, file_path)
-            logger.info(f"已保存切片数据到: {file_path}")
-
-        # 创建任务
-        logger.info("开始创建Label Studio任务")
-        ls_create_tasks(project, zlpt_get_chunk_all)
-
-        # 标注任务移出去做
-
-        # 查询所有任务，并保存到本地
-        logger.info("导出任务数据")
-        project_raw_data = project.export_tasks(export_type='JSON')
-        file_path = os.path.join(LS_LABELED_CHUNKS_DIR, f"{QUESTION_JSON['doc_name']}.json")
-        save_json_file(project_raw_data, file_path)
-        logger.info(f"已保存标注数据到: {file_path}")
-        logger.info("=== 完整流程执行完成 ===")
-        return knowledge_dict, zlpt_user, ls_user, kno_id, project
+        # 保存knowledge_dict到本地
+        save_json_file(knowledge_dict, KNOWLEDGE_PATH)
+        logger.info(f"保存知识库信息到: {KNOWLEDGE_PATH}\n{knowledge_dict}")
     except Exception as e:
-        logger.error(f"完整流程执行失败: {e}")
+        logger.error(f"紫鸾平台初始化流程失败: {e}")
         raise
+
+
+def ls_create_project_and_tasks():
+    logger.info("=== 开始 ===")
+    # 加载配置文件
+    knowledge_dict = load_json_file(KNOWLEDGE_PATH)
+    doc_ids = knowledge_dict['doc_ids']
+    # 获取所有切片
+    chunk_all = zlpt_get_chunk_save(doc_ids)
+    # 创建项目
+    project = ls_create_project(f'{knowledge_dict["name"]}_{chunk_size}_{chunk_overlap}')
+    # 创建任务
+    logger.info("开始创建Label Studio任务")
+    ls_create_tasks(project, chunk_all)
+
+
+def ls_save_data(project):
+    logger.info("导出任务数据")
+    project_raw_data = project.export_tasks(export_type='JSON')
+    file_path = os.path.join(LS_LABELED_CHUNKS_DIR, f"{QUESTION_JSON['doc_name']}.json")
+    save_json_file(project_raw_data, file_path)
