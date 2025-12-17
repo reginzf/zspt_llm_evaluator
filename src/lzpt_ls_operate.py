@@ -19,7 +19,7 @@ from utils.decorators import check
 from utils.pub_funs import save_json_file, load_json_file
 from typing import List, Dict, Any, Optional, Callable
 from label_studio_api.task import get_tasks_with_specific_choice
-from check_chunk.checker_funcs import calculate_chunk_recall_metrics
+from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 
 annotation_generator = AnnotationGenerator()
 label_generator = LabelStudioXMLGenerator(grid_columns=2)
@@ -380,6 +380,7 @@ def ls_create_project_and_tasks():
     ls_create_tasks(project, chunk_all)
     save_json_file(knowledge_dict, KNOWLEDGE_PATH)
 
+
 # 计算metric相关的方法：
 
 CHUNK_ID_PATH = '$.data.records..chunk_id'
@@ -495,6 +496,10 @@ def cal_metric_by_chunk_text_overlay_and_similarity(project_name: str, kno_id: s
     def extract_labeled_chunk_texts(tasks):
         return [task['data']['text'] for task in tasks]
 
+    def cal_similarity(chunk_list1, chunk_list2):
+        chunk_similarity_list = ali_checker.check_chunk_match(chunk_list1, chunk_list2)
+        return calculate_similarity_recall_metrics(chunk_similarity_list, len(chunk_list2))
+
     for question in questions:
         logger.debug(f"正在处理问题: {question}")
         metrics = _process_question_chunk_data(
@@ -503,7 +508,7 @@ def cal_metric_by_chunk_text_overlay_and_similarity(project_name: str, kno_id: s
             search_type=search_type,
             extract_zlpt_chunk_fn=extract_zlpt_chunk_texts,
             extract_labeled_chunk_fn=extract_labeled_chunk_texts,
-            compute_metrics_fn=ali_checker.check_chunk_match
+            compute_metrics_fn=cal_similarity
         )
         metric_all[question] = metrics
 

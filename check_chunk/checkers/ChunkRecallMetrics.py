@@ -5,7 +5,7 @@
 
 from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 
 CHUNK_KEY_MAP = {
@@ -36,10 +36,22 @@ class MetricType(Enum):
     F1_SCORE = "f1_score"
     PRECISION_AT_K = "precision_at_k"
     RECALL_AT_K = "recall_at_k"
-    MAP = "map"
+    MAP = "average_precision"  # 修改为与字段一致
     NDCG = "ndcg"
     MRR = "mrr"
     HIT_RATE = "hit_rate"
+
+
+def _apply_top_n_limit(data: list, top_n: Optional[int]) -> list:
+    """限制数据长度不超过 top_n"""
+    if top_n is not None and top_n > 0:
+        return data[:top_n]
+    return data
+
+
+def _generate_dummy_chunk_ids(length: int) -> List[str]:
+    """生成虚拟 chunk ID 列表"""
+    return [f"chunk_{i}" for i in range(length)]
 
 
 @dataclass
@@ -74,25 +86,7 @@ class RecallMetrics:
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
-        return {
-            "precision": self.precision,
-            "recall": self.recall,
-            "f1_score": self.f1_score,
-            "precision_at_k": self.precision_at_k,
-            "recall_at_k": self.recall_at_k,
-            "average_precision": self.average_precision,
-            "mean_average_precision": self.mean_average_precision,
-            "ndcg": self.ndcg,
-            "mrr": self.mrr,
-            "hit_rate": self.hit_rate,
-            "coverage": self.coverage,
-            "redundancy": self.redundancy,
-            "true_positives": self.true_positives,
-            "false_positives": self.false_positives,
-            "false_negatives": self.false_negatives,
-            "total_relevant": self.total_relevant,
-            "total_retrieved": self.total_retrieved,
-        }
+        return {field.name: getattr(self, field.name) for field in fields(self)}
 
     def __str__(self) -> str:
         """字符串表示"""
@@ -109,7 +103,7 @@ class RecallMetrics:
 class ChunkRecallEvaluator:
     """
     切片召回质量评估器
-    
+
     用于计算切片召回的各种质量指标，包括：
     1. 基础指标：准确率、召回率、F1分数
     2. Top K指标：不同K值下的准确率和召回率
@@ -120,7 +114,7 @@ class ChunkRecallEvaluator:
     def __init__(self, top_n_values: List[int] = None):
         """
         初始化评估器
-        
+
         Args:
             top_n_values: 要计算的Top K值列表，默认为[1, 3, 5, 10]
         """
@@ -128,68 +122,55 @@ class ChunkRecallEvaluator:
             top_n_values = [1, 3, 5, 10]
         self.top_n_values = top_n_values
 
-    def calculate_metrics_from_scores(
+    def calculate_metrics_by_matched_list(
             self,
-            similarity_scores: List[float],
-            threshold: float = 0.5,
-            len_chunk2: int = 0,
+            matched_list: List[float],
+            len_relevant_chunks: int,
+            threshold,
             top_n: Optional[int] = None
     ) -> RecallMetrics:
         """
-        根据相似度分数列表计算召回质量指标
-        
+        根据匹配列表计算召回质量指标
+
         Args:
-            similarity_scores: 相似度分数列表，1.0表示完全匹配，0.0表示没有匹配，小数表示语义匹配度
-            threshold: 判断为相关文档的阈值，默认0.5
-            len_chunk2: 人工标注的对应问题回答的切片总数，用于计算假反例和召回率
+            matched_list: 匹配分数列表，1表示完全匹配，0表示没有匹配，小数表示相似度
+                        例如: [1, 0, 0.911, 1, 0, 0.611, 0]
+            len_relevant_chunks: 对应问题标注的切片数量
+            threshold: 判断为相关文档的阈值
             top_n: 如果指定，只考虑前top_n个结果
+
         Returns:
             RecallMetrics: 包含所有评估指标的结果对象
         """
         # 如果指定了top_n，只取前top_n个结果
-        if top_n is not None and top_n > 0:
-            similarity_scores = similarity_scores[:top_n]
+        matched_list = _apply_top_n_limit(matched_list, top_n)
 
         # 根据阈值判断相关文档
-        relevant_indices = [i for i, score in enumerate(similarity_scores) if score >= threshold]
+        relevant_indices = [i for i, score in enumerate(matched_list) if score >= threshold]
 
         # 计算基础统计
-        total_retrieved = len(similarity_scores)
+        total_retrieved = len(matched_list)
         total_relevant = len(relevant_indices)
         true_positives = total_relevant  # 所有超过阈值的都被视为真正例
         false_positives = total_retrieved - total_relevant  # 低于阈值的为假正例
 
-        # 计算假反例：如果提供了len_chunk2，则使用它作为总相关文档数
-        if len_chunk2 > 0:
-            # 总相关文档数是len_chunk2，但召回列表中只有total_relevant个相关文档
-            false_negatives = max(0, len_chunk2 - total_relevant)
-        else:
-            # 如果没有提供len_chunk2，假设所有相关文档都在列表中
-            false_negatives = 0
+        # 计算假反例：使用len_relevant_chunks作为总相关文档数
+        false_negatives = max(0, len_relevant_chunks - total_relevant)
 
         # 计算基础指标
         precision = self._calculate_precision(true_positives, total_retrieved)
-
-        # 计算召回率：如果提供了len_chunk2，则使用它作为总相关文档数
-        if len_chunk2 > 0:
-            recall = self._calculate_recall(true_positives, len_chunk2)
-        else:
-            # 如果没有提供len_chunk2，假设所有相关文档都在列表中
-            recall = 1.0
-
+        recall = self._calculate_recall(true_positives, len_relevant_chunks)
         f1_score = self._calculate_f1_score(precision, recall)
 
         # 计算Top K指标（基于分数排序）
-        # 首先按分数降序排序，然后计算指标
-        sorted_indices = sorted(range(len(similarity_scores)),
-                                key=lambda i: similarity_scores[i],
+        sorted_indices = sorted(range(len(matched_list)),
+                                key=lambda i: matched_list[i],
                                 reverse=True)
-        sorted_scores = [similarity_scores[i] for i in sorted_indices]
+        sorted_scores = [matched_list[i] for i in sorted_indices]
 
         # 创建虚拟的chunk IDs用于计算
-        retrieved_chunks = [f"chunk_{i}" for i in range(len(similarity_scores))]
-        retrieved_set = set(retrieved_chunks)  # 初始化retrieved_set为所有被检索到的chunks集合
-        relevant_set = set([f"chunk_{i}" for i in relevant_indices])
+        retrieved_chunks = _generate_dummy_chunk_ids(len(matched_list))
+        relevant_set = set(_generate_dummy_chunk_ids(len(relevant_indices)))
 
         precision_at_k = self._calculate_precision_at_k(retrieved_chunks, relevant_set)
         recall_at_k = self._calculate_recall_at_k(retrieved_chunks, relevant_set)
@@ -205,14 +186,7 @@ class ChunkRecallEvaluator:
 
         # 计算其他指标
         hit_rate = self._calculate_hit_rate(retrieved_chunks, relevant_set)
-
-        # 计算覆盖率：如果提供了len_chunk2，则使用它作为总相关文档数
-        if len_chunk2 > 0:
-            coverage = self._calculate_coverage(retrieved_set, relevant_set)
-        else:
-            # 如果没有提供len_chunk2，假设覆盖了所有相关文档
-            coverage = 1.0
-
+        coverage = self._calculate_coverage(set(retrieved_chunks), relevant_set)
         redundancy = self._calculate_redundancy(retrieved_chunks)
 
         return RecallMetrics(
@@ -231,39 +205,9 @@ class ChunkRecallEvaluator:
             true_positives=true_positives,
             false_positives=false_positives,
             false_negatives=false_negatives,
-            total_relevant=len_chunk2 if len_chunk2 > 0 else total_relevant,
+            total_relevant=len_relevant_chunks,
             total_retrieved=total_retrieved,
         )
-
-    def _calculate_ndcg_with_scores(self, scores: List[float], threshold: float = 0.5) -> float:
-        """
-        使用分数计算归一化折损累计增益（NDCG）
-        
-        Args:
-            scores: 分数列表（已按降序排序）
-            threshold: 相关文档阈值
-            
-        Returns:
-            float: NDCG值
-        """
-        if not scores:
-            return 0.0
-
-        # 计算DCG，使用分数作为增益
-        dcg = 0.0
-        for i, score in enumerate(scores, 1):
-            dcg += score / np.log2(i + 1)
-
-        # 计算理想DCG（IDCG）- 按分数降序排序
-        ideal_scores = sorted(scores, reverse=True)
-        idcg = 0.0
-        for i, score in enumerate(ideal_scores, 1):
-            idcg += score / np.log2(i + 1)
-
-        if idcg == 0:
-            return 0.0
-
-        return dcg / idcg
 
     def calculate_metrics(
             self,
@@ -273,18 +217,17 @@ class ChunkRecallEvaluator:
     ) -> RecallMetrics:
         """
         计算召回质量指标
-        
+
         Args:
             retrieved_chunks: 本次提问召回的切片ID列表
             relevant_chunks: 标记为对应问题回答的切片ID列表
             top_n: 如果指定，只考虑前top_n个结果
-            
+
         Returns:
             RecallMetrics: 包含所有评估指标的结果对象
         """
         # 如果指定了top_n，只取前top_n个结果
-        if top_n is not None and top_n > 0:
-            retrieved_chunks = retrieved_chunks[:top_n]
+        retrieved_chunks = _apply_top_n_limit(retrieved_chunks, top_n)
 
         # 转换为集合便于计算
         retrieved_set = set(retrieved_chunks)
@@ -335,6 +278,36 @@ class ChunkRecallEvaluator:
             total_relevant=total_relevant,
             total_retrieved=total_retrieved,
         )
+
+    def _calculate_ndcg_with_scores(self, scores: List[float], threshold: float = 0.5) -> float:
+        """
+        使用分数计算归一化折损累计增益（NDCG）
+
+        Args:
+            scores: 分数列表（已按降序排序）
+            threshold: 相关文档阈值
+
+        Returns:
+            float: NDCG值
+        """
+        if not scores:
+            return 0.0
+
+        # 计算DCG，使用分数作为增益
+        dcg = 0.0
+        for i, score in enumerate(scores, 1):
+            dcg += score / np.log2(i + 1)
+
+        # 计算理想DCG（IDCG）- 按分数降序排序
+        ideal_scores = sorted(scores, reverse=True)
+        idcg = 0.0
+        for i, score in enumerate(ideal_scores, 1):
+            idcg += score / np.log2(i + 1)
+
+        if idcg == 0:
+            return 0.0
+
+        return dcg / idcg
 
     def _calculate_precision(self, true_positives: int, total_retrieved: int) -> float:
         """计算准确率"""
@@ -513,49 +486,6 @@ class ChunkRecallEvaluator:
 
         return 1.0 - (unique_count / total_chunks)
 
-    def evaluate_batch(
-            self,
-            queries_results: List[Tuple[List[str], List[str]]],
-            top_n: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        批量评估多个查询的结果
-        
-        Args:
-            queries_results: 列表，每个元素为(retrieved_chunks, relevant_chunks)的元组
-            top_n: 如果指定，只考虑前top_n个结果
-            
-        Returns:
-            Dict: 包含平均指标和详细结果的字典
-        """
-        if not queries_results:
-            return {
-                "average_metrics": None,
-                "detailed_results": [],
-                "query_count": 0
-            }
-
-        detailed_results = []
-        metrics_list = []
-
-        for retrieved_chunks, relevant_chunks in queries_results:
-            metrics = self.calculate_metrics(retrieved_chunks, relevant_chunks, top_n)
-            detailed_results.append({
-                "retrieved_count": len(retrieved_chunks),
-                "relevant_count": len(relevant_chunks),
-                "metrics": metrics.to_dict()
-            })
-            metrics_list.append(metrics)
-
-        # 计算平均指标
-        avg_metrics = self._calculate_average_metrics(metrics_list)
-
-        return {
-            "average_metrics": avg_metrics,
-            "detailed_results": detailed_results,
-            "query_count": len(queries_results)
-        }
-
     def _calculate_average_metrics(self, metrics_list: List[RecallMetrics]) -> Dict[str, float]:
         """计算平均指标"""
         if not metrics_list:
@@ -595,95 +525,48 @@ class ChunkRecallEvaluator:
 
         return avg_metrics
 
-    def calculate_metrics_similarity(
+    def evaluate_batch(
             self,
-            matched_list: List[float],
-            len_relevant_chunks: int,
-            threshold: float = 0.5,
+            queries_results: List[Tuple[List[str], List[str]]],
             top_n: Optional[int] = None
-    ) -> RecallMetrics:
+    ) -> Dict[str, Any]:
         """
-        根据匹配列表计算召回质量指标
-        
+        批量评估多个查询的结果
+
         Args:
-            matched_list: 匹配分数列表，1表示完全匹配，0表示没有匹配，小数表示相似度
-                        例如: [1, 0, 0.911, 1, 0, 0.611, 0]
-            len_relevant_chunks: 对应问题标注的切片数量
-            threshold: 判断为相关文档的阈值，默认0.5
+            queries_results: 列表，每个元素为(retrieved_chunks, relevant_chunks)的元组
             top_n: 如果指定，只考虑前top_n个结果
-            
+
         Returns:
-            RecallMetrics: 包含所有评估指标的结果对象
+            Dict: 包含平均指标和详细结果的字典
         """
-        # 如果指定了top_n，只取前top_n个结果
-        if top_n is not None and top_n > 0:
-            matched_list = matched_list[:top_n]
+        if not queries_results:
+            return {
+                "average_metrics": None,
+                "detailed_results": [],
+                "query_count": 0
+            }
 
-        # 根据阈值判断相关文档
-        relevant_indices = [i for i, score in enumerate(matched_list) if score >= threshold]
+        detailed_results = []
+        metrics_list = []
 
-        # 计算基础统计
-        total_retrieved = len(matched_list)
-        total_relevant = len(relevant_indices)
-        true_positives = total_relevant  # 所有超过阈值的都被视为真正例
-        false_positives = total_retrieved - total_relevant  # 低于阈值的为假正例
+        for retrieved_chunks, relevant_chunks in queries_results:
+            metrics = self.calculate_metrics(retrieved_chunks, relevant_chunks, top_n)
+            detailed_results.append({
+                "retrieved_count": len(retrieved_chunks),
+                "relevant_count": len(relevant_chunks),
+                "metrics": metrics.to_dict()
+            })
+            metrics_list.append(metrics)
 
-        # 计算假反例：使用len_relevant_chunks作为总相关文档数
-        false_negatives = max(0, len_relevant_chunks - total_relevant)
+        # 计算平均指标
+        avg_metrics = self._calculate_average_metrics(metrics_list)
 
-        # 计算基础指标
-        precision = self._calculate_precision(true_positives, total_retrieved)
-        recall = self._calculate_recall(true_positives, len_relevant_chunks)
-        f1_score = self._calculate_f1_score(precision, recall)
-
-        # 计算Top K指标（基于分数排序）
-        # 首先按分数降序排序，然后计算指标
-        sorted_indices = sorted(range(len(matched_list)),
-                                key=lambda i: matched_list[i],
-                                reverse=True)
-        sorted_scores = [matched_list[i] for i in sorted_indices]
-
-        # 创建虚拟的chunk IDs用于计算
-        retrieved_chunks = [f"chunk_{i}" for i in range(len(matched_list))]
-        retrieved_set = set(retrieved_chunks)
-        relevant_set = set([f"chunk_{i}" for i in relevant_indices])
-
-        precision_at_k = self._calculate_precision_at_k(retrieved_chunks, relevant_set)
-        recall_at_k = self._calculate_recall_at_k(retrieved_chunks, relevant_set)
-
-        # 计算排序质量指标（使用分数作为相关性判断）
-        average_precision = self._calculate_average_precision(retrieved_chunks, relevant_set)
-
-        # 对于NDCG，使用分数作为增益
-        ndcg = self._calculate_ndcg_with_scores(sorted_scores, threshold)
-
-        # 计算MRR
-        mrr = self._calculate_mrr(retrieved_chunks, relevant_set)
-
-        # 计算其他指标
-        hit_rate = self._calculate_hit_rate(retrieved_chunks, relevant_set)
-        coverage = self._calculate_coverage(retrieved_set, relevant_set)
-        redundancy = self._calculate_redundancy(retrieved_chunks)
-
-        return RecallMetrics(
-            precision=precision,
-            recall=recall,
-            f1_score=f1_score,
-            precision_at_k=precision_at_k,
-            recall_at_k=recall_at_k,
-            average_precision=average_precision,
-            mean_average_precision=average_precision,  # 单查询时MAP=AP
-            ndcg=ndcg,
-            mrr=mrr,
-            hit_rate=hit_rate,
-            coverage=coverage,
-            redundancy=redundancy,
-            true_positives=true_positives,
-            false_positives=false_positives,
-            false_negatives=false_negatives,
-            total_relevant=len_relevant_chunks,
-            total_retrieved=total_retrieved,
-        )
+        return {
+            "average_metrics": avg_metrics,
+            "detailed_results": detailed_results,
+            "query_count": len(queries_results)
+        }
 
     def evaluate_scores_batch(
             self,
@@ -721,10 +604,10 @@ class ChunkRecallEvaluator:
             else:
                 len_chunk2 = 0
 
-            metrics = self.calculate_metrics_from_scores(
+            metrics = self.calculate_metrics_by_matched_list(
                 similarity_scores,
+                len_chunk2,
                 threshold,
-                len_chunk2=len_chunk2,
                 top_n=top_n
             )
             detailed_results.append({
