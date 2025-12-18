@@ -162,20 +162,18 @@ def zlpt_get_chunk_save(doc_ids):
     return zlpt_get_chunk_all
 
 
-def zlpt_get_chunk_by_question(zlpt_user, kno_id, question):
+def zlpt_get_chunk_by_question(kno_id, question):
     """
     根据问题从知识库中检索相关切片
 
     Args:
-        zlpt_user: 紫鸾平台用户实例
         kno_id (str): 知识库ID
         question (str): 查询问题
 
     Returns:
         dict: 检索结果数据
     """
-    retrieve = Retrieve(zlpt_user)
-    retrieve_data = retrieve.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
+    retrieve_data = retrieve_client.webKnowledgeRetrieve('augmentedSearch', question, kno_id)
     return retrieve_data
 
 
@@ -295,47 +293,6 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', predic
     logger.info(f"标注完成 - 成功: {success_count}, 失败: {failed_count}")
 
 
-def label_chunks(retrieve_client, annotator, search_type, kno_id, prediction):
-    """
-     对检索到的知识片段进行标注处理
-
-     参数:
-         retrieve_client: 召回客户端对象，用于执行知识检索操作
-         annotator: 标注器对象，用于对文本片段进行标注
-         search_type: 搜索类型，指定检索的方式或范围
-         kno_id: 知识库ID，标识要检索的知识库
-         prediction: True 写入到预测中 False 写入到标注中
-
-     返回值:
-         无返回值
-     """
-    # 遍历问题数据，对每个问题检索相关知识片段并进行标注
-    for question_dict in QUESTION_JSON['datas']:
-        questions = question_dict['questions']
-        for question in questions:
-            # 执行知识检索，获取与问题相关的知识片段
-            retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
-            chunks = retrieve_data['data']['records']
-            # 根据chunk_id对检索到的知识片段进行标注
-            label_chunks_by_chunk_id(annotator, question, chunks, 'text', prediction)
-
-
-def label_by_retrieve(kno_id, ls_project, search_type, prediction=False):
-    """
-    通过召回进行标记或预测
-    :param kno_id:
-    :param ls_project:
-    :param search_type:
-    :param prediction:
-    :return:
-    """
-    logger.info("初始化项目标注器")
-    annotator = Annotator(ls_project)
-    # 召回并标注
-    logger.info("开始召回并标注")
-    label_chunks(retrieve_client, annotator, search_type, kno_id, prediction)
-
-
 def zlpt_create_project():
     logger.info("===step 1: 紫鸾知识库创建和文件上传 ===")
     try:
@@ -373,12 +330,55 @@ def ls_create_project_and_tasks():
     # 获取所有切片
     chunk_all = zlpt_get_chunk_save(doc_ids)
     # 创建项目
-    project = ls_create_project(f'{knowledge_dict["name"]}_{chunk_size}_{chunk_overlap}')
+    project = ls_create_project(f'{knowledge_dict["name"]}')
     knowledge_dict['project_id'] = project.id
     # 创建任务
     logger.info("开始创建Label Studio任务")
     ls_create_tasks(project, chunk_all)
     save_json_file(knowledge_dict, KNOWLEDGE_PATH)
+
+
+# 开始标注
+def label_by_retrieve(kno_id, project_id, search_type, prediction=False):
+    """
+    通过 召回 进行标记或预测
+    :param kno_id:
+    :param project_id:
+    :param search_type:
+    :param prediction:False 写入到标注中 True 写入到预测中
+    :return:
+    """
+    logger.info("初始化项目标注器")
+    project = _get_project('', project_id)
+    annotator = Annotator(project)
+    # 召回并标注
+    logger.info("开始召回并标注")
+    for question_dict in QUESTION_JSON['datas']:
+        questions = question_dict['questions']
+        for question in questions:
+            # 执行知识检索，获取与问题相关的知识片段
+            retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
+            chunks = retrieve_data['data']['records']
+            # 根据chunk_id对检索到的知识片段进行标注
+            label_chunks_by_chunk_id(annotator, question, chunks, 'text', prediction)
+
+
+def label_by_prediction(project_id, chunks):
+    logger.info("初始化项目标注器")
+    project = _get_project('', project_id)
+    annotator = Annotator(project)
+    for chunk in chunks:
+        # todo 根据模型获得每个chunk的预测结果，进行标注
+        pass
+
+
+def label_by_llm(project_id, chunks):
+    logger.info("初始化项目标注器")
+    project = _get_project('', project_id)
+    annotator = Annotator(project)
+    for chunk in chunks:
+        # todo 根据llm获得每个chunk的预测结果，进行标注
+        pass
 
 
 # 计算metric相关的方法：

@@ -10,7 +10,7 @@ settings = Dynaconf(
 
 from utils.pub_funs import load_json_file, get_test_paths
 
-# 初始化特使用例目录
+# 初始化待使用例目录
 paths = get_test_paths(settings.TEST_PATH)
 CHUNK_NAME = f'chunk_{settings.CHUNK_SIZE}_{settings.CHUNK_OVERLAP}'
 TARGET_DIR = paths["target_dir"]
