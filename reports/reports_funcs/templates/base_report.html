@@ -229,6 +229,71 @@
         .details-section.active {
             display: block;
         }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 5px;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table-container th {
+            background-color: #667eea;
+            color: white;
+            font-weight: 600;
+            padding: 12px 15px;
+            text-align: center;
+            border: 1px solid #5a67d8;
+        }
+        
+        .table-container td {
+            padding: 10px 12px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        
+        .table-container tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .table-container tr:hover {
+            background-color: #e9ecef;
+        }
+        
+        .metric-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            min-width: 60px;
+        }
+        
+        .badge-excellent {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-good {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-fair {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-poor {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
 
         @media (max-width: 768px) {
             .chart-row {
@@ -241,6 +306,15 @@
 
             .header h1 {
                 font-size: 2rem;
+            }
+            
+            .table-container {
+                font-size: 0.9rem;
+            }
+            
+            .table-container th,
+            .table-container td {
+                padding: 8px 10px;
             }
         }
     </style>

@@ -177,11 +177,25 @@ class MetricsAnalyzer:
         available_corr = [m for m in correlation_metrics if m in self.df.columns]
 
         if len(available_corr) > 1:
-            corr_matrix = self.df[available_corr].corr()
-            for i, metric1 in enumerate(available_corr):
+            try:
+                corr_matrix = self.df[available_corr].corr()
+                for i, metric1 in enumerate(available_corr):
+                    correlation_matrix[metric1] = {}
+                    for j, metric2 in enumerate(available_corr):
+                        correlation_matrix[metric1][metric2] = float(corr_matrix.iloc[i, j])
+            except Exception as e:
+                print(f"计算相关性矩阵时出错: {e}")
+                # 返回单位矩阵作为默认值
+                for metric1 in available_corr:
+                    correlation_matrix[metric1] = {}
+                    for metric2 in available_corr:
+                        correlation_matrix[metric1][metric2] = 1.0 if metric1 == metric2 else 0.0
+        else:
+            # 如果可用指标不足，返回单位矩阵
+            for metric1 in correlation_metrics:
                 correlation_matrix[metric1] = {}
-                for j, metric2 in enumerate(available_corr):
-                    correlation_matrix[metric1][metric2] = float(corr_matrix.iloc[i, j])
+                for metric2 in correlation_metrics:
+                    correlation_matrix[metric1][metric2] = 1.0 if metric1 == metric2 else 0.0
 
         return correlation_matrix
 

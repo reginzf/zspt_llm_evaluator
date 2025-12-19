@@ -7,9 +7,7 @@ OSPF问答系统召回质量评估报告生成器
 import json
 import os
 import sys
-from datetime import datetime
-from typing import Dict, List, Any, Tuple, Optional
-import numpy as np
+from typing import Dict, List, Any, Optional
 from pathlib import Path
 from env_config_init import REPORT_PATH
 
@@ -21,12 +19,14 @@ sys.path.insert(0, str(project_root))
 try:
     from metrics_analyzer import analyze_metrics
     from html_renderer import HTMLRenderer
+
     MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"模块导入错误: {e}")
     print("尝试导入旧模块...")
     try:
         from visualize_metrics import analyze_metrics, generate_html_report
+
         MODULES_AVAILABLE = True
     except ImportError:
         MODULES_AVAILABLE = False
@@ -58,58 +58,6 @@ def load_metric_data(filepath: str, report_path: Optional[Path] = None) -> Optio
             return None
     else:
         print(f"无法加载metric数据: {metric_file} 不存在")
-        return None
-
-
-def generate_sample_data() -> Dict[str, Any]:
-    """生成示例metric_all数据用于测试"""
-    sample_metrics = {
-        "precision": 0.75,
-        "recall": 0.60,
-        "f1_score": 0.6667,
-        "precision_at_k": {1: 0.8, 3: 0.7, 5: 0.72, 10: 0.75},
-        "recall_at_k": {1: 0.2, 3: 0.5, 5: 0.6, 10: 0.6},
-        "average_precision": 0.68,
-        "mean_average_precision": 0.68,
-        "ndcg": 0.72,
-        "mrr": 0.65,
-        "hit_rate": 0.85,
-        "coverage": 0.60,
-        "redundancy": 0.10,
-        "true_positives": 3,
-        "false_positives": 1,
-        "false_negatives": 2,
-        "total_relevant": 5,
-        "total_retrieved": 4
-    }
-
-    # 生成10个示例问题
-    questions = [
-        "OSPF中Router ID的长度是多少位？",
-        "OSPF报文头部长度是多少字节？",
-        "在广播网络中，OSPF路由器如何发现邻居？",
-        "在点到点网络中，OSPF路由器如何建立邻接关系？",
-        "解释OSPF中链路状态通告（LSA）的概念和结构",
-        "解释OSPF中链路状态数据库（LSDB）的组织方式",
-        "在一个复杂的OSPF网络中，如果出现路由环路，如何诊断和解决？",
-        "如何配置ospf邻居?",
-        "OSPF支持的最大度量值是多少？",
-        "OSPF中，DR和BDR的作用是什么？"
-    ]
-
-    metric_all = {}
-    for i, question in enumerate(questions):
-        # 为每个问题生成略有不同的指标
-        metrics = sample_metrics.copy()
-        # 添加一些随机变化
-        variation = 0.1 * (i / len(questions))
-        for key in ['precision', 'recall', 'f1_score', 'ndcg', 'mrr']:
-            if key in metrics:
-                metrics[key] = max(0, min(1, metrics[key] + (np.random.random() - 0.5) * variation))
-
-        metric_all[question] = metrics
-
-    return metric_all
 
 
 def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> List[Path]:
@@ -164,10 +112,10 @@ def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> Li
     # 2. 分析数据并生成报告
     print("\n2. 分析metric数据并生成报告...")
     report_files = []
-    
+
     # 创建HTML渲染器
     renderer = HTMLRenderer()
-    
+
     for file_name, metric_data in name_file_map.items():
         # 提取文件名（不含扩展名）
         base_name = Path(file_name).stem
@@ -225,44 +173,5 @@ def main():
     print("=" * 60)
 
 
-def quick_generate():
-    """快速生成报告（不运行main.py）"""
-    if not MODULES_AVAILABLE:
-        print("错误: 必要的模块不可用")
-        return
-
-    print("快速生成评估报告...")
-
-    # 生成示例数据
-    metric_all = generate_sample_data()
-
-    # 分析数据
-    analysis_results = analyze_metrics(metric_all)
-
-    # 生成报告
-    renderer = HTMLRenderer()
-    html_content = renderer.render_metrics_dashboard(analysis_results)
-
-    # 保存报告
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = project_root.parent / "report_data" / f"quick_report_{timestamp}.html"
-
-    with open(report_file, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-
-    print(f"快速报告已生成: {report_file}")
-
-    # 在浏览器中打开
-    try:
-        import webbrowser
-        webbrowser.open(f"file://{report_file}")
-    except:
-        pass
-
-
 if __name__ == "__main__":
-    # 检查命令行参数
-    if len(sys.argv) > 1 and sys.argv[1] == "--quick":
-        quick_generate()
-    else:
-        main()
+    main()
