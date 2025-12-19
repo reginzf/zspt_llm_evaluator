@@ -12,6 +12,7 @@ from label_studio_api import create_tasks
 from label_studio_api import label_studio_client
 from label_studio_api import LabelStudioXMLGenerator
 from label_studio_api.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
+from label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.questions import get_question_type_and_label
@@ -193,6 +194,7 @@ def zlpt_wait_learning(know_client, kno_id):
 
 
 ls_user = login_label_studio()
+prediction_c = LabelStudioPredictionCreator(ls_user)
 
 
 def ls_create_project(title, description=''):
@@ -240,7 +242,8 @@ def ls_create_tasks(project, chunk_all):
     return res  # [task_id1,task_id2...]
 
 
-def ls_save_data(project):
+def ls_save_data(project_id):
+    project = _get_project('', project_id)
     logger.info("导出任务数据")
     project_raw_data = project.export_tasks(export_type='JSON')
     file_path = os.path.join(LS_LABELED_CHUNKS_DIR, f"{QUESTION_JSON['doc_name']}.json")
@@ -255,6 +258,8 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', predic
            annotator: Annotator项目对象
            question (str): 查询问题
            chunks (list): 需要标注的切片列表
+           to_name (str): 目标字段名，默认为 'text'
+           prediction (bool): 是否作为预测写入，默认为 False（即写入标注）
        """
     q_type, q_label = get_question_type_and_label(QUESTION_JSON, question)
     t_filter = "filter:tasks:data.chunk_id"
@@ -342,43 +347,68 @@ def ls_create_project_and_tasks():
 def label_by_retrieve(kno_id, project_id, search_type, prediction=False):
     """
     通过 召回 进行标记或预测
-    :param kno_id:
-    :param project_id:
-    :param search_type:
-    :param prediction:False 写入到标注中 True 写入到预测中
+    :param kno_id: 知识库ID
+    :param project_id: Label Studio项目ID
+    :param search_type: 检索方式，如 augmentedSearch、vectorSearch 等
+    :param prediction: 是否将结果写入预测而非标注，默认为 False
     :return:
     """
     logger.info("初始化项目标注器")
     project = _get_project('', project_id)
     annotator = Annotator(project)
+
     # 召回并标注
     logger.info("开始召回并标注")
-    for question_dict in QUESTION_JSON['datas']:
-        questions = question_dict['questions']
-        for question in questions:
-            # 执行知识检索，获取与问题相关的知识片段
-            retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
-            chunks = retrieve_data['data']['records']
-            # 根据chunk_id对检索到的知识片段进行标注
+    for idx, question_dict in enumerate(QUESTION_JSON.get('datas', [])):
+        questions = question_dict.get('questions', [])
+        for q_idx, question in enumerate(questions):
+            logger.debug(f"[{idx}-{q_idx}] Processing question: {question}")
+            try:
+                retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
+            except Exception as e:
+                logger.warning(f"Web knowledge retrieval failed for question '{question}': {e}")
+                # todo 异常处理
+                continue
+            chunks = (
+                retrieve_data.get("data", {})
+                .get("records", [])
+            )
+            if not isinstance(chunks, list):
+                logger.warning(f"Unexpected data type for 'records' in retrieved data for question '{question}'")
+                continue
             label_chunks_by_chunk_id(annotator, question, chunks, 'text', prediction)
 
 
-def label_by_prediction(project_id, chunks):
-    logger.info("初始化项目标注器")
+def label_by_prediction(project_id, task_ids: list = None):
     project = _get_project('', project_id)
-    annotator = Annotator(project)
-    for chunk in chunks:
-        # todo 根据模型获得每个chunk的预测结果，进行标注
-        pass
+    if not task_ids:
+        task_ids = project.get_tasks_ids()
+    logger.info(f"开始为项目 {project_id} 处理 {len(task_ids)} 个任务的预测标注")
+    predictions = []
+    for task_id in task_ids:
+        try:
+            task_data = project.get_task(task_id)
+            res = prediction_c.create_prediction_for_task(task_data, project)
+            predictions.append(res)
+        except Exception as e:
+            logger.error(f"处理任务 {task_id} 时发生错误: {str(e)}")
+            # todo 添加错误处理逻辑
+            continue
+    return predictions
 
 
-def label_by_llm(project_id, chunks):
+def label_by_llm(project_id, task_ids: list = None):
     logger.info("初始化项目标注器")
     project = _get_project('', project_id)
-    annotator = Annotator(project)
-    for chunk in chunks:
-        # todo 根据llm获得每个chunk的预测结果，进行标注
-        pass
+    # annotator = Annotator(project)
+    for task_id in task_ids:
+        try:
+            task_data = project.get_task(task_id)
+            # todo 根据llm获得每个chunk的预测结果，进行标注
+        except Exception as e:
+            logger.error(f"处理任务 {task_id} 时发生错误: {str(e)}")
+            # todo 添加错误处理逻辑
+            continue
 
 
 # 计算metric相关的方法：
@@ -406,6 +436,7 @@ def _extract_questions() -> List[str]:
 
 
 def _process_question_chunk_data(
+        project,
         question: str,
         kno_id: str,
         search_type: str,
@@ -419,7 +450,7 @@ def _process_question_chunk_data(
         zlpt_records_count = len(zlpt_retrieve_data.get('data', {}).get('records', []))
         logger.debug(f"从知识平台获取到 {zlpt_records_count} 个切片，问题: {question}")
 
-        labeled_tasks = get_tasks_with_specific_choice(None, question)  # project 已在外层传递
+        labeled_tasks = get_tasks_with_specific_choice(project, question)  # project 已在外层传递
         logger.debug(f"从Label Studio获取到 {len(labeled_tasks)} 个已标注任务，问题: {question}")
 
         zlpt_chunks = extract_zlpt_chunk_fn(zlpt_retrieve_data)
@@ -441,13 +472,15 @@ def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type
     :param project_name: 在label studio上的项目名称
     :param kno_id: 在紫鸾知识平台上的知识库id
     :param search_type: 搜索类型，可选值为 vectorSearch(向量检索) | hybridSearch(混合检索) | augmentedSearch(增强检索)
+    :param project_id: Label Studio项目ID（可选）
     :return:
     """
-    logger.info(f"开始获取项目[{project_name}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
     project = _get_project(project_name, project_id)
+    logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
+
     logger.debug(f"成功获取项目: {project.title}")
 
-    file_path = REPORT_PATH / f'metric_chunk_id{search_type}.json'
+    file_path = REPORT_PATH / f'metric_chunk_id_{search_type}_{chunk_size}_{chunk_overlap}.json'
     questions = _extract_questions()
     logger.info(f"共找到 {len(questions)} 个问题需要处理")
 
@@ -460,8 +493,9 @@ def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type
         return [task['data']['chunk_id'] for task in tasks]
 
     for question in questions:
-        logger.debug(f"正在处理问题: {question}")
+        logger.info(f"正在处理问题: {question}")
         metrics = _process_question_chunk_data(
+            project=project,
             question=question,
             kno_id=kno_id,
             search_type=search_type,
@@ -479,12 +513,9 @@ def cal_metric_by_chunk_text_overlay_and_similarity(project_name: str, kno_id: s
                                                     project_id: Optional[str] = None):
     from check_chunk.checkers.AlignmentBasedChecker import AlignmentBasedChecker
     ali_checker = AlignmentBasedChecker()
-
-    logger.info(f"开始获取项目[{project_name}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
     project = _get_project(project_name, project_id)
-    logger.debug(f"成功获取项目: {project.title}")
-
-    file_path = REPORT_PATH / f'metric_similarity_{search_type}.json'
+    logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
+    file_path = REPORT_PATH / f'metric_similarity_{search_type}_{chunk_size}_{chunk_overlap}.json'
     questions = _extract_questions()
     logger.info(f"共找到 {len(questions)} 个问题需要处理")
 
@@ -503,6 +534,7 @@ def cal_metric_by_chunk_text_overlay_and_similarity(project_name: str, kno_id: s
     for question in questions:
         logger.debug(f"正在处理问题: {question}")
         metrics = _process_question_chunk_data(
+            project=project,
             question=question,
             kno_id=kno_id,
             search_type=search_type,

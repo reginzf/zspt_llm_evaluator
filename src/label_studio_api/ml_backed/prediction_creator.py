@@ -61,7 +61,8 @@ class LabelStudioPredictionCreator:
 
             # 1. 使用MyModel进行预测
             prediction_result = self._predict_with_model(task_data)
-
+            if len(prediction_result['result']) < 1:
+                return {}
             # 2. 创建Label Studio预测
             prediction = self._create_label_studio_prediction(
                 task_id=task_id,
@@ -175,8 +176,10 @@ def main():
     client = login_label_studio()
     project: Project = client.get_projects(title=project_name)[0]
     prediction_c = LabelStudioPredictionCreator(client)
-    task_data = project.get_task(247)
-    prediction_c.create_prediction_for_task(task_data, project)
+    task_data = project.get_task(164)
+    print(task_data)
+    res = prediction_c.create_prediction_for_task(task_data, project)
+    print(res)
 
 
 if __name__ == "__main__":
