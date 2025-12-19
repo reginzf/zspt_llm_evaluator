@@ -4,6 +4,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 import urllib3
 from env_config_init import settings
+from utils.logger import logger
+
 urllib3.disable_warnings()
 __all__ = ["LoginManager"]
 
@@ -50,7 +52,7 @@ class LoginManager:
             return encrypted_b64
 
         except Exception as e:
-            print(f"加密错误: {e}")
+            logger.error(f"加密错误: {e}")
             return None
 
     def login(self, username, password, domain="default"):
@@ -61,7 +63,7 @@ class LoginManager:
         encrypted_password = self.encrypt_password(password)
 
         if not encrypted_password:
-            print("密码加密失败")
+            logger.error("密码加密失败")
             return None
         # 构造请求体
         payload = {
@@ -77,18 +79,18 @@ class LoginManager:
                 timeout=30
             )
         except requests.exceptions.RequestException as e:
-            print(f"请求异常: {e}")
+            logger.error(f"请求异常: {e}")
             return None
         try:  # 获取ticket
             ticket = response.json().get("data", {}).get("ticket")
             if ticket:
-                print(f'ticket: {ticket}')
+                logger.info(f'ticket: {ticket}')
                 self.ticket = ticket
                 self.session.headers.update({'X-Auth-Token': ticket})
             else:
-                print("\n未在响应中找到 ticket 字段")
+                logger.warning("\n未在响应中找到 ticket 字段")
         except:
-            print(f"原始响应: {response.text}")
+            logger.error(f"原始响应: {response.text}")
         return response
 
     def get_auth_key(self):
@@ -99,7 +101,7 @@ class LoginManager:
             json={"skip": False}
         )
         auth_token = response.json().get("data", {}).get("token")
-        print(f"auth_token: {auth_token}")
+        logger.info(f"auth_token: {auth_token}")
         if auth_token:
             self.auth_token = auth_token
         self.session.headers.update({'X-Auth-Token': auth_token})
