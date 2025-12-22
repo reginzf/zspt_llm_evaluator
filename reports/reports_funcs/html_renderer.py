@@ -15,6 +15,8 @@ except ImportError:
     print("警告: Jinja2未安装，将使用备用HTML生成方式")
     print("请安装: pip install jinja2")
 
+METRIC_TEMPLATE_NAME = 'metrics_dashboard.html'
+
 
 class HTMLRenderer:
     """HTML报告渲染器"""
@@ -46,46 +48,19 @@ class HTMLRenderer:
 
     def render_metrics_dashboard(self, analysis_results: Dict[str, Any]) -> str:
         """
-        渲染指标仪表板HTML
-        
-        Args:
-            analysis_results: 分析结果字典
-            
-        Returns:
-            HTML内容字符串
-        """
-        if self.env and JINJA2_AVAILABLE:
-            return self._render_with_jinja2("metrics_dashboard.html", analysis_results)
-
-    def render_summary_report(self, analysis_results: Dict[str, Any]) -> str:
-        """
-        渲染摘要报告HTML
-        
-        Args:
-            analysis_results: 分析结果字典
-            
-        Returns:
-            HTML内容字符串
-        """
-        if self.env and JINJA2_AVAILABLE:
-            return self._render_with_jinja2("summary_report.html", analysis_results)
-
-    def _render_with_jinja2(self, template_name: str, context: Dict[str, Any]) -> str:
-        """
         使用Jinja2渲染模板
         
         Args:
-            template_name: 模板文件名
-            context: 模板上下文
+            analysis_results: 模板上下文
             
         Returns:
             渲染后的HTML内容
         """
         try:
-            template = self.env.get_template(template_name)
+            template = self.env.get_template(METRIC_TEMPLATE_NAME)
 
             # 准备模板上下文
-            template_context = self._prepare_template_context(context)
+            template_context = self._prepare_template_context(analysis_results)
 
             # 添加CSS路径
             template_context["css_path"] = self.css_path
@@ -239,46 +214,10 @@ class HTMLRenderer:
 
         return questions
 
-    def save_html_report(self, analysis_results: Dict[str, Any], output_file: str,
-                         template_name: str = "metrics_dashboard.html") -> bool:
-        """
-        保存HTML报告到文件
-        
-        Args:
-            analysis_results: 分析结果
-            output_file: 输出文件路径
-            template_name: 模板名称
-            
-        Returns:
-            是否成功保存
-        """
-        try:
-            # 渲染HTML
-            if template_name == "metrics_dashboard.html":
-                html_content = self.render_metrics_dashboard(analysis_results)
-            else:
-                html_content = self.render_summary_report(analysis_results)
-
-            # 确保输出目录存在
-            output_path = Path(output_file)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # 保存文件
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-
-            print(f"✅ HTML报告已保存到: {output_file}")
-            return True
-
-        except Exception as e:
-            print(f"❌ 保存HTML报告时出错: {e}")
-            return False
-
 
 # 兼容性函数
 def generate_html_report(analysis_results: Dict[str, Any]) -> str:
     """
-    兼容性函数，用于替换原有的generate_html_report函数
     
     Args:
         analysis_results: analyze_metrics函数返回的分析结果

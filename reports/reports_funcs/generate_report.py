@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
 """
-OSPF问答系统召回质量评估报告生成器
+问答系统召回质量评估报告生成器
 使用Jinja2模板引擎生成美观的可视化报告
+load_metric_data-->加载报告,返回json
+generate_reports_from_metric-->加载load_metric_data的数据，生成html渲染器，分析数据并保存到本地
 """
 
 import json
@@ -23,14 +24,7 @@ try:
     MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"模块导入错误: {e}")
-    print("尝试导入旧模块...")
-    try:
-        from visualize_metrics import analyze_metrics, generate_html_report
-
-        MODULES_AVAILABLE = True
-    except ImportError:
-        MODULES_AVAILABLE = False
-        print("错误: 无法导入必要的模块")
+    raise e
 
 
 def load_metric_data(filepath: str, report_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
