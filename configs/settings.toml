@@ -1,6 +1,5 @@
 [default]
 TEST_PATH = 'ospf'
-QUESTION_TYPE = 'BASIC' # BASIC 基础集，DETAILED 详细集， MECHANISM 机制集 THEMATIC 主题集
 CAL_BY = 'CHUNK_ID' # CHUNK_ID 按chunk_id进行计算，TEXT 按text进行语义计算
 # zlpt
 ZLPT_BASE_URL = "https://10.220.49.200"
@@ -12,14 +11,15 @@ USERNAME = "nrgtest"
 PASSWORD = "Admin@123"
 DOMAIN = "default"
 # label studio
-LABEL_STUDIO_URL = "http://10.210.2.223:8090"
-LABEL_STUDIO_API_KEY = "4af2803576e401a0fc8206c68abfaae5db928b47"
+LABEL_STUDIO_URL = "http://10.210.2.223:8080"
+LABEL_STUDIO_API_KEY = "f15d19e843fe0ded5e723abb0ed12f0ca4efcfa0"
 # 问题配置
-CHUNK_SIZE = 600
+QUESTION_TYPE = 'BASIC' # BASIC 基础集，DETAILED 详细集， MECHANISM 机制集 THEMATIC 主题集
+CHUNK_SIZE = 400
 CHUNK_OVERLAP = 0
 # 当使用text计算时的参数
 OVERLAP_THRESHOLD = 0.8   # 字符串重叠阈值
-SIMILARITY_THRESHOLD = 0.3  # 语义相似度阈值
+SIMILARITY_THRESHOLD = 0.7  # 语义相似度阈值
 SEMANTIC_WEIGHT = 0.9 # 语义匹配权重
 MODEL_PATH = 'D:\pyworkplace\git_place\ai-ken\models\bge-base-zh-v1.5'
 # 质量参数配置

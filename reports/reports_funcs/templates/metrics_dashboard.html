@@ -74,6 +74,7 @@
             <thead>
             <tr>
                 <th>问题</th>
+                <th>类型</th>
                 <th>准确率</th>
                 <th>召回率</th>
                 <th>F1分数</th>
@@ -86,6 +87,7 @@
             {% for question in questions %}
             <tr>
                 <td title="{{ question.text }}">{{ question.text[:50] }}{% if question.text|length > 50 %}...{% endif %}</td>
+                <td>{{ question.metrics.q_type }}</td>
                 <td>{{ (question.metrics.precision * 100)|round(2) }}%</td>
                 <td>{{ (question.metrics.recall * 100)|round(2) }}%</td>
                 <td>{{ (question.metrics.f1_score * 100)|round(2) }}%</td>
@@ -176,10 +178,10 @@
         new Chart(precisionCtx, {
             type: 'line',
             data: {
-                labels: metricsData.top_k_labels,
+                labels: {{ metrics_data.top_k_labels|tojson|safe }},
                 datasets: [{
                     label: '准确率@K',
-                    data: metricsData.avg_precision_at_k,
+                    data: {{ metrics_data.avg_precision_at_k|tojson|safe }},
                     borderColor: '#667eea',
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     borderWidth: 3,
@@ -222,10 +224,10 @@
         new Chart(recallCtx, {
             type: 'line',
             data: {
-                labels: metricsData.top_k_labels,
+                labels: {{ metrics_data.top_k_labels|tojson|safe }},
                 datasets: [{
                     label: '召回率@K',
-                    data: metricsData.avg_recall_at_k,
+                    data: {{ metrics_data.avg_recall_at_k|tojson|safe }},
                     borderColor: '#764ba2',
                     backgroundColor: 'rgba(118, 75, 162, 0.1)',
                     borderWidth: 3,
@@ -268,10 +270,10 @@
         new Chart(f1Ctx, {
             type: 'bar',
             data: {
-                labels: metricsData.f1_distribution_labels,
+                labels: {{ metrics_data.f1_distribution_labels|tojson|safe }},
                 datasets: [{
                     label: '问题数量',
-                    data: metricsData.f1_distribution_data,
+                    data: {{ metrics_data.f1_distribution_data|tojson|safe }},
                     backgroundColor: [
                         'rgba(220, 53, 69, 0.7)',  // 差
                         'rgba(255, 193, 7, 0.7)',   // 中
@@ -324,11 +326,11 @@
                 datasets: [{
                     label: '排序质量指标',
                     data: [
-                        metricsData.avg_average_precision || 0,
-                        metricsData.avg_ndcg || 0,
-                        metricsData.avg_mrr || 0,
-                        metricsData.avg_hit_rate || 0,
-                        metricsData.avg_coverage || 0
+                        {{ metrics_data.avg_average_precision or 0 }},
+                        {{ metrics_data.avg_ndcg or 0 }},
+                        {{ metrics_data.avg_mrr or 0 }},
+                        {{ metrics_data.avg_hit_rate or 0 }},
+                        {{ metrics_data.avg_coverage or 0 }}
                     ],
                     backgroundColor: 'rgba(102, 126, 234, 0.2)',
                     borderColor: '#667eea',
@@ -368,7 +370,7 @@
             data: {
                 datasets: [{
                     label: '问题性能分布',
-                    data: metricsData.correlation_data,
+                    data: {{ metrics_data.correlation_data|tojson|safe }},
                     backgroundColor: 'rgba(102, 126, 234, 0.6)',
                     borderColor: '#667eea',
                     borderWidth: 1,
@@ -443,8 +445,8 @@
         for (let i = 0; i < metrics.length; i++) {
             const row = [];
             for (let j = 0; j < metrics.length; j++) {
-                if (correlationMatrix[metrics[i]] && correlationMatrix[metrics[i]][metrics[j]]) {
-                    row.push(correlationMatrix[metrics[i]][metrics[j]]);
+                if ({{ correlation_matrix|tojson|safe }}[metrics[i]] && {{ correlation_matrix|tojson|safe }}[metrics[i]][metrics[j]]) {
+                    row.push({{ correlation_matrix|tojson|safe }}[metrics[i]][metrics[j]]);
                 } else {
                     row.push(0);
                 }

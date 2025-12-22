@@ -5,7 +5,7 @@ HTML报告渲染器模块
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
-
+from env_config_init import TYPE_DISPLAY_NAMES
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -83,40 +83,105 @@ class HTMLRenderer:
         Returns:
             模板上下文字典
         """
-        summary = analysis_results.get("summary", {})
-        distribution = analysis_results.get("distribution", {})
-        top_performers = analysis_results.get("top_performers", {})
-        top_k_analysis = analysis_results.get("top_k_analysis", {})
-        correlation_matrix = analysis_results.get("correlation_matrix", {})
-        performance_ranking = analysis_results.get("performance_ranking", [])
-
-        # 准备图表数据
-        metrics_data = self._prepare_chart_data(analysis_results)
-
-        # 准备问题数据
-        questions = self._prepare_question_data(analysis_results)
-
         return {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "question_count": summary.get("total_questions", 0),
-            "avg_precision": summary.get("avg_precision", 0) * 100,
-            "avg_recall": summary.get("avg_recall", 0) * 100,
-            "avg_f1_score": summary.get("avg_f1_score", 0) * 100,
-            "avg_f1": summary.get("avg_f1_score", 0) * 100,
-            "avg_ndcg": summary.get("avg_ndcg", 0) * 100,
-            "avg_mrr": summary.get("avg_mrr", 0) * 100,
-            "avg_hit_rate": summary.get("avg_hit_rate", 0) * 100,
-            "avg_coverage": summary.get("avg_coverage", 0) * 100,
-            "avg_redundancy": summary.get("avg_redundancy", 0) * 100,
-            "metrics_data": metrics_data,
-            "questions": questions,
-            "summary": summary,
-            "distribution": distribution,
-            "top_performers": top_performers,
-            "top_k_analysis": top_k_analysis,
-            "correlation_matrix": correlation_matrix or {},
-            "performance_ranking": performance_ranking
+            "timestamp": self._prepare_timestamp(),
+            "question_count": self._prepare_question_count(analysis_results),
+            "avg_precision": self._prepare_avg_precision(analysis_results),
+            "avg_recall": self._prepare_avg_recall(analysis_results),
+            "avg_f1_score": self._prepare_avg_f1_score(analysis_results),
+            "avg_f1": self._prepare_avg_f1(analysis_results),
+            "avg_ndcg": self._prepare_avg_ndcg(analysis_results),
+            "avg_mrr": self._prepare_avg_mrr(analysis_results),
+            "avg_hit_rate": self._prepare_avg_hit_rate(analysis_results),
+            "avg_coverage": self._prepare_avg_coverage(analysis_results),
+            "avg_redundancy": self._prepare_avg_redundancy(analysis_results),
+            "metrics_data": self._prepare_chart_data(analysis_results),
+            "questions": self._prepare_question_data(analysis_results),
+            "summary": self._prepare_summary(analysis_results),
+            "distribution": self._prepare_distribution(analysis_results),
+            "top_performers": self._prepare_top_performers(analysis_results),
+            "top_k_analysis": self._prepare_top_k_analysis(analysis_results),
+            "correlation_matrix": self._prepare_correlation_matrix(analysis_results),
+            "performance_ranking": self._prepare_performance_ranking(analysis_results)
         }
+
+    def _prepare_timestamp(self) -> str:
+        """准备时间戳"""
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _prepare_question_count(self, analysis_results: Dict[str, Any]) -> int:
+        """准备问题数量"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("total_questions", 0)
+
+    def _prepare_avg_precision(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均精确度"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_precision", 0) * 100
+
+    def _prepare_avg_recall(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均召回率"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_recall", 0) * 100
+
+    def _prepare_avg_f1_score(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均F1分数"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_f1_score", 0) * 100
+
+    def _prepare_avg_f1(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均F1分数（别名）"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_f1_score", 0) * 100
+
+    def _prepare_avg_ndcg(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均NDCG"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_ndcg", 0) * 100
+
+    def _prepare_avg_mrr(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均MRR"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_mrr", 0) * 100
+
+    def _prepare_avg_hit_rate(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均命中率"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_hit_rate", 0) * 100
+
+    def _prepare_avg_coverage(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均覆盖率"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_coverage", 0) * 100
+
+    def _prepare_avg_redundancy(self, analysis_results: Dict[str, Any]) -> float:
+        """准备平均冗余度"""
+        summary = analysis_results.get("summary", {})
+        return summary.get("avg_redundancy", 0) * 100
+
+    def _prepare_summary(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """准备摘要数据"""
+        return analysis_results.get("summary", {})
+
+    def _prepare_distribution(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """准备分布数据"""
+        return analysis_results.get("distribution", {})
+
+    def _prepare_top_performers(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """准备最佳表现者数据"""
+        return analysis_results.get("top_performers", {})
+
+    def _prepare_top_k_analysis(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """准备Top-K分析数据"""
+        return analysis_results.get("top_k_analysis", {})
+
+    def _prepare_correlation_matrix(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """准备相关性矩阵数据"""
+        return analysis_results.get("correlation_matrix", {}) or {}
+
+    def _prepare_performance_ranking(self, analysis_results: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """准备性能排名数据"""
+        return analysis_results.get("performance_ranking", [])
 
     def _prepare_chart_data(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -203,6 +268,7 @@ class HTMLRenderer:
             question_data = {
                 "text": item.get("question", ""),
                 "metrics": {
+                    "q_type": TYPE_DISPLAY_NAMES[item.get("q_type", "")],
                     "precision": item.get("precision", 0),
                     "recall": item.get("recall", 0),
                     "f1_score": item.get("f1_score", 0),

@@ -29,6 +29,13 @@ QUESTION_TYPE_MAP = {  # 问题类型映射
     "MECHANISM": 'mechanism_question.json',
     "THEMATIC": 'thematic_question.json',
 }
+TYPE_DISPLAY_NAMES = {
+    "factual": "事实型",
+    "contextual": "上下文型",
+    "conceptual": "概念型",
+    "reasoning": "推理型",
+    "application": "应用型"
+}
 q_dir = Path(QUESTION_PATH)
 q_path = str(q_dir / QUESTION_TYPE_MAP[settings.QUESTION_TYPE])
 # 问题的JSON

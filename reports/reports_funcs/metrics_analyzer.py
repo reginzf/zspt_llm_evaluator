@@ -50,7 +50,7 @@ class MetricsAnalyzer:
             record = {"question": question}
 
             # 添加基础指标
-            for key in ["precision", "recall", "f1_score", "average_precision",
+            for key in ["precision", "type", "recall", "f1_score", "average_precision",
                         "ndcg", "mrr", "hit_rate", "coverage", "redundancy",
                         "true_positives", "false_positives", "false_negatives",
                         "total_relevant", "total_retrieved"]:
@@ -210,6 +210,7 @@ class MetricsAnalyzer:
             performance_ranking.append({
                 "rank": int(row['rank']),
                 "question": row['question'],
+                "q_type": row['type'],
                 "f1_score": float(row['f1_score']),
                 "precision": float(row['precision']),
                 "recall": float(row['recall']),

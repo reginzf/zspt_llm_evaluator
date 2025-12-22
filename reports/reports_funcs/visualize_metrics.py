@@ -214,11 +214,11 @@ class MetricsVisualizer:
         if len(available_for_heatmap) > 0:
             heatmap_data = top_questions[available_for_heatmap].values.T
             cn_labels = [METRIC_NAMES_CN.get(m, m) for m in available_for_heatmap]
-            
+
             # 准备hover文本数据
             questions_text = top_questions['question'].str[:50].tolist()
             x_labels = [f"Q{i + 1}" for i in range(len(top_questions))]
-            
+
             # 构建hover文本矩阵
             hover_text = []
             for i, metric in enumerate(cn_labels):
@@ -307,7 +307,7 @@ class MetricsVisualizer:
         )
         self.fig.update_xaxes(title_text="F1分数", row=3, col=3)
 
-    def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html"):
+    def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html",to_html=True):
         """创建交互式仪表板"""
         # 创建子图
         self.fig: go.Figure = make_subplots(
@@ -475,5 +475,4 @@ if __name__ == '__main__':
         Path(r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf'))
     mev = MetricsVisualizer(data)
     mev.create_interactive_dashboard("ospf_dashboard.html")
-    # mev.get_subplot_position_and_size(1,1)
-    # print(mev.get_subplot_relative_position(3,2))
+

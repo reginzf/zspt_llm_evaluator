@@ -477,9 +477,7 @@ def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type
     """
     project = _get_project(project_name, project_id)
     logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
-
     logger.debug(f"成功获取项目: {project.title}")
-
     file_path = REPORT_PATH / f'metric_chunk_id_{search_type}_{chunk_size}_{chunk_overlap}.json'
     questions = _extract_questions()
     logger.info(f"共找到 {len(questions)} 个问题需要处理")
@@ -494,6 +492,13 @@ def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type
 
     for question in questions:
         logger.info(f"正在处理问题: {question}")
+        # 获取当前问题的类型
+        question_type = None
+        for q_data in QUESTION_JSON.get('datas', []):
+            if question in q_data.get('questions', []):
+                question_type = q_data.get('type')
+                break
+        
         metrics = _process_question_chunk_data(
             project=project,
             question=question,
@@ -503,6 +508,7 @@ def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type
             extract_labeled_chunk_fn=extract_labeled_chunk_ids,
             compute_metrics_fn=calculate_chunk_recall_metrics
         )
+        metrics['type'] = question_type
         metric_all[question] = metrics
 
     save_json_file(metric_all, file_path)
