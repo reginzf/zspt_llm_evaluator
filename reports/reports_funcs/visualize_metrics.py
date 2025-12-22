@@ -5,7 +5,7 @@ metric_all数据可视化展示模块
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
@@ -85,9 +85,9 @@ class MetricsVisualizer:
         avg_values = [self.df[col].mean() for col in columns]
         return k_values, avg_values
 
-    def _create_pr_scatter_plot(self, fig: go.Figure) -> None:
+    def _create_pr_scatter_plot(self) -> None:
         """创建精确率-召回率散点图"""
-        fig.add_trace(
+        self.fig.add_trace(
             go.Scatter(
                 x=self.df['recall'],
                 y=self.df['precision'],
@@ -96,8 +96,7 @@ class MetricsVisualizer:
                     size=10,
                     color=self.df['f1_score'],
                     colorscale='Viridis',
-                    showscale=True,
-                    colorbar=dict(title="F1分数")
+                    showscale=False
                 ),
                 text=self.df['question'].str[:50],
                 hoverinfo='text+x+y',
@@ -105,12 +104,12 @@ class MetricsVisualizer:
             ),
             row=1, col=1
         )
-        fig.update_xaxes(title_text="召回率", row=1, col=1)
-        fig.update_yaxes(title_text="精确率", row=1, col=1)
+        self.fig.update_xaxes(title_text="召回率", row=1, col=1)
+        self.fig.update_yaxes(title_text="精确率", row=1, col=1)
 
-    def _create_f1_histogram(self, fig: go.Figure) -> None:
+    def _create_f1_histogram(self) -> None:
         """创建F1分数分布直方图"""
-        fig.add_trace(
+        self.fig.add_trace(
             go.Histogram(
                 x=self.df['f1_score'],
                 nbinsx=20,
@@ -119,14 +118,14 @@ class MetricsVisualizer:
             ),
             row=1, col=2
         )
-        fig.update_xaxes(title_text="F1分数", row=1, col=2)
-        fig.update_yaxes(title_text="数量", row=1, col=2)
+        self.fig.update_xaxes(title_text="F1分数", row=1, col=2)
+        self.fig.update_yaxes(title_text="数量", row=1, col=2)
 
-    def _create_precision_at_k_plot(self, fig: go.Figure) -> None:
+    def _create_precision_at_k_plot(self) -> None:
         """创建Top K精确率折线图"""
         k_values, avg_precision_at_k = self._get_top_k_columns('precision@')
         if k_values:
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Scatter(
                     x=k_values,
                     y=avg_precision_at_k,
@@ -137,14 +136,14 @@ class MetricsVisualizer:
                 ),
                 row=1, col=3
             )
-            fig.update_xaxes(title_text="K值", row=1, col=3)
-            fig.update_yaxes(title_text="精确率", row=1, col=3)
+            self.fig.update_xaxes(title_text="K值", row=1, col=3)
+            self.fig.update_yaxes(title_text="精确率", row=1, col=3)
 
-    def _create_recall_at_k_plot(self, fig: go.Figure) -> None:
+    def _create_recall_at_k_plot(self) -> None:
         """创建Top K召回率折线图"""
         k_values, avg_recall_at_k = self._get_top_k_columns('recall@')
         if k_values:
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Scatter(
                     x=k_values,
                     y=avg_recall_at_k,
@@ -155,10 +154,10 @@ class MetricsVisualizer:
                 ),
                 row=2, col=1
             )
-            fig.update_xaxes(title_text="K值", row=2, col=1)
-            fig.update_yaxes(title_text="召回率", row=2, col=1)
+            self.fig.update_xaxes(title_text="K值", row=2, col=1)
+            self.fig.update_yaxes(title_text="召回率", row=2, col=1)
 
-    def _create_ranking_metrics_bar(self, fig: go.Figure) -> None:
+    def _create_ranking_metrics_bar(self) -> None:
         """创建排序指标对比柱状图"""
         ranking_metrics = ['average_precision', 'ndcg', 'mrr']
         available_metrics = [m for m in ranking_metrics if m in self.df.columns]
@@ -167,7 +166,7 @@ class MetricsVisualizer:
             avg_values = [self.df[m].mean() for m in available_metrics]
             cn_names = [METRIC_NAMES_CN.get(m, m) for m in available_metrics]
 
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Bar(
                     x=cn_names,
                     y=avg_values,
@@ -176,13 +175,13 @@ class MetricsVisualizer:
                 ),
                 row=2, col=2
             )
-            fig.update_xaxes(title_text="指标", row=2, col=2)
-            fig.update_yaxes(title_text="平均值", row=2, col=2)
+            self.fig.update_xaxes(title_text="指标", row=2, col=2)
+            self.fig.update_yaxes(title_text="平均值", row=2, col=2)
 
-    def _create_hit_coverage_scatter(self, fig: go.Figure) -> None:
+    def _create_hit_coverage_scatter(self) -> None:
         """创建命中率与覆盖率散点图"""
         if 'hit_rate' in self.df.columns and 'coverage' in self.df.columns:
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Scatter(
                     x=self.df['coverage'],
                     y=self.df['hit_rate'],
@@ -199,41 +198,72 @@ class MetricsVisualizer:
                 ),
                 row=2, col=3
             )
-            fig.update_xaxes(title_text="覆盖率", row=2, col=3)
-            fig.update_yaxes(title_text="命中率", row=2, col=3)
+            self.fig.update_xaxes(title_text="覆盖率", row=2, col=3)
+            self.fig.update_yaxes(title_text="命中率", row=2, col=3)
 
-    def _create_performance_heatmap(self, fig: go.Figure) -> None:
+    def _create_performance_heatmap(self) -> None:
         """创建问题性能热图"""
         top_questions = self.df.nlargest(10, 'f1_score')
         metrics_for_heatmap = ['precision', 'recall', 'f1_score', 'average_precision', 'ndcg']
         available_for_heatmap = [m for m in metrics_for_heatmap if m in top_questions.columns]
-
+        # 计算位置
+        location = self.get_subplot_relative_position(3, 1)
+        x_right = location['x_domain'][1]
+        y_bottom = location['y_domain'][0] - 0.01
+        y_height = (location['y_domain'][1] - location['y_domain'][0]) * 1.1
         if len(available_for_heatmap) > 0:
             heatmap_data = top_questions[available_for_heatmap].values.T
             cn_labels = [METRIC_NAMES_CN.get(m, m) for m in available_for_heatmap]
+            
+            # 准备hover文本数据
+            questions_text = top_questions['question'].str[:50].tolist()
+            x_labels = [f"Q{i + 1}" for i in range(len(top_questions))]
+            
+            # 构建hover文本矩阵
+            hover_text = []
+            for i, metric in enumerate(cn_labels):
+                row_text = []
+                for j, question_text in enumerate(questions_text):
+                    row_text.append(f"问题: {question_text}<br>指标: {metric}<br>值: {heatmap_data[i][j]:.3f}")
+                hover_text.append(row_text)
 
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Heatmap(
                     z=heatmap_data,
-                    x=[f"Q{i + 1}" for i in range(len(top_questions))],
+                    x=x_labels,
                     y=cn_labels,
+                    text=hover_text,
+                    hoverinfo='text',
                     colorscale='YlOrRd',
                     showscale=True,
-                    colorbar=dict(title="指标值")
+                    colorbar=dict(
+                        x=x_right,  # 靠近子图右侧
+                        xanchor="left",  # 左侧对齐
+                        y=y_bottom,  # 靠近子图底部
+                        yanchor="bottom",  # 底部对齐
+                        len=y_height,  # 长度等于子图高度
+                        orientation='v',  # 垂直方向
+                        tickmode="array",
+                        tickvals=[-1, -0.5, 0, 0.5, 1],
+                        ticktext=["-1", "-0.5", "0", "0.5", "1"]
+                    )
                 ),
                 row=3, col=1
             )
 
-    def _create_correlation_heatmap(self, fig: go.Figure) -> None:
+    def _create_correlation_heatmap(self) -> None:
         """创建指标相关性热图"""
         correlation_metrics = ['precision', 'recall', 'f1_score', 'average_precision', 'ndcg', 'mrr']
         available_corr = [m for m in correlation_metrics if m in self.df.columns]
-
+        location = self.get_subplot_relative_position(3, 2)
+        x_right = location['x_domain'][1]
+        y_bottom = location['y_domain'][0] - 0.01
+        y_height = (location['y_domain'][1] - location['y_domain'][0]) * 1.1
         if len(available_corr) > 1:
             corr_matrix = self.df[available_corr].corr()
             cn_labels_corr = [METRIC_NAMES_CN.get(m, m) for m in available_corr]
 
-            fig.add_trace(
+            self.fig.add_trace(
                 go.Heatmap(
                     z=corr_matrix.values,
                     x=cn_labels_corr,
@@ -241,17 +271,27 @@ class MetricsVisualizer:
                     colorscale='RdBu',
                     zmid=0,
                     showscale=True,
-                    colorbar=dict(title="相关系数")
+                    colorbar=dict(
+                        x=x_right,  # 靠近子图右侧
+                        xanchor="left",  # 左侧对齐
+                        y=y_bottom,  # 靠近子图底部
+                        yanchor="bottom",  # 底部对齐
+                        len=y_height,  # 长度等于子图高度
+                        orientation='v',  # 垂直方向
+                        tickmode="array",
+                        tickvals=[-1, -0.5, 0, 0.5, 1],
+                        ticktext=["-1", "-0.5", "0", "0.5", "1"]
+                    )
                 ),
                 row=3, col=2
             )
 
-    def _create_performance_ranking_bar(self, fig: go.Figure) -> None:
+    def _create_performance_ranking_bar(self) -> None:
         """创建性能排名条形图"""
         top_n = min(15, len(self.df))
         top_questions = self.df.nlargest(top_n, 'f1_score')
 
-        fig.add_trace(
+        self.fig.add_trace(
             go.Bar(
                 y=[f"Q{i + 1}" for i in range(len(top_questions))],
                 x=top_questions['f1_score'],
@@ -259,16 +299,18 @@ class MetricsVisualizer:
                 marker_color='lightgreen',
                 text=[f"{score:.3f}" for score in top_questions['f1_score']],
                 textposition='auto',
-                name='F1分数排名'
+                name='F1分数排名',
+                customdata=top_questions['question'].str[:50],  # 添加自定义数据
+                hovertemplate='<b>%{y}</b><br>F1分数: %{x:.3f}<br>问题: %{customdata}<extra></extra>'  # 自定义悬停模板
             ),
             row=3, col=3
         )
-        fig.update_xaxes(title_text="F1分数", row=3, col=3)
+        self.fig.update_xaxes(title_text="F1分数", row=3, col=3)
 
     def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html"):
         """创建交互式仪表板"""
         # 创建子图
-        fig = make_subplots(
+        self.fig: go.Figure = make_subplots(
             rows=3, cols=3,
             subplot_titles=('精确率 vs 召回率', 'F1分数分布', 'Top K精确率',
                             'Top K召回率', '排序指标对比', '命中率与覆盖率',
@@ -277,32 +319,31 @@ class MetricsVisualizer:
                    [{'type': 'scatter'}, {'type': 'bar'}, {'type': 'scatter'}],
                    [{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'bar'}]]
         )
-
         # 添加各个子图
-        self._create_pr_scatter_plot(fig)
-        self._create_f1_histogram(fig)
-        self._create_precision_at_k_plot(fig)
-        self._create_recall_at_k_plot(fig)
-        self._create_ranking_metrics_bar(fig)
-        self._create_hit_coverage_scatter(fig)
-        self._create_performance_heatmap(fig)
-        self._create_correlation_heatmap(fig)
-        self._create_performance_ranking_bar(fig)
+        self._create_pr_scatter_plot()
+        self._create_f1_histogram()
+        self._create_precision_at_k_plot()
+        self._create_recall_at_k_plot()
+        self._create_ranking_metrics_bar()
+        self._create_hit_coverage_scatter()
+        self._create_performance_heatmap()
+        self._create_correlation_heatmap()
+        self._create_performance_ranking_bar()
 
         # 更新布局
-        fig.update_layout(
+        self.fig.update_layout(
             height=1200,
-            width=1600,
+            width=1800,
             title_text="切片召回质量评估仪表板",
             showlegend=False,
             template="plotly_white"
         )
 
         # 保存为HTML文件
-        fig.write_html(output_file)
+        self.fig.write_html(output_file)
         print(f"✅ 交互式仪表板已保存到: {output_file}")
 
-        return fig
+        return self.fig
 
     def _create_detailed_sheet(self, writer) -> None:
         """创建详细数据表"""
@@ -358,6 +399,61 @@ class MetricsVisualizer:
         available_cols = [col for col in display_cols if col in ranked_df.columns]
         ranked_df[available_cols].to_excel(writer, sheet_name='问题排名', index=False)
 
+    def get_subplot_relative_position(self, row: int, col: int) -> Optional[Dict[str, float]]:
+        """
+        只获取子图的相对位置信息（0-1比例）
+        这是最稳定的方法，不依赖像素计算
+        """
+        if self.fig is None:
+            return None
+
+        try:
+            # 方法1：尝试使用轴域
+            subplot_index = (row - 1) * 3 + col
+
+            # 获取轴对象
+            if subplot_index == 1:
+                xaxis = self.fig.layout.xaxis
+                yaxis = self.fig.layout.yaxis
+            else:
+                xaxis = getattr(self.fig.layout, f'xaxis{subplot_index}', None)
+                yaxis = getattr(self.fig.layout, f'yaxis{subplot_index}', None)
+
+            if xaxis is None or yaxis is None:
+                print(f"无法找到子图 (row={row}, col={col}) 的轴配置")
+                return None
+
+            # 获取域
+            x_domain = getattr(xaxis, 'domain', [0.0, 1.0])
+            y_domain = getattr(yaxis, 'domain', [0.0, 1.0])
+
+            # 标准化域值
+            if x_domain is None:
+                x_domain = [0.0, 1.0]
+            if y_domain is None:
+                y_domain = [0.0, 1.0]
+
+            # 转换为列表并获取数值
+            x_start = float(list(x_domain)[0])
+            x_end = float(list(x_domain)[1])
+            y_start = float(list(y_domain)[0])
+            y_end = float(list(y_domain)[1])
+
+            return {
+                'row': row,
+                'col': col,
+                'x': x_start,
+                'y': y_start,
+                'width': x_end - x_start,
+                'height': y_end - y_start,
+                'x_domain': [x_start, x_end],
+                'y_domain': [y_start, y_end]
+            }
+
+        except Exception as e:
+            print(f"获取子图位置时出错: {e}")
+            return None
+
     def export_to_excel(self, output_file: str = "metrics_report.xlsx"):
         """导出为Excel文件"""
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
@@ -369,32 +465,15 @@ class MetricsVisualizer:
 
         print(f"✅ Excel报告已保存到: {output_file}")
 
-    def run_all_visualizations(self, output_prefix: str = "metrics"):
-        """运行所有可视化"""
-        print("🚀 开始生成所有可视化报告...")
-
-        # 1. 创建交互式仪表板
-        self.create_interactive_dashboard(f"{output_prefix}_dashboard.html")
-
-        # 2. 创建静态报告图片
-        self.create_static_report(f"./{output_prefix}_reports")
-
-        # 3. 导出Excel
-        self.export_to_excel(f"{output_prefix}_report.xlsx")
-
-        print("\n🎉 所有可视化报告生成完成！")
-        print(f"📁 输出文件:")
-        print(f"   - {output_prefix}_dashboard.html (交互式仪表板)")
-        print(f"   - {output_prefix}_reports/ (静态图片)")
-        print(f"   - {output_prefix}_report.xlsx (Excel报告)")
-
 
 if __name__ == '__main__':
     from reports.reports_funcs.generate_report import load_metric_data
     from pathlib import Path
 
     data = load_metric_data(
-        r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf\metric_chunk_id_augmentedSearch_400_0.json',
+        r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf\metric_chunk_id_vectorSearch_400_0.json',
         Path(r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf'))
     mev = MetricsVisualizer(data)
     mev.create_interactive_dashboard("ospf_dashboard.html")
+    # mev.get_subplot_position_and_size(1,1)
+    # print(mev.get_subplot_relative_position(3,2))
