@@ -19,14 +19,17 @@ except ImportError:
 class HTMLRenderer:
     """HTML报告渲染器"""
 
-    def __init__(self, template_dir: Optional[str] = None):
+    def __init__(self, template_dir: Optional[str] = None, css_dir: Optional[str] = None):
         """
         初始化HTML渲染器
         
         Args:
             template_dir: 模板目录路径，如果为None则使用默认目录
+            css_dir: CSS目录路径，如果为None则使用默认目录
         """
         self.template_dir = template_dir or str(Path(__file__).parent / "templates")
+        self.css_dir = css_dir or str(Path(__file__).parent / "css")
+        self.css_path = Path(self.css_dir) / 'styles.css'
 
         if JINJA2_AVAILABLE:
             self.env = Environment(
@@ -53,8 +56,6 @@ class HTMLRenderer:
         """
         if self.env and JINJA2_AVAILABLE:
             return self._render_with_jinja2("metrics_dashboard.html", analysis_results)
-        else:
-            return self._render_fallback(analysis_results)
 
     def render_summary_report(self, analysis_results: Dict[str, Any]) -> str:
         """
@@ -68,8 +69,6 @@ class HTMLRenderer:
         """
         if self.env and JINJA2_AVAILABLE:
             return self._render_with_jinja2("summary_report.html", analysis_results)
-        else:
-            return self._render_fallback(analysis_results)
 
     def _render_with_jinja2(self, template_name: str, context: Dict[str, Any]) -> str:
         """
@@ -88,13 +87,16 @@ class HTMLRenderer:
             # 准备模板上下文
             template_context = self._prepare_template_context(context)
 
+            # 添加CSS路径
+            template_context["css_path"] = self.css_path
+
             # 渲染模板
             html_content = template.render(**template_context)
             return html_content
 
         except Exception as e:
             print(f"Jinja2渲染错误: {e}")
-            return self._render_fallback(context)
+            raise e
 
     def _prepare_template_context(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -112,11 +114,6 @@ class HTMLRenderer:
         top_k_analysis = analysis_results.get("top_k_analysis", {})
         correlation_matrix = analysis_results.get("correlation_matrix", {})
         performance_ranking = analysis_results.get("performance_ranking", [])
-
-        # print(f"调试: correlation_matrix 类型: {type(correlation_matrix)}")
-        # print(f"调试: correlation_matrix 内容: {correlation_matrix}")
-        # if correlation_matrix:
-        #     print(f"调试: correlation_matrix 包含的指标: {list(correlation_matrix.keys())}")
 
         # 准备图表数据
         metrics_data = self._prepare_chart_data(analysis_results)
@@ -241,141 +238,6 @@ class HTMLRenderer:
             questions.append(question_data)
 
         return questions
-
-    def _render_fallback(self, analysis_results: Dict[str, Any]) -> str:
-        """
-        备用HTML生成方式（当Jinja2不可用时）
-        
-        Args:
-            analysis_results: 分析结果
-            
-        Returns:
-            HTML内容字符串
-        """
-        summary = analysis_results.get("summary", {})
-
-        html_content = f"""
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>问答系统召回质量评估报告</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }}
-        .header {{
-            background: #667eea;
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }}
-        .summary {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }}
-        .metric-card {{
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .metric-value {{
-            font-size: 1.5em;
-            font-weight: bold;
-            margin: 5px 0;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }}
-        th, td {{
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }}
-        th {{
-            background-color: #f8f9fa;
-        }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>问答系统召回质量评估报告</h1>
-        <p>生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p>评估问题数量: {summary.get('total_questions', 0)}</p>
-    </div>
-    
-    <div class="summary">
-        <div class="metric-card">
-            <h3>平均精确率</h3>
-            <div class="metric-value">{summary.get('avg_precision', 0):.4f}</div>
-        </div>
-        <div class="metric-card">
-            <h3>平均召回率</h3>
-            <div class="metric-value">{summary.get('avg_recall', 0):.4f}</div>
-        </div>
-        <div class="metric-card">
-            <h3>平均F1分数</h3>
-            <div class="metric-value">{summary.get('avg_f1_score', 0):.4f}</div>
-        </div>
-        <div class="metric-card">
-            <h3>平均NDCG</h3>
-            <div class="metric-value">{summary.get('avg_ndcg', 0):.4f}</div>
-        </div>
-    </div>
-    
-    <h2>性能排名 (Top 10)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>排名</th>
-                <th>问题</th>
-                <th>F1分数</th>
-                <th>精确率</th>
-                <th>召回率</th>
-            </tr>
-        </thead>
-        <tbody>
-"""
-
-        performance_ranking = analysis_results.get("performance_ranking", [])
-        for i, item in enumerate(performance_ranking[:10], 1):
-            question_short = item.get("question", "")[:50] + "..." if len(item.get("question", "")) > 50 else item.get(
-                "question", "")
-            html_content += f"""
-            <tr>
-                <td>{i}</td>
-                <td title="{item.get('question', '')}">{question_short}</td>
-                <td>{item.get('f1_score', 0):.4f}</td>
-                <td>{item.get('precision', 0):.4f}</td>
-                <td>{item.get('recall', 0):.4f}</td>
-            </tr>
-"""
-
-        html_content += """
-        </tbody>
-    </table>
-    
-    <div style="margin-top: 30px; text-align: center; color: #666;">
-        <p>报告生成工具: HTMLRenderer (备用模式)</p>
-        <p>注: 建议安装Jinja2以获得更好的报告体验</p>
-    </div>
-</body>
-</html>
-"""
-
-        return html_content
 
     def save_html_report(self, analysis_results: Dict[str, Any], output_file: str,
                          template_name: str = "metrics_dashboard.html") -> bool:
