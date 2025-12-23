@@ -1,9 +1,10 @@
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, send_from_directory
 import os
-from pathlib import Path
 from reports.reports_funcs.generate_report import load_metric_data
 from reports.reports_funcs.metrics_analyzer import analyze_metrics
 from reports.reports_funcs.html_renderer import HTMLRenderer
+from reports.reports_funcs.report_list_renderer import ReportListRenderer
+from env_config_init import REPORT_PATH
 
 app = Flask(__name__)
 
@@ -19,6 +20,18 @@ app.template_folder = template_dir
 @app.route('/')
 def index():
     return '<h1>问答系统召回质量评估报告服务</h1><p>请访问具体的报告路径查看报告</p>'
+
+
+@app.route('/metric_data/')
+def metric_data():
+    # 获取REPORT_PATH目录下所有.json文件
+    report_path = REPORT_PATH
+    json_files = [f for f in os.listdir(report_path) if f.endswith('.json')]
+    
+    # 创建报告列表渲染器并渲染页面
+    renderer = ReportListRenderer()
+    html_content = renderer.render_report_list(json_files)
+    return html_content
 
 @app.route('/report/<path:filename>')
 def report(filename):
