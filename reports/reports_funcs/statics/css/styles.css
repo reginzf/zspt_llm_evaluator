@@ -332,12 +332,24 @@ tr:hover {
     margin-bottom: 5px;
 }
 
+.visualization-section {
+    margin-bottom: 30px;
+}
+
+.visualization-section h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
 .visualization-wrapper {
     background: white;
     border-radius: 8px;
     padding: 20px;
     border: 1px solid #e9ecef;
-    overflow: hidden;
+    overflow: auto;
+    max-width: 100%;
 }
 
 .visualization-error {

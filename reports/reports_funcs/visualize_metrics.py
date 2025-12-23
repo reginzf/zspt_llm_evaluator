@@ -179,27 +179,61 @@ class MetricsVisualizer:
             self.fig.update_yaxes(title_text="平均值", row=2, col=2)
 
     def _create_hit_coverage_scatter(self) -> None:
-        """创建命中率与覆盖率散点图"""
-        if 'hit_rate' in self.df.columns and 'coverage' in self.df.columns:
-            self.fig.add_trace(
-                go.Scatter(
-                    x=self.df['coverage'],
-                    y=self.df['hit_rate'],
-                    mode='markers',
-                    marker=dict(
-                        size=10,
-                        color=self.df['f1_score'],
-                        colorscale='Plasma',
-                        showscale=False
+        """创建命中率与recall_at_k的散点图"""
+        # 首先检查是否有hit_rate和recall_at_k相关列
+        if 'hit_rate' not in self.df.columns:
+            return  # 如果没有命中率数据，则跳过此图
+        
+        # 查找可用的recall@k列
+        recall_at_k_columns = [col for col in self.df.columns if col.startswith('recall@')]
+        
+        if not recall_at_k_columns:
+            # 如果没有找到recall@k列，可以尝试使用总的recall
+            if 'recall' in self.df.columns:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=self.df['recall'],
+                        y=self.df['hit_rate'],
+                        mode='markers',
+                        marker=dict(
+                            size=10,
+                            color=self.df['f1_score'],
+                            colorscale='Plasma',
+                            showscale=False
+                        ),
+                        text=self.df['question'].str[:50],
+                        hoverinfo='text+x+y',
+                        name='命中率 vs 召回率'
                     ),
-                    text=self.df['question'].str[:50],
-                    hoverinfo='text+x+y',
-                    name='命中率vs覆盖率'
-                ),
-                row=2, col=3
-            )
-            self.fig.update_xaxes(title_text="覆盖率", row=2, col=3)
-            self.fig.update_yaxes(title_text="命中率", row=2, col=3)
+                    row=2, col=3
+                )
+                self.fig.update_xaxes(title_text="召回率", row=2, col=3)
+                self.fig.update_yaxes(title_text="命中率", row=2, col=3)
+        else:
+            # 如果找到recall@k列，使用最大k值的列
+            recall_at_k_columns.sort(key=lambda x: int(x.split('@')[1]))  # 按k值排序
+            max_k_column = recall_at_k_columns[-1]  # 选择最大k值的列
+            
+            if max_k_column in self.df.columns:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=self.df[max_k_column],
+                        y=self.df['hit_rate'],
+                        mode='markers',
+                        marker=dict(
+                            size=10,
+                            color=self.df['f1_score'],
+                            colorscale='Plasma',
+                            showscale=False
+                        ),
+                        text=self.df['question'].str[:50],
+                        hoverinfo='text+x+y',
+                        name=f'命中率 vs {max_k_column}'
+                    ),
+                    row=2, col=3
+                )
+                self.fig.update_xaxes(title_text=f"{max_k_column} (召回率@k)", row=2, col=3)
+                self.fig.update_yaxes(title_text="命中率", row=2, col=3)
 
     def _create_performance_heatmap(self) -> None:
         """创建问题性能热图"""
@@ -307,7 +341,7 @@ class MetricsVisualizer:
         )
         self.fig.update_xaxes(title_text="F1分数", row=3, col=3)
 
-    def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html",to_html=True):
+    def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html", save_to_html=True):
         """创建交互式仪表板"""
         # 创建子图
         self.fig: go.Figure = make_subplots(
@@ -333,17 +367,17 @@ class MetricsVisualizer:
         # 更新布局
         self.fig.update_layout(
             height=1200,
-            width=1800,
+            width=1400,
             title_text="切片召回质量评估仪表板",
             showlegend=False,
             template="plotly_white"
         )
 
         # 保存为HTML文件
-        if to_html:
+        if save_to_html:
             self.fig.write_html(output_file)
-        else: # 返回html，用于插入HTMLRenderer中，进行渲染
-            return self.fig.to_html(include_plotlyjs=False)
+        else:  # 返回html，用于插入HTMLRenderer中，进行渲染
+            return self.fig.to_html(include_plotlyjs=True)
         print(f"✅ 交互式仪表板已保存到: {output_file}")
 
         return self.fig
@@ -474,8 +508,7 @@ if __name__ == '__main__':
     from pathlib import Path
 
     data = load_metric_data(
-        r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf\metric_chunk_id_vectorSearch_400_0.json',
+        r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf\metric_chunk_id_augmentedSearch_400_0.json',
         Path(r'D:\pyworkplace\git_place\ai-ken\reports\report_data\ospf'))
     mev = MetricsVisualizer(data)
     mev.create_interactive_dashboard("ospf_dashboard.html")
-

@@ -77,9 +77,9 @@ def calculate_batch_recall_metrics(
 
 
 def calculate_batch_similarity_metrics(scores_queries: List[Tuple[List[float], str]],
-                                   threshold: float = 0.5,
-                                   len_chunk2_list: Optional[List[int]] = None,
-                                   top_n: Optional[int] = None):
+                                       threshold: float = 0.5,
+                                       len_chunk2_list: Optional[List[int]] = None,
+                                       top_n: Optional[int] = None):
     return evaluator.evaluate_scores_batch(scores_queries, threshold, len_chunk2_list, top_n)
 
 

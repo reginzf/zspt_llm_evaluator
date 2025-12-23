@@ -202,72 +202,7 @@ function renderCharts() {
         }
     });
 
-    // 5. 相关性分析图表
-    const correlationCtx = document.getElementById('correlationChart').getContext('2d');
-    new Chart(correlationCtx, {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: '问题性能分布',
-                data: metricsData.correlation_data,
-                backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                borderColor: '#667eea',
-                borderWidth: 1,
-                pointRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: '准确率 vs 召回率 相关性分析'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const data = context.raw;
-                            return [
-                                `问题: ${data.label}`,
-                                `准确率: ${(data.x * 100).toFixed(2)}%`,
-                                `召回率: ${(data.y * 100).toFixed(2)}%`
-                            ];
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: '准确率'
-                    },
-                    min: 0,
-                    max: 1,
-                    ticks: {
-                        callback: function(value) {
-                            return (value * 100) + '%';
-                        }
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: '召回率'
-                    },
-                    min: 0,
-                    max: 1,
-                    ticks: {
-                        callback: function(value) {
-                            return (value * 100) + '%';
-                        }
-                    }
-                }
-            }
-        }
-    });
-    
+
     // 6. 性能热力图
     renderPerformanceHeatmap();
 }

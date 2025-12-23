@@ -110,18 +110,10 @@
     </div>
 </div>
 
+
 <div class="chart-container">
-    <h2>相关性分析</h2>
-    <div class="chart-row">
-        <div class="chart-wrapper">
-            <canvas id="correlationChart"></canvas>
-        </div>
-        <div class="chart-wrapper">
-            <canvas id="performanceHeatmap"></canvas>
-        </div>
-    </div>
     
-    <h3>主要指标相关性矩阵</h3>
+    <h3>相关性矩阵</h3>
     <div class="table-container">
         <table id="correlationTable">
             <thead>
@@ -157,6 +149,12 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+<div class="visualization-section">
+    <h2>可视化仪表板</h2>
+    <div class="visualization-wrapper">
+        {{ visualize_data.plotly_html|safe }}
     </div>
 </div>
 {% endblock %}

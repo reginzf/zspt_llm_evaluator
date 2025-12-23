@@ -7,20 +7,13 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from env_config_init import TYPE_DISPLAY_NAMES
+from .html_renderer_base import BaseHTMLRenderer
 
-try:
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-    JINJA2_AVAILABLE = True
-except ImportError:
-    JINJA2_AVAILABLE = False
-    print("警告: Jinja2未安装，将使用备用HTML生成方式")
-    print("请安装: pip install jinja2")
 
 METRIC_TEMPLATE_NAME = 'metrics_dashboard.html'
 
 
-class HTMLRenderer:
+class HTMLRenderer(BaseHTMLRenderer):
     """HTML报告渲染器"""
 
     def __init__(self, template_dir: Optional[str] = None, css_dir: Optional[str] = None):
@@ -31,22 +24,11 @@ class HTMLRenderer:
             template_dir: 模板目录路径，如果为None则使用默认目录
             css_dir: CSS目录路径，如果为None则使用默认目录
         """
-        self.template_dir = template_dir or str(Path(__file__).parent / "templates")
-        self.css_dir = css_dir or str(Path(__file__).parent / "statics"/"css")
-        self.css_path = "/css/styles.css"  # 使用相对路径而非文件系统路径
+        # 调用父类初始化
+        super().__init__(template_dir, css_dir, "/css/styles.css")
+        
         self._js_content = None  # 缓存JS内容
-        if JINJA2_AVAILABLE:
-            self.env = Environment(
-                loader=FileSystemLoader(self.template_dir),
-                autoescape=select_autoescape(['html', 'xml']),
-                trim_blocks=True,
-                lstrip_blocks=True
-            )
 
-            # 添加自定义过滤器
-            self.env.filters['round'] = lambda x, n=2: round(x, n) if isinstance(x, (int, float)) else x
-        else:
-            self.env = None
 
     def _get_js_content(self):
         """获取JS内容并缓存"""
@@ -84,7 +66,7 @@ class HTMLRenderer:
             template_context["visualize_data"] = visualize_data
             # 添加CSS路径 - 使用相对路径
             template_context["css_path"] = self.css_path
-            
+
             # 添加JavaScript内容（内联）
             template_context["js_content"] = self._get_js_content()
         except Exception as e:
@@ -112,7 +94,7 @@ class HTMLRenderer:
             visualizer = MetricsVisualizer(metric_all)
 
             # 生成交互式仪表板HTML（不保存文件）
-            plotly_html = visualizer.create_interactive_dashboard(to_html=False)
+            plotly_html = visualizer.create_interactive_dashboard(save_to_html=False)
 
             # 准备可视化数据
             visualize_data = {
@@ -306,11 +288,11 @@ class HTMLRenderer:
             "avg_recall_at_k": avg_recall_at_k,
             "f1_distribution_labels": f1_distribution_labels,
             "f1_distribution_data": f1_distribution_data,
-            "avg_average_precision": summary.get("avg_average_precision", 0) * 100,
-            "avg_ndcg": summary.get("avg_ndcg", 0) * 100,
-            "avg_mrr": summary.get("avg_mrr", 0) * 100,
-            "avg_hit_rate": summary.get("avg_hit_rate", 0) * 100,
-            "avg_coverage": summary.get("avg_coverage", 0) * 100,
+            "avg_average_precision": summary.get("avg_average_precision", 0),
+            "avg_ndcg": summary.get("avg_ndcg", 0),
+            "avg_mrr": summary.get("avg_mrr", 0),
+            "avg_hit_rate": summary.get("avg_hit_rate", 0),
+            "avg_coverage": summary.get("avg_coverage", 0),
             "correlation_data": correlation_data
         }
 
