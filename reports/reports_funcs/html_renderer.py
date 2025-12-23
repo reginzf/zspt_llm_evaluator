@@ -30,8 +30,8 @@ class HTMLRenderer:
             template_dir: 模板目录路径，如果为None则使用默认目录
             css_dir: CSS目录路径，如果为None则使用默认目录
         """
-        self.template_dir = template_dir or str(Path(__file__).parent / 'statics' / "templates")
-        self.css_dir = css_dir or str(Path(__file__).parent / 'statics' / "css")
+        self.template_dir = template_dir or str(Path(__file__).parent / "templates")
+        self.css_dir = css_dir or str(Path(__file__).parent / "css")
         self.css_path = Path(self.css_dir) / 'styles.css'
 
         if JINJA2_AVAILABLE:
@@ -69,9 +69,9 @@ class HTMLRenderer:
 
             # 添加CSS路径 - 使用相对路径
             # 计算从报告文件到CSS文件的相对路径
-            # 报告文件保存在report_data目录下，CSS文件在reports_funcs/css目录下
+            # 报告文件保存在report_data目录下，CSS文件在reports_funcs/statics/css目录下
             template_context["css_path"] = "../../reports_funcs/statics/css/styles.css"
-
+            
             # 添加JavaScript内容（内联）
             js_path = Path(__file__).parent / "statics" / "js" / "metrics_dashboard.js"
             if js_path.exists():
