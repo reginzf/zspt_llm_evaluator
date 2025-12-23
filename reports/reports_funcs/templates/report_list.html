@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or '报告文件列表' }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ heading or '可用的报告文件' }} ({{ total_files }} 个)</h1>
+        <ul class="file-list">
+        {% for file in json_files %}
+            <li class="file-item">
+                <a class="file-link" href="/report/{{ file }}">{{ file }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>
