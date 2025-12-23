@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from env_config_init import TYPE_DISPLAY_NAMES
+
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -29,8 +30,8 @@ class HTMLRenderer:
             template_dir: 模板目录路径，如果为None则使用默认目录
             css_dir: CSS目录路径，如果为None则使用默认目录
         """
-        self.template_dir = template_dir or str(Path(__file__).parent / "templates")
-        self.css_dir = css_dir or str(Path(__file__).parent / "css")
+        self.template_dir = template_dir or str(Path(__file__).parent / 'statics' / "templates")
+        self.css_dir = css_dir or str(Path(__file__).parent / 'statics' / "css")
         self.css_path = Path(self.css_dir) / 'styles.css'
 
         if JINJA2_AVAILABLE:
@@ -46,7 +47,7 @@ class HTMLRenderer:
         else:
             self.env = None
 
-    def render_metrics_dashboard(self, analysis_results: Dict[str, Any]) -> str:
+    def render_metrics_dashboard(self, analysis_results: Dict[str, Any], metric_data) -> str:
         """
         使用Jinja2渲染模板
         
@@ -62,16 +63,70 @@ class HTMLRenderer:
             # 准备模板上下文
             template_context = self._prepare_template_context(analysis_results)
 
-            # 添加CSS路径
-            template_context["css_path"] = self.css_path
+            # 添加可视化数据
+            visualize_data = self._prepare_visualize_data(metric_data)
+            template_context["visualize_data"] = visualize_data
 
-            # 渲染模板
-            html_content = template.render(**template_context)
-            return html_content
+            # 添加CSS路径 - 使用相对路径
+            # 计算从报告文件到CSS文件的相对路径
+            # 报告文件保存在report_data目录下，CSS文件在reports_funcs/css目录下
+            template_context["css_path"] = "../../reports_funcs/statics/css/styles.css"
 
+            # 添加JavaScript内容（内联）
+            js_path = Path(__file__).parent / "statics" / "js" / "metrics_dashboard.js"
+            if js_path.exists():
+                with open(js_path, 'r', encoding='utf-8') as f:
+                    template_context["js_content"] = f.read()
+            else:
+                template_context["js_content"] = "// JavaScript文件未找到"
         except Exception as e:
             print(f"Jinja2渲染错误: {e}")
             raise e
+        # 渲染模板
+        html_content = template.render(**template_context)
+        return html_content
+
+    def _prepare_visualize_data(self, metric_all: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        准备可视化数据
+        
+        Args:
+            analysis_results: 分析结果
+            
+        Returns:
+            可视化数据字典，包含Plotly图表HTML和配置信息
+        """
+        try:
+            # 导入MetricsVisualizer
+            from .visualize_metrics import MetricsVisualizer
+
+            # 创建可视化器
+            visualizer = MetricsVisualizer(metric_all)
+
+            # 生成交互式仪表板HTML（不保存文件）
+            plotly_html = visualizer.create_interactive_dashboard(to_html=False)
+
+            # 准备可视化数据
+            visualize_data = {
+                "plotly_html": plotly_html,
+                "has_visualization": True,
+                "question_count": len(metric_all),
+                "available_metrics": [
+                    "precision", "recall", "f1_score", "average_precision",
+                    "ndcg", "mrr", "hit_rate", "coverage"
+                ]
+            }
+
+            return visualize_data
+
+        except Exception as e:
+            print(f"准备可视化数据时出错: {e}")
+            return {
+                "plotly_html": "<div class='visualization-error'>可视化数据生成失败</div>",
+                "has_visualization": False,
+                "question_count": 0,
+                "available_metrics": []
+            }
 
     def _prepare_template_context(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -243,11 +298,11 @@ class HTMLRenderer:
             "avg_recall_at_k": avg_recall_at_k,
             "f1_distribution_labels": f1_distribution_labels,
             "f1_distribution_data": f1_distribution_data,
-            "avg_average_precision": summary.get("avg_average_precision", 0),
-            "avg_ndcg": summary.get("avg_ndcg", 0),
-            "avg_mrr": summary.get("avg_mrr", 0),
-            "avg_hit_rate": summary.get("avg_hit_rate", 0),
-            "avg_coverage": summary.get("avg_coverage", 0),
+            "avg_average_precision": summary.get("avg_average_precision", 0) * 100,
+            "avg_ndcg": summary.get("avg_ndcg", 0) * 100,
+            "avg_mrr": summary.get("avg_mrr", 0) * 100,
+            "avg_hit_rate": summary.get("avg_hit_rate", 0) * 100,
+            "avg_coverage": summary.get("avg_coverage", 0) * 100,
             "correlation_data": correlation_data
         }
 
@@ -279,17 +334,3 @@ class HTMLRenderer:
             questions.append(question_data)
 
         return questions
-
-
-# 兼容性函数
-def generate_html_report(analysis_results: Dict[str, Any]) -> str:
-    """
-    
-    Args:
-        analysis_results: analyze_metrics函数返回的分析结果
-        
-    Returns:
-        HTML报告内容字符串
-    """
-    renderer = HTMLRenderer()
-    return renderer.render_metrics_dashboard(analysis_results)
