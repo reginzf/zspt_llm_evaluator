@@ -388,19 +388,19 @@ class ChunkRecallEvaluator:
         if not relevant_set:
             return 0.0
 
-        relevant_count = 0
+        retrieved_count = 0
         precision_sum = 0.0
 
         for i, chunk_id in enumerate(retrieved_chunks, 1):
             if chunk_id in relevant_set:
-                relevant_count += 1
-                precision_at_i = relevant_count / i
+                retrieved_count += 1
+                precision_at_i = retrieved_count / i
                 precision_sum += precision_at_i
 
-        if relevant_count == 0:
+        if retrieved_count == 0:
             return 0.0
 
-        return precision_sum / relevant_count
+        return precision_sum / len(relevant_set)
 
     def _calculate_ndcg(
             self,
