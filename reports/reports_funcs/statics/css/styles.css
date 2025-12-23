@@ -294,6 +294,61 @@ tr:hover {
     color: #721c24;
 }
 
+/* 可视化区域样式 */
+.visualization-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.info-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    padding: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.info-card h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+.info-content {
+    color: #555;
+}
+
+.info-content p {
+    margin-bottom: 8px;
+}
+
+.info-content ul {
+    margin-left: 20px;
+    margin-bottom: 0;
+}
+
+.info-content li {
+    margin-bottom: 5px;
+}
+
+.visualization-wrapper {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+}
+
+.visualization-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #f5c6cb;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .chart-row {
@@ -315,6 +370,10 @@ tr:hover {
     .table-container th,
     .table-container td {
         padding: 8px 10px;
+    }
+    
+    .visualization-info {
+        grid-template-columns: 1fr;
     }
 }
 
