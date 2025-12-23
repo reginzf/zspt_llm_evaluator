@@ -11,20 +11,16 @@ import sys
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 from env_config_init import REPORT_PATH
+try:
+    from metrics_analyzer import analyze_metrics
+    from html_renderer import HTMLRenderer
+except ImportError:
+    from reports.reports_funcs.metrics_analyzer import analyze_metrics
+    from reports.reports_funcs.html_renderer import HTMLRenderer
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
-
-# 导入新模块
-try:
-    from metrics_analyzer import analyze_metrics
-    from html_renderer import HTMLRenderer
-
-    MODULES_AVAILABLE = True
-except ImportError as e:
-    print(f"模块导入错误: {e}")
-    raise e
 
 
 def load_metric_data(filepath: str, report_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
@@ -71,10 +67,6 @@ def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> Li
     """
     from datetime import datetime
 
-    if not MODULES_AVAILABLE:
-        print("错误: 必要的模块不可用")
-        return []
-
     # 使用指定的report_path或默认的REPORT_PATH
     target_path = report_path if report_path else REPORT_PATH
 
@@ -118,7 +110,7 @@ def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> Li
         analysis_results = analyze_metrics(metric_data)
 
         # 生成html报告
-        html_content = renderer.render_metrics_dashboard(analysis_results)
+        html_content = renderer.render_metrics_dashboard(analysis_results,metric_data)
 
         # 保存html报告，使用输入文件名作为报告名称的一部分
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -140,11 +132,6 @@ def generate_reports_from_metric_files(report_path: Optional[Path] = None) -> Li
 
 def main():
     """主函数：生成评估报告"""
-    if not MODULES_AVAILABLE:
-        print("错误: 必要的模块不可用，请检查依赖安装")
-        print("请确保已安装: pip install jinja2 pandas numpy matplotlib seaborn plotly")
-        return
-
     # 使用新的函数生成报告
     report_files = generate_reports_from_metric_files()
 
