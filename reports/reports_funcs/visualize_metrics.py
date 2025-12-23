@@ -340,7 +340,10 @@ class MetricsVisualizer:
         )
 
         # 保存为HTML文件
-        self.fig.write_html(output_file)
+        if to_html:
+            self.fig.write_html(output_file)
+        else: # 返回html，用于插入HTMLRenderer中，进行渲染
+            return self.fig.to_html(include_plotlyjs=False)
         print(f"✅ 交互式仪表板已保存到: {output_file}")
 
         return self.fig
