@@ -2,6 +2,7 @@
 HTML报告渲染器模块
 使用Jinja2模板引擎生成美观的HTML报告
 """
+import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
@@ -31,9 +32,9 @@ class HTMLRenderer:
             css_dir: CSS目录路径，如果为None则使用默认目录
         """
         self.template_dir = template_dir or str(Path(__file__).parent / "templates")
-        self.css_dir = css_dir or str(Path(__file__).parent / "css")
-        self.css_path = Path(self.css_dir) / 'styles.css'
-
+        self.css_dir = css_dir or str(Path(__file__).parent / "statics"/"css")
+        self.css_path = "/css/styles.css"  # 使用相对路径而非文件系统路径
+        self._js_content = None  # 缓存JS内容
         if JINJA2_AVAILABLE:
             self.env = Environment(
                 loader=FileSystemLoader(self.template_dir),
@@ -46,6 +47,21 @@ class HTMLRenderer:
             self.env.filters['round'] = lambda x, n=2: round(x, n) if isinstance(x, (int, float)) else x
         else:
             self.env = None
+
+    def _get_js_content(self):
+        """获取JS内容并缓存"""
+        if self._js_content is None:
+            js_path = Path(__file__).parent / "statics" / "js" / "metrics_dashboard.js"
+            try:
+                if js_path.exists():
+                    with open(js_path, 'r', encoding='utf-8') as f:
+                        self._js_content = f.read()
+                else:
+                    self._js_content = "// JavaScript文件未找到"
+            except Exception as e:
+                logging.error(f"读取JavaScript文件错误: {e}")
+                self._js_content = "// JavaScript文件读取失败"
+        return self._js_content
 
     def render_metrics_dashboard(self, analysis_results: Dict[str, Any], metric_data) -> str:
         """
@@ -66,21 +82,13 @@ class HTMLRenderer:
             # 添加可视化数据
             visualize_data = self._prepare_visualize_data(metric_data)
             template_context["visualize_data"] = visualize_data
-
             # 添加CSS路径 - 使用相对路径
-            # 计算从报告文件到CSS文件的相对路径
-            # 报告文件保存在report_data目录下，CSS文件在reports_funcs/statics/css目录下
-            template_context["css_path"] = "../../reports_funcs/statics/css/styles.css"
+            template_context["css_path"] = self.css_path
             
             # 添加JavaScript内容（内联）
-            js_path = Path(__file__).parent / "statics" / "js" / "metrics_dashboard.js"
-            if js_path.exists():
-                with open(js_path, 'r', encoding='utf-8') as f:
-                    template_context["js_content"] = f.read()
-            else:
-                template_context["js_content"] = "// JavaScript文件未找到"
+            template_context["js_content"] = self._get_js_content()
         except Exception as e:
-            print(f"Jinja2渲染错误: {e}")
+            logging.error(f"Jinja2渲染错误: {e}")
             raise e
         # 渲染模板
         html_content = template.render(**template_context)
@@ -120,7 +128,7 @@ class HTMLRenderer:
             return visualize_data
 
         except Exception as e:
-            print(f"准备可视化数据时出错: {e}")
+            logging.error(f"准备可视化数据时出错: {e}")
             return {
                 "plotly_html": "<div class='visualization-error'>可视化数据生成失败</div>",
                 "has_visualization": False,
