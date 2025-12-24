@@ -1,5 +1,5 @@
 from typing import Optional, List, Tuple
-from .sql_base import PostgreSQLManager
+from src.sql_funs.sql_base import PostgreSQLManager
 
 
 class Environment_Crud(PostgreSQLManager):
