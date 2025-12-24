@@ -15,9 +15,6 @@ class CreateTables(PostgreSQLManager):
         self.create_mechanism_questions_table()
         self.create_thematic_questions_table()
 
-        # 创建视图
-        self.create_views()
-
     def create_environment_table(self) -> bool:
         """1. 创建环境信息表"""
         columns = {

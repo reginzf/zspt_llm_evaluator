@@ -1,12 +1,12 @@
 from flask import Flask, send_from_directory
-from src.flask_funcs import app as routes_bp, static_bp
+from src.flask_funcs import home_bp,static_bp
 import os
 
 # 创建Flask应用
 app = Flask(__name__)
 
 # 注册蓝图
-app.register_blueprint(routes_bp)
+app.register_blueprint(home_bp)
 app.register_blueprint(static_bp)
 
 # 设置静态文件和模板文件目录

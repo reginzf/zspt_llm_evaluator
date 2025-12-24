@@ -4,6 +4,7 @@ from src.flask_funcs.reports.generate_report import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
 from src.flask_funcs.reports.html_renderer import HTMLRenderer
 from src.flask_funcs.reports.report_list_renderer import ReportListRenderer
+from src.flask_funcs.reports.environment_renderer import EnvironmentRenderer
 from env_config_init import REPORT_PATH
 
 # 创建蓝图
@@ -19,7 +20,15 @@ def index():
     
     # 渲染模板
     return render_template('home.html', report_count=report_count, css_path='/css/styles.css')
+@home_bp.route('/environment/')
+def environment():
+    # 创建HTML渲染器
+    renderer = EnvironmentRenderer()
+    # todo
+    # 渲染模板
+    html_content = renderer.render_environment_page()
 
+    return html_content
 
 @home_bp.route('/metric_data/')
 def metric_data():
