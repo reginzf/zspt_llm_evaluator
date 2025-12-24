@@ -4,15 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>环境管理</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="{{ css_path }}">
     <style>
         .environment-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
+            padding: 0 10px;
         }
         
         .search-container {
-            float: right;
-            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
         }
         
         .search-container input {
@@ -33,6 +37,11 @@
         
         .search-container button:hover {
             background-color: #5a67d8;
+        }
+        
+        .table-container {
+            padding: 0 10px;
+            overflow-x: auto;
         }
         
         .btn {
@@ -170,9 +179,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th>环境名称\nID</th>
+                        <th>环境名称\ID</th>
                         <th>基础URL</th>
-                        <th>域名</th>
+                        <th>domain</th>
+                        <th>管理账号</th>
+                        <th>密码</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -182,6 +193,12 @@
                         <td>{{ env.zlpt_name }}<br><small>{{ env.zlpt_base_id }}</small></td>
                         <td>{{ env.zlpt_base_url }}</td>
                         <td>{{ env.domain }}</td>
+                        <td>{{ env.username }}</td>
+
+                        <td>
+                            <span class="password-text" style="display: inline;">********</span>
+                            <span class="password-toggle" style="cursor: pointer; margin-left: 10px;" onclick="togglePasswordVisibility(this, '{{ env.password }}')">👁️</span>
+                        </td>
                         <td>
                             <button class="btn btn-edit" onclick="showEditModal('{{ env.zlpt_base_id }}', '{{ env.zlpt_name }}', '{{ env.zlpt_base_url }}', '{{ env.domain }}', '{{ env.username }}', '{{ env.password }}')">编辑</button>
                             <button class="btn btn-delete" onclick="showDeleteModal('{{ env.zlpt_base_id }}', '{{ env.zlpt_name }}')">删除</button>
@@ -201,7 +218,10 @@
                 <span class="close" onclick="closeModal()">&times;</span>
             </div>
             <form id="environmentForm">
-                <input type="hidden" id="zlpt_base_id" name="zlpt_base_id">
+                <div class="form-group">
+                    <label for="zlpt_base_id">环境ID</label>
+                    <input type="text" id="zlpt_base_id" name="zlpt_base_id" readonly>
+                </div>
                 <div class="form-group">
                     <label for="zlpt_name">环境名称 *</label>
                     <input type="text" id="zlpt_name" name="zlpt_name" required>
@@ -256,6 +276,7 @@
         document.getElementById('modalTitle').textContent = '创建环境';
         document.getElementById('environmentForm').reset();
         document.getElementById('zlpt_base_id').value = '';
+        document.getElementById('zlpt_base_id').disabled = false; // 在创建时ID字段可编辑
         document.getElementById('zlpt_name').disabled = false;
         document.getElementById('saveBtn').textContent = '创建';
         document.getElementById('environmentModal').style.display = 'block';
@@ -271,7 +292,7 @@
         document.getElementById('domain').value = domain;
         document.getElementById('username').value = username;
         document.getElementById('password').value = password;
-        document.getElementById('zlpt_name').disabled = true; // ID不可编辑
+        document.getElementById('zlpt_base_id').disabled = true; // ID不可编辑
         document.getElementById('saveBtn').textContent = '更新';
         document.getElementById('environmentModal').style.display = 'block';
     }
@@ -416,6 +437,18 @@
         });
     }
 
+    // 切换密码可见性
+    function togglePasswordVisibility(element, password) {
+        const passwordSpan = element.previousElementSibling;
+        if (passwordSpan.textContent === '********') {
+            passwordSpan.textContent = password;
+            element.textContent = '🙈'; // 改为隐藏图标
+        } else {
+            passwordSpan.textContent = '********';
+            element.textContent = '👁️'; // 显示图标
+        }
+    }
+    
     // 点击模态框外部关闭模态框
     window.onclick = function(event) {
         const environmentModal = document.getElementById('environmentModal');
