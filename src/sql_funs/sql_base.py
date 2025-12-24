@@ -4,6 +4,8 @@ from typing import Optional, List, Tuple, Dict, Any
 import json
 import logging
 
+from env_config_init import settings
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -22,11 +24,11 @@ class PostgreSQLManager:
         return cls._instances[host]
 
     def __init__(self,
-                 host: str = "localhost",
-                 port: int = 5432,
-                 database: str = "postgres",
-                 user: str = "postgres",
-                 password: str = ""):
+                 host: str = None,
+                 port: int = None,
+                 database: str = None,
+                 user: str = None,
+                 password: str = None):
         """
         初始化数据库连接参数
         """
@@ -34,11 +36,11 @@ class PostgreSQLManager:
         if hasattr(self, 'host'):
             return
 
-        self.host = host
-        self.port = port
-        self.database = database
-        self.user = user
-        self.password = password
+        self.host = host or settings.SQL_HOST
+        self.port = port or settings.SQL_PORT
+        self.database = database or settings.SQL_DB
+        self.user = user or settings.SQL_USER
+        self.password = password or settings.SQL_PASSWORD
         self.connection = None
         self.cursor = None
 
