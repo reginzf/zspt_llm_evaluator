@@ -347,7 +347,7 @@ class MetricsVisualizer:
         self.fig: go.Figure = make_subplots(
             rows=3, cols=3,
             subplot_titles=('精确率 vs 召回率', 'F1分数分布', 'Top K精确率',
-                            'Top K召回率', '排序指标对比', '命中率与覆盖率',
+                            'Top K召回率', '排序指标对比', '命中率与召回率',
                             '问题性能热图', '指标相关性', '性能排名'),
             specs=[[{'type': 'scatter'}, {'type': 'histogram'}, {'type': 'scatter'}],
                    [{'type': 'scatter'}, {'type': 'bar'}, {'type': 'scatter'}],
