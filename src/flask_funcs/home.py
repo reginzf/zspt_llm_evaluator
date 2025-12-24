@@ -7,10 +7,10 @@ from src.flask_funcs.reports.report_list_renderer import ReportListRenderer
 from env_config_init import REPORT_PATH
 
 # 创建蓝图
-app = Blueprint('app', __name__)
+home_bp = Blueprint('app', __name__)
 
 
-@app.route('/')
+@home_bp.route('/')
 def index():
     report_path = REPORT_PATH
     json_files = [f for f in os.listdir(report_path) if f.endswith('.json')]
@@ -19,7 +19,7 @@ def index():
     <a href="/metric_data/"><button>可用报告 ({report_count})</button></a>'''
 
 
-@app.route('/metric_data/')
+@home_bp.route('/metric_data/')
 def metric_data():
     # 获取REPORT_PATH目录下所有.json文件
     report_path = REPORT_PATH
@@ -31,20 +31,16 @@ def metric_data():
     return html_content
 
 
-@app.route('/report/<path:filename>')
+@home_bp.route('/report/<path:filename>')
 def report(filename):
     # 加载metric数据
     metric_data = load_metric_data(filename)
     if not metric_data:
         return f"无法加载数据文件: {filename}", 404
-
     # 分析数据
     analysis_results = analyze_metrics(metric_data)
-
     # 创建HTML渲染器
     renderer = HTMLRenderer()
-
     # 渲染模板
     html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)
-
     return html_content

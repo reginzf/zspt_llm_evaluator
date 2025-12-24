@@ -1,5 +1,5 @@
 """
 Flask功能模块包
 """
-from .home import app
+from .home import home_bp
 from .static_routes import static_bp
