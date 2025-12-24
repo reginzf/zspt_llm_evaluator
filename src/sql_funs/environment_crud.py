@@ -1,4 +1,6 @@
 from typing import Optional, List, Tuple
+
+from env_config_init import settings
 from src.sql_funs.sql_base import PostgreSQLManager
 
 
@@ -58,6 +60,14 @@ class Environment_Crud(PostgreSQLManager):
         if existing_env:
             print("错误: 环境信息冲突，zlpt_base_id已存在")
             return False
+
+        # 自动填充key1、key2_add、pk字段的默认值
+        if 'key1' not in kwargs:
+            kwargs['key1'] = settings.KEY1
+        if 'key2_add' not in kwargs:
+            kwargs['key2_add'] = settings.KEY2_ADD
+        if 'pk' not in kwargs:
+            kwargs['pk'] = settings.PK
 
         # 执行插入操作
         try:
@@ -147,7 +157,7 @@ class Environment_Crud(PostgreSQLManager):
 
             self.cursor.execute(query, values)
             self.connection.commit()
-            
+
             if self.cursor.rowcount > 0:
                 print("成功: 环境信息更新成功")
                 return True
