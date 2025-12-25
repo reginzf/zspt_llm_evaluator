@@ -1,22 +1,17 @@
-"""
-HTML报告渲染器模块 - Flask版本
-使用Flask模板引擎生成美观的HTML报告
-"""
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from pathlib import Path
 from env_config_init import TYPE_DISPLAY_NAMES
 from .flask_renderer_base import FlaskHTMLRenderer
 
 
-class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
-    """HTML报告渲染器 - Flask版本"""
+class MetricsDashboardRenderer(FlaskHTMLRenderer):
+
 
     def __init__(self, css_path: Optional[str] = None):
         """
         初始化HTML渲染器
-        
+
         Args:
             css_path: CSS文件路径
         """
@@ -26,11 +21,11 @@ class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
     def render_metrics_dashboard(self, analysis_results: Dict[str, Any], metric_data) -> str:
         """
         渲染指标仪表板页面
-        
+
         Args:
             analysis_results: 分析结果
             metric_data: 原始指标数据
-            
+
         Returns:
             渲染后的HTML内容
         """
@@ -74,10 +69,10 @@ class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
     def _prepare_visualize_data(self, metric_all: Dict[str, Any]) -> Dict[str, Any]:
         """
         准备可视化数据
-        
+
         Args:
             metric_all: 原始指标数据
-            
+
         Returns:
             可视化数据字典
         """
@@ -116,10 +111,10 @@ class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
     def _prepare_template_context(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         准备模板上下文数据
-        
+
         Args:
             analysis_results: 分析结果
-            
+
         Returns:
             模板上下文字典
         """
@@ -226,10 +221,10 @@ class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
     def _prepare_chart_data(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         准备图表数据
-        
+
         Args:
             analysis_results: 分析结果
-            
+
         Returns:
             图表数据字典
         """
@@ -294,10 +289,10 @@ class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
     def _prepare_question_data(self, analysis_results: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         准备问题数据
-        
+
         Args:
             analysis_results: 分析结果
-            
+
         Returns:
             问题数据列表
         """

@@ -1,6 +1,7 @@
 from flask import Flask
 from src.flask_funcs import home_bp
 from src.flask_funcs.environment import environment_bp
+from src.flask_funcs.static_routes import static_bp
 import os
 
 # 创建Flask应用
@@ -9,6 +10,7 @@ app = Flask(__name__)
 # 注册蓝图
 app.register_blueprint(home_bp)
 app.register_blueprint(environment_bp)
+app.register_blueprint(static_bp)
 
 # 设置静态文件和模板文件目录
 template_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'templates')

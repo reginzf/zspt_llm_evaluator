@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, url_for
 import os
 from src.flask_funcs.reports.generate_report import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
-from src.flask_funcs.reports.metrics_dashboard_renderer_flask import MetricsDashboardRendererFlask
+from src.flask_funcs.reports.metrics_dashboard_renderer_flask import MetricsDashboardRenderer
 from src.flask_funcs.reports.report_list_renderer_flask import ReportListRendererFlask
 from src.flask_funcs.reports.environment_renderer_flask import EnvironmentRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
@@ -20,7 +20,7 @@ def index():
     report_count = len(json_files)
     
     # 渲染模板
-    return render_template('home.html', report_count=report_count, css_path='/static/css/styles.css')
+    return render_template('home.html', report_count=report_count, css_path=url_for('static_bp.custom_css', filename='styles.css'))
 @home_bp.route('/environment/')
 def environment():
     # 获取环境列表数据
@@ -63,7 +63,7 @@ def report(filename):
     analysis_results = analyze_metrics(metric_data)
     
     # 创建HTML渲染器
-    renderer = MetricsDashboardRendererFlask()
+    renderer = MetricsDashboardRenderer()
     
     # 渲染模板
     html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)

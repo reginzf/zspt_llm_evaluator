@@ -5,7 +5,10 @@ import os
 static_bp = Blueprint('static_bp', __name__)
 
 # 设置静态文件目录
-statics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports', 'reports_funcs', 'statics')
+import os
+# 获取项目根目录
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+statics_dir = os.path.join(project_root, 'src', 'flask_funcs', 'reports', 'statics')
 js_dir = os.path.join(statics_dir, 'js')
 css_dir = os.path.join(statics_dir, 'css')
 
