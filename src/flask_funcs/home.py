@@ -58,21 +58,37 @@ def environment():
     return html_content
 
 
-@home_bp.route('/metric_data/')
-def metric_data():
-    # 获取REPORT_PATH目录下所有.json文件
+@home_bp.route('/report_list/')
+def report_list():
+    # 获取REPORT_PATH目录下的目录结构
     try:
         report_path = REPORT_PATH
-        json_files = [f for f in os.listdir(report_path) if f.endswith('.json')]
-        logger.info(f"找到{len(json_files)}个报告文件")
+        directory_structure = {}
+
+        if os.path.exists(report_path):
+            for item in os.listdir(report_path):
+                item_path = os.path.join(report_path, item)
+                if os.path.isdir(item_path):
+                    # 如果是目录，获取该目录下的所有.json文件
+                    json_files = [f for f in os.listdir(item_path) if f.endswith('.json')]
+                    directory_structure[item] = json_files
+                elif item.endswith('.json'):
+                    # 如果是根目录下的json文件，放到'根目录'键下
+                    if '根目录' not in directory_structure:
+                        directory_structure['根目录'] = []
+                    directory_structure['根目录'].append(item)
+
+        # 计算总的报告数量
+        report_count = sum(len(files) for files in directory_structure.values())
     except Exception as e:
-        logger.error(f"获取报告路径下的文件时发生错误: {str(e)}")
-        json_files = []
+        logger.error(f"获取报告目录结构时发生错误: {str(e)}")
+        directory_structure = {}
+        report_count = 0
 
     # 创建报告列表渲染器并渲染页面
     try:
         renderer = ReportListRendererFlask()
-        html_content = renderer.render_report_list(json_files)
+        html_content = renderer.render_report_list_with_directory(directory_structure)
     except Exception as e:
         logger.error(f"渲染报告列表时发生错误: {str(e)}")
         return "页面渲染错误", 500
@@ -83,11 +99,14 @@ def metric_data():
 @home_bp.route('/report/<path:filename>')
 def report(filename):
     try:
+        # 构建完整的文件路径
+        full_path = os.path.join(REPORT_PATH, filename)
+        
         # 加载metric数据
-        metric_data = load_metric_data(filename)
+        metric_data = load_metric_data(full_path)
         if not metric_data:
-            logger.warning(f"无法加载数据文件: {filename}")
-            return f"无法加载数据文件: {filename}", 404
+            logger.warning(f"无法加载数据文件: {full_path}")
+            return f"无法加载数据文件: {full_path}", 404
 
         # 分析数据
         analysis_results = analyze_metrics(metric_data)
@@ -98,7 +117,7 @@ def report(filename):
         # 渲染模板
         html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)
 
-        logger.info(f"成功渲染报告: {filename}")
+        logger.info(f"成功渲染报告: {full_path}")
 
     except Exception as e:
         logger.error(f"处理报告 {filename} 时发生错误: {str(e)}")
