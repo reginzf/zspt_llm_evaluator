@@ -14,6 +14,8 @@ class CreateTables(PostgreSQLManager):
         self.create_detailed_questions_table()
         self.create_mechanism_questions_table()
         self.create_thematic_questions_table()
+        self.create_local_knowledge_list()
+        self.create_local_knowledge()
 
     def create_environment_table(self) -> bool:
         """1. 创建环境信息表"""
@@ -167,3 +169,37 @@ class CreateTables(PostgreSQLManager):
         }
 
         return self.create_table("ai_thematic_questions", columns)
+
+    def create_local_knowledge_list(self) -> bool:
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "knol_id": "VARCHAR(100) NOT NULL UNIQUE",
+            "knol_name": "VARCHAR(200) NOT NULL",
+            "knol_describe": "TEXT",  # 描述
+            "knol_path": "VARCHAR(500)",  # 文件夹绝对目录
+            "knowledge_doc_count": "INTEGER DEFAULT 0",  # 本地文件夹下的文件数量
+            "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        }
+        return self.create_table("ai_local_knowledge_list", columns)
+
+    def create_local_knowledge(self) -> bool:
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "kno_id": "VARCHAR(100) NOT NULL",
+            "kno_name": "VARCHAR(200) NOT NULL",
+            "kno_describe": "TEXT",  # 描述
+            "kno_path": "VARCHAR(500)",  # 相对于ai_local_knowledge_list的相对路径
+            "knol_id" :"VARCHAR(100)",  # 外键，对应ai_local_knowledge_list中knol_id
+            "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "FOREIGN KEY (knol_id)": "REFERENCES ai_local_knowledge_list(knol_id) ON DELETE CASCADE"
+        }
+        return self.create_table("ai_local_knowledge", columns)
+
+
+if __name__ == '__main__':
+    with CreateTables() as ct:
+        ct.create_all_tables()
