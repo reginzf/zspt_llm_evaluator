@@ -44,3 +44,46 @@ h1 {
 .file-link:hover {
     text-decoration: underline;
 }
+
+.directory-item {
+    margin: 5px 0;
+}
+
+.directory-header {
+    font-weight: bold;
+    cursor: pointer;
+    padding: 5px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.directory-header:hover {
+    background-color: #e0e0e0;
+}
+
+.toggle-icon {
+    margin-right: 8px;
+    font-size: 12px;
+}
+
+.file-list {
+    margin-left: 20px;
+    margin-top: 5px;
+    padding-left: 15px;
+    border-left: 1px solid #ddd;
+}
+
+.file-item {
+    padding: 3px 0;
+}
+
+.file-item a {
+    text-decoration: none;
+    color: #007bff;
+}
+
+.file-item a:hover {
+    text-decoration: underline;
+}
