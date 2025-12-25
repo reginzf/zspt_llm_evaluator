@@ -1,7 +1,10 @@
+import logging
 from typing import Optional, List, Tuple
 
 from env_config_init import settings
 from src.sql_funs.sql_base import PostgreSQLManager
+
+ALLOWED_FIELDS = {'zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'domain'}
 
 
 class Environment_Crud(PostgreSQLManager):
@@ -21,10 +24,15 @@ class Environment_Crud(PostgreSQLManager):
         - environment_list(domain="production", zlpt_name="prod_env")  # 多条件部分匹配查询
         - environment_list(zlpt_base_id="specific_id")  # 根据ID精确查询
         """
+        logging.info(f"查询环境列表，输入参数: {kwargs}")
         if kwargs:
             conditions = []
             values = []
             for key, value in kwargs.items():
+                # 验证字段名是否合法
+                if key not in ALLOWED_FIELDS:
+                    logging.warning(f"Invalid field name: {key}")
+                    continue
                 if key == 'zlpt_base_id':
                     # zlpt_base_id 使用精确匹配
                     conditions.append(f"{key} = %s")
@@ -37,9 +45,15 @@ class Environment_Crud(PostgreSQLManager):
                     conditions.append(f"{key} = %s")
                 values.append(value)
             where_clause = " AND ".join(conditions)
-            return self.select('ai_environment_info', where=where_clause, params=values)
+            logging.info(f"构建的查询条件: {where_clause}, 参数值: {values}")
+            result = self.select('ai_environment_info', where=where_clause, params=values)
+            logging.info(f"查询返回结果数量: {len(result) if result else 0}")
+            return result
         else:
-            return self.select('ai_environment_info')
+            logging.info("查询所有环境信息")
+            result = self.select('ai_environment_info')
+            logging.info(f"查询返回结果数量: {len(result) if result else 0}")
+            return result
 
     def environment_create(self, **kwargs) -> bool:
         """
@@ -48,17 +62,19 @@ class Environment_Crud(PostgreSQLManager):
         检查失败则返回错误信息，提示环境信息冲突
         检查成功则返回成功信息，提示环境信息添加成功
         """
+        logging.info(f"创建环境，输入参数: {kwargs}")
         # 检查是否提供了必要的参数
         required_fields = ['zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'username', 'password']
         for field in required_fields:
             if field not in kwargs:
-                print(f"错误: 缺少必要字段 {field}")
+                logging.error(f"错误: 缺少必要字段 {field}")
                 return False
 
         # 检查zlpt_base_id是否已存在
+        logging.info(f"检查zlpt_base_id {kwargs['zlpt_base_id']} 是否已存在")
         existing_env = self.environment_list(zlpt_base_id=kwargs['zlpt_base_id'])
         if existing_env:
-            print("错误: 环境信息冲突，zlpt_base_id已存在")
+            logging.error("错误: 环境信息冲突，zlpt_base_id已存在")
             return False
 
         # 自动填充key1、key2_add、pk字段的默认值
@@ -71,14 +87,15 @@ class Environment_Crud(PostgreSQLManager):
 
         # 执行插入操作
         try:
+            logging.info(f"准备插入环境信息: {kwargs}")
             result = self.insert('ai_environment_info', kwargs)
             if result:
-                print("成功: 环境信息添加成功")
+                logging.info("成功: 环境信息添加成功")
             else:
-                print("错误: 环境信息添加失败")
+                logging.error("错误: 环境信息添加失败")
             return result
         except Exception as e:
-            print(f"错误: 插入数据时发生异常: {e}")
+            logging.error(f"错误: 插入数据时发生异常: {e}")
             return False
 
     def environment_delete(self, **kwargs) -> bool:
@@ -86,15 +103,23 @@ class Environment_Crud(PostgreSQLManager):
         在ai_environment_info中删除环境信息
         查询对应环境信息，并删除
         """
+        logging.info(f"删除环境，输入参数: {kwargs}")
         # 检查是否提供了删除条件
         if not kwargs:
-            print("错误: 请提供删除条件")
+            logging.error("错误: 请提供删除条件")
             return False
 
+        # 验证字段名是否合法
+        for key in kwargs.keys():
+            if key not in ALLOWED_FIELDS:
+                logging.error(f"错误: 无效的字段名 {key}")
+                return False
+
         # 先查询是否存在匹配的记录
+        logging.info(f"查询是否存在匹配的记录: {kwargs}")
         existing_env = self.environment_list(**kwargs)
         if not existing_env:
-            print("错误: 未找到匹配的环境信息")
+            logging.error("错误: 未找到匹配的环境信息")
             return False
 
         try:
@@ -107,13 +132,14 @@ class Environment_Crud(PostgreSQLManager):
             where_clause = " AND ".join(conditions)
 
             query = f"DELETE FROM ai_environment_info WHERE {where_clause}"
+            logging.info(f"执行删除语句: {query}，参数: {values}")
             self.cursor.execute(query, values)
             self.connection.commit()
-            print(f"成功: 删除了 {self.cursor.rowcount} 条环境信息")
+            logging.info(f"成功: 删除了 {self.cursor.rowcount} 条环境信息")
             return True
         except Exception as e:
             self.connection.rollback()
-            print(f"错误: 删除数据时发生异常: {e}")
+            logging.error(f"错误: 删除数据时发生异常: {e}")
             return False
 
     def environment_update(self, zlpt_base_id: str, **kwargs) -> bool:
@@ -123,20 +149,22 @@ class Environment_Crud(PostgreSQLManager):
         不存在直接返回错误信息，提示环境信息不存在
         存在则进行更新，返回执行是否成功
         """
+        logging.info(f"更新环境，zlpt_base_id: {zlpt_base_id}，更新参数: {kwargs}")
         # 检查是否提供了更新条件
         if not zlpt_base_id:
-            print("错误: 请提供zlpt_base_id作为更新条件")
+            logging.error("错误: 请提供zlpt_base_id作为更新条件")
             return False
 
         # 检查要更新的记录是否存在
+        logging.info(f"检查要更新的记录是否存在，zlpt_base_id: {zlpt_base_id}")
         existing_env = self.environment_list(zlpt_base_id=zlpt_base_id)
         if not existing_env:
-            print("错误: 环境信息不存在")
+            logging.error("错误: 环境信息不存在")
             return False
 
         # 确保不更新主键
         if 'zlpt_base_id' in kwargs:
-            print("错误: 不能更新zlpt_base_id字段")
+            logging.error("错误: 不能更新zlpt_base_id字段")
             return False
 
         try:
@@ -144,29 +172,34 @@ class Environment_Crud(PostgreSQLManager):
             set_clause_parts = []
             values = []
             for key, value in kwargs.items():
+                # 验证字段名是否合法
+                if key not in ALLOWED_FIELDS and key not in ['username', 'password', 'key1', 'key2_add', 'pk']:
+                    logging.warning(f"Invalid field name: {key}")
+                    continue
                 set_clause_parts.append(f"{key} = %s")
                 values.append(value)
 
             if not set_clause_parts:
-                print("错误: 没有提供要更新的字段")
+                logging.error("错误: 没有提供要更新的合法字段")
                 return False
 
             set_clause = ", ".join(set_clause_parts)
             query = f"UPDATE ai_environment_info SET {set_clause} WHERE zlpt_base_id = %s"
             values.append(zlpt_base_id)
 
+            logging.info(f"执行更新语句: {query}，参数: {values}")
             self.cursor.execute(query, values)
             self.connection.commit()
 
             if self.cursor.rowcount > 0:
-                print("成功: 环境信息更新成功")
+                logging.info("成功: 环境信息更新成功")
                 return True
             else:
-                print("错误: 环境信息更新失败")
+                logging.error("错误: 环境信息更新失败")
                 return False
         except Exception as e:
             self.connection.rollback()
-            print(f"错误: 更新数据时发生异常: {e}")
+            logging.error(f"错误: 更新数据时发生异常: {e}")
             return False
 
 
