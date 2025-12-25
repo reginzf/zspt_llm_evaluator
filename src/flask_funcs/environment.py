@@ -44,14 +44,18 @@ def environment_list():
         return jsonify({'success': False, 'message': f'获取环境列表时发生错误: {str(e)}'}), 500
 
 
-@environment_bp.route('/environment/update/<string:zlpt_base_id>', methods=['PUT'])
-def environment_update(zlpt_base_id):
+@environment_bp.route('/environment/update/', methods=['PUT'])
+def environment_update():
     data = request.get_json()
-
     # 检查必要字段
     if not data:
         return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
-
+    # 检查必要字段
+    required_fields = ['zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'username', 'password']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+    zlpt_base_id = data.pop('zlpt_base_id')
     try:
         # 使用上下文管理器自动处理连接和断开
         with Environment_Crud() as env_crud:

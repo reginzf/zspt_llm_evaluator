@@ -8,7 +8,8 @@ function showCreateModal() {
     document.getElementById('modalTitle').textContent = '创建环境';
     document.getElementById('environmentForm').reset();
     document.getElementById('zlpt_base_id').value = '';
-    document.getElementById('zlpt_base_id').disabled = false; // 在创建时ID字段可编辑
+    document.getElementById('zlpt_base_id').readOnly = true; // 在创建时ID字段只读
+    document.getElementById('zlpt_base_id_group').style.display = 'none'; // 隐藏ID字段组
     document.getElementById('zlpt_name').disabled = false;
     document.getElementById('saveBtn').textContent = '创建';
     document.getElementById('environmentModal').style.display = 'block';
@@ -19,12 +20,13 @@ function showEditModal(id, name, url, domain, username, password) {
     currentAction = 'edit';
     document.getElementById('modalTitle').textContent = '编辑环境';
     document.getElementById('zlpt_base_id').value = id;
+    document.getElementById('zlpt_base_id').readOnly = true; // ID字段只读（但会包含在提交中）
+    document.getElementById('zlpt_base_id_group').style.display = ''; // 显示ID字段组
     document.getElementById('zlpt_name').value = name;
     document.getElementById('zlpt_base_url').value = url;
     document.getElementById('domain').value = domain;
     document.getElementById('username').value = username;
     document.getElementById('password').value = password;
-    document.getElementById('zlpt_base_id').disabled = true; // ID不可编辑
     document.getElementById('saveBtn').textContent = '更新';
     document.getElementById('environmentModal').style.display = 'block';
 }
@@ -118,18 +120,12 @@ function createEnvironment(data) {
 
 // 更新环境
 function updateEnvironment(data) {
-    fetch(`/environment/update/${data.zlpt_base_id}`, {
+    fetch(`/environment/update/`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            zlpt_name: data.zlpt_name,
-            zlpt_base_url: data.zlpt_base_url,
-            domain: data.domain,
-            username: data.username,
-            password: data.password
-        })
+        body: JSON.stringify(data)
     })
     .then(response => response.json())
     .then(result => {

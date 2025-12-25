@@ -1,4 +1,11 @@
 [default]
+# SQL配置
+SQL_HOST='10.210.2.223'
+SQL_PORT=5432
+SQL_DB='label_studio'
+SQL_USER='labelstudio'
+SQL_PASSWORD='Labelstudio123'
+# 测试知识
 TEST_PATH = 'ospf'
 CAL_BY = 'CHUNK_ID' # CHUNK_ID 按chunk_id进行计算，TEXT 按text进行语义计算
 # zlpt
