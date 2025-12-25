@@ -504,7 +504,7 @@ class MetricsVisualizer:
 
 
 if __name__ == '__main__':
-    from .generate_report import load_metric_data
+    from utils.pub_funs import load_metric_data
     from pathlib import Path
 
     data = load_metric_data(

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 
-from flask_funcs.reports.environment_renderer_flask import EnvironmentRendererFlask
+from flask_funcs.reports.flask_environment_renderer import EnvironmentRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
 import uuid
 import logging

@@ -3,9 +3,9 @@ import os
 import logging
 
 from env_config_init import REPORT_PATH
-from src.flask_funcs.reports.generate_report import load_metric_data
+from utils.pub_funs import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
-from src.flask_funcs.reports.metrics_dashboard_renderer_flask import MetricsDashboardRenderer
+from src.flask_funcs.reports.flask_metrics_dashboard_renderer import MetricsDashboardRenderer
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 report_list_bp = Blueprint('report_list', __name__)
 
 # 导入渲染器
-from flask_funcs.reports.report_list_renderer_flask import ReportListRendererFlask
+from flask_funcs.reports.flask_report_list_renderer import ReportListRendererFlask
 
 
 @report_list_bp.route('/report_list/')
