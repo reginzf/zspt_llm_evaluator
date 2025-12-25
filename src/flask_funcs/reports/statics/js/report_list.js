@@ -11,10 +11,10 @@ function toggleDirectory(element) {
     }
 }
 
-// 初始化时设置所有目录为展开状态
+// 初始化时设置所有目录为折叠状态
 document.addEventListener('DOMContentLoaded', function() {
     const toggleIcons = document.querySelectorAll('.directory-header .toggle-icon');
     toggleIcons.forEach(icon => {
-        icon.textContent = '▼';
+        icon.textContent = '▶';
     });
 });

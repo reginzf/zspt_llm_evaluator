@@ -18,7 +18,7 @@
                     <span class="toggle-icon">▼</span>
                     <span class="directory-name">{{ directory }}</span>
                 </div>
-                <div class="file-list" style="display: block;">
+                <div class="file-list" style="display: none;">
                     {% for file in files %}
                     <div class="file-item">
                         <a href="/report/{{ directory }}/{{ file }}" target="_blank">{{ file }}</a>
@@ -38,6 +38,6 @@
         </ul>
         {% endif %}
     </div>
-    <script src="{{ url_for('static_bp.custom_js', filename='report_list.js') }}"></script>
+    <script src="{{ js_url }}"></script>
 </body>
 </html>
