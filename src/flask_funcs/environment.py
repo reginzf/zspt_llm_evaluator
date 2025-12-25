@@ -1,9 +1,40 @@
 from flask import Blueprint, request, jsonify
+
+from flask_funcs.reports.environment_renderer_flask import EnvironmentRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
 import uuid
+import logging
 
+# 创建logger
+logger = logging.getLogger(__name__)
 # 创建蓝图
 environment_bp = Blueprint('environment', __name__)
+
+
+@environment_bp.route('/environment/')
+def environment():
+    # 获取环境列表数据
+    try:
+        with Environment_Crud() as env_crud:
+            environment_data = env_crud.environment_list()
+            logger.info(f"成功获取环境列表数据，共{len(environment_data)}条记录")
+        current_environment_id = ""  # 默认当前环境ID为空，可以根据需要设置
+    except Exception as e:
+        environment_data = []
+        current_environment_id = ""
+        logger.error(f"获取环境列表数据时发生错误: {str(e)}")
+
+    # 创建HTML渲染器
+    renderer = EnvironmentRendererFlask()
+
+    # 渲染模板
+    try:
+        html_content = renderer.render_environment_page(environment_data, current_environment_id)
+    except Exception as e:
+        logger.error(f"渲染环境页面时发生错误: {str(e)}")
+        return "页面渲染错误", 500
+
+    return html_content
 
 
 @environment_bp.route('/environment/create/', methods=['POST'])

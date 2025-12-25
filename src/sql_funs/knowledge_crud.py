@@ -17,6 +17,7 @@ class KnowledgeCrud(PostgreSQLManager):
             "kno_path_id": kno_path_id,
             "knowledge_id": knowledge_id
         })
+
     def knowledge_update(self, doc_id: str, doc_name: str, doc_type: str, doc_describe: str, doc_path: str,
                          kno_path_id: str, knowledge_id: str):
         """
@@ -27,6 +28,9 @@ class KnowledgeCrud(PostgreSQLManager):
             "doc_name": doc_name,
             "doc_type": doc_type,
             "doc_describe": doc_describe,
+            "doc_path": doc_path,
+            "kno_path_id": kno_path_id,
+            "knowledge_id": knowledge_id
         })
 
     def get_knowledge_detail(self, knowledge_id: str = None) -> Optional[List[Tuple]]:
