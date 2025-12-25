@@ -1,5 +1,5 @@
-from flask import Flask, send_from_directory
-from src.flask_funcs import home_bp, static_bp
+from flask import Flask
+from src.flask_funcs import home_bp
 from src.flask_funcs.environment import environment_bp
 import os
 
@@ -8,7 +8,6 @@ app = Flask(__name__)
 
 # 注册蓝图
 app.register_blueprint(home_bp)
-app.register_blueprint(static_bp)
 app.register_blueprint(environment_bp)
 
 # 设置静态文件和模板文件目录
@@ -19,15 +18,10 @@ css_dir = os.path.join(statics_dir, 'css')
 
 # 更新 Flask app 的模板和静态文件配置
 app.template_folder = template_dir
+app.static_folder = statics_dir
 
-# 静态文件路由 - 由于蓝图限制，这些路由在主应用中定义
-@app.route('/js/<path:filename>')
-def custom_js(filename):
-    return send_from_directory(js_dir, filename)
-
-@app.route('/css/<path:filename>')
-def custom_css(filename):
-    return send_from_directory(css_dir, filename)
+# 静态文件路由 - 使用Flask内置的static路由
+# Flask会自动处理/static/路径下的文件
 
 if __name__ == '__main__':
     app.run('0.0.0.0', debug=True)
