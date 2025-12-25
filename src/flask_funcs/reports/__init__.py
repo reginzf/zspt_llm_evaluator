@@ -8,15 +8,12 @@ __version__ = "1.0.2"
 
 # 导出主要功能
 from .metrics_analyzer import MetricsAnalyzer, analyze_metrics
-from .html_renderer import HTMLRenderer
 from .visualize_metrics import MetricsVisualizer
-from .generate_report import load_metric_data, generate_reports_from_metric_files
+from .generate_report import load_metric_data
 
 __all__ = [
     "MetricsAnalyzer",
     "analyze_metrics",
-    "HTMLRenderer",
     "MetricsVisualizer",
-    "load_metric_data",
-    "generate_reports_from_metric_files"
+    "load_metric_data"
 ]

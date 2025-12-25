@@ -257,6 +257,15 @@ tr:hover {
     display: block;
 }
 
+#detailsSection {
+    display: none;
+    margin-top: 20px;
+}
+
+#detailsSection.active {
+    display: block;
+}
+
 /* 表格容器 */
 .table-container {
     composes: panel;
@@ -361,6 +370,45 @@ tr:hover {
     border: 1px solid #f5c6cb;
 }
 
+/* 热力图描述样式 */
+.chart-description {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.chart-description p {
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.chart-description ul {
+    list-style-type: none;
+    padding-left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.chart-description li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.color-indicator {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid #ddd;
+}
+
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .chart-row {
@@ -386,6 +434,11 @@ tr:hover {
     
     .visualization-info {
         grid-template-columns: 1fr;
+    }
+    
+    .chart-description ul {
+        flex-direction: column;
+        gap: 8px;
     }
 }
 

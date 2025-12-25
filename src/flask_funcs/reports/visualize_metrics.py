@@ -341,7 +341,7 @@ class MetricsVisualizer:
         )
         self.fig.update_xaxes(title_text="F1分数", row=3, col=3)
 
-    def create_interactive_dashboard(self, output_file: str = "metrics_dashboard.html", save_to_html=True):
+    def create_interactive_dashboard(self, output_file: str = "interactive_dashboard.html", save_to_html=True):
         """创建交互式仪表板"""
         # 创建子图
         self.fig: go.Figure = make_subplots(

@@ -1,90 +1,85 @@
 """
-HTML报告渲染器模块
-使用Jinja2模板引擎生成美观的HTML报告
+HTML报告渲染器模块 - Flask版本
+使用Flask模板引擎生成美观的HTML报告
 """
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from env_config_init import TYPE_DISPLAY_NAMES
-from .html_renderer_base import BaseHTMLRenderer
+from .flask_renderer_base import FlaskHTMLRenderer
 
 
-METRIC_TEMPLATE_NAME = 'metrics_dashboard.html'
+class MetricsDashboardRendererFlask(FlaskHTMLRenderer):
+    """HTML报告渲染器 - Flask版本"""
 
-
-class HTMLRenderer(BaseHTMLRenderer):
-    """HTML报告渲染器"""
-
-    def __init__(self, template_dir: Optional[str] = None, css_dir: Optional[str] = None):
+    def __init__(self, css_path: Optional[str] = None):
         """
         初始化HTML渲染器
         
         Args:
-            template_dir: 模板目录路径，如果为None则使用默认目录
-            css_dir: CSS目录路径，如果为None则使用默认目录
+            css_path: CSS文件路径
         """
         # 调用父类初始化
-        super().__init__(template_dir, css_dir, "/css/styles.css")
-        
-        self._js_content = None  # 缓存JS内容
-
-
-    def _get_js_content(self):
-        """获取JS内容并缓存"""
-        if self._js_content is None:
-            js_path = Path(__file__).parent / "statics" / "js" / "metrics_dashboard.js"
-            try:
-                if js_path.exists():
-                    with open(js_path, 'r', encoding='utf-8') as f:
-                        self._js_content = f.read()
-                else:
-                    self._js_content = "// JavaScript文件未找到"
-            except Exception as e:
-                logging.error(f"读取JavaScript文件错误: {e}")
-                self._js_content = "// JavaScript文件读取失败"
-        return self._js_content
+        super().__init__(css_path or "css/styles.css")
 
     def render_metrics_dashboard(self, analysis_results: Dict[str, Any], metric_data) -> str:
         """
-        使用Jinja2渲染模板
+        渲染指标仪表板页面
         
         Args:
-            analysis_results: 模板上下文
+            analysis_results: 分析结果
+            metric_data: 原始指标数据
             
         Returns:
             渲染后的HTML内容
         """
         try:
-            template = self.env.get_template(METRIC_TEMPLATE_NAME)
-
             # 准备模板上下文
             template_context = self._prepare_template_context(analysis_results)
 
             # 添加可视化数据
             visualize_data = self._prepare_visualize_data(metric_data)
             template_context["visualize_data"] = visualize_data
-            # 添加CSS路径 - 使用相对路径
-            template_context["css_path"] = self.css_path
 
-            # 添加JavaScript内容（内联）
-            template_context["js_content"] = self._get_js_content()
+            # 添加JavaScript文件URL
+            template_context["js_url"] = self._get_js_url("metrics_dashboard.js")
+
+            # 渲染模板
+            html_content = self.render_template(
+                'metrics_dashboard_flask.html',
+                **template_context
+            )
+            return html_content
+
         except Exception as e:
-            logging.error(f"Jinja2渲染错误: {e}")
-            raise e
-        # 渲染模板
-        html_content = template.render(**template_context)
-        return html_content
+            logging.error(f"Flask渲染错误: {e}")
+            # 返回简单的错误页面
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>错误</title>
+                <link rel="stylesheet" href="{self._get_css_url()}">
+            </head>
+            <body>
+                <div class="container">
+                    <h1>渲染错误</h1>
+                    <p>指标仪表板渲染失败: {str(e)}</p>
+                </div>
+            </body>
+            </html>
+            """
 
     def _prepare_visualize_data(self, metric_all: Dict[str, Any]) -> Dict[str, Any]:
         """
         准备可视化数据
         
         Args:
-            analysis_results: 分析结果
+            metric_all: 原始指标数据
             
         Returns:
-            可视化数据字典，包含Plotly图表HTML和配置信息
+            可视化数据字典
         """
         try:
             # 导入MetricsVisualizer
