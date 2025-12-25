@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 report_list_bp = Blueprint('report_list', __name__)
 
 # 导入渲染器
-from flask_funcs.reports.flask_report_list_renderer import ReportListRendererFlask
+from src.flask_funcs.reports.flask_report_list_renderer import ReportListRendererFlask
 
 
 @report_list_bp.route('/report_list/')
