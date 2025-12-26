@@ -235,7 +235,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         if limit:
             query += " LIMIT %s"
             params.append(limit)
-        
+        self.gen_select_query('ai_local_knowledge_list',order_by,limit,)
         return self.execute_query(query, tuple(params))
 
     # 为 ai_knowledge_base 表添加 CRUD 方法
@@ -354,30 +354,9 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         
         return self.execute_query(query, tuple(params))
 
-    def get_local_knowledge_with_list_and_base(self) -> Optional[List[Tuple]]:
-        """
-        获取本地知识库与知识库列表及基础信息的关联数据
-        通过 JOIN 查询获取完整的关联信息
-        """
-        query = """
-        SELECT 
-            l.kno_id,
-            l.kno_name,
-            l.kno_describe,
-            l.kno_path,
-            l.knol_id,
-            l.ls_status,
-            l.created_at,
-            l.updated_at,
-            ll.knol_name,
-            ll.knol_describe,
-            ll.knol_path as list_path,
-            kb.knowledge_name,
-            kb.chunk_size,
-            kb.chunk_overlap
-        FROM ai_local_knowledge l
-        LEFT JOIN ai_local_knowledge_list ll ON l.knol_id = ll.knol_id
-        LEFT JOIN ai_knowledge_base kb ON ll.knol_id = kb.knowledge_id
-        """
-        
-        return self.execute_query(query)
+
+if __name__ == '__main__':
+    l_k_c = LocalKnowledgeCrud()
+    l_k_c.connect()
+    print(l_k_c.get_local_knowledge_detail())
+    l_k_c.disconnect()
