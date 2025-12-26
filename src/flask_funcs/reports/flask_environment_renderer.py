@@ -18,7 +18,7 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
             css_path: CSS文件路径
         """
         # 调用父类初始化
-        super().__init__(css_path or "css/styles.css")
+        super().__init__(css_path or "css/environment.css")
 
     def render_environment_page(self, environment_data: List, current_environment_id: str) -> str:
         """
