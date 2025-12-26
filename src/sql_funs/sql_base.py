@@ -7,6 +7,7 @@ import logging
 from env_config_init import settings
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class PostgreSQLManager:
@@ -43,7 +44,6 @@ class PostgreSQLManager:
         self.password = password or settings.SQL_PASSWORD
         self.connection = None
         self.cursor = None
-        self.logger = logging.logger(__name__)
 
     def connect(self) -> bool:
         """
@@ -58,10 +58,10 @@ class PostgreSQLManager:
                 password=self.password
             )
             self.cursor = self.connection.cursor()
-            self.logger.info(f"成功连接到数据库 {self.database}")
+            logger.info(f"成功连接到数据库 {self.database}")
             return True
         except Exception as e:
-            self.logger.error(f"数据库连接失败: {e}")
+            logger.error(f"数据库连接失败: {e}")
             return False
 
     def disconnect(self):
@@ -70,7 +70,53 @@ class PostgreSQLManager:
             self.cursor.close()
         if self.connection:
             self.connection.close()
-            self.logger.info("数据库连接已关闭")
+            logger.info("数据库连接已关闭")
+
+    def gen_select_query(self, table_name,
+                         order_by=None, limit=None, exact_match_fields=None, partial_match_fields=None,
+                         allowed_fileds=None, **kwargs):
+        """
+        生成查询的命令行
+        :param table_name:
+        :param order_by:
+        :param limit:
+        :param exact_match_fields:
+        :param partial_match_fields:
+        :param allowed_fileds:
+        :param kwargs:
+        :return:
+        """
+        conditions = []
+        values = []
+        for key, value in kwargs.items():
+            # 验证字段名是否合法
+            if key not in allowed_fileds:
+                logging.warning(f"Invalid field name: {key}")
+                continue
+
+            # 根据字段类型确定匹配方式
+            if key in exact_match_fields:
+                # 精确匹配
+                conditions.append(f"{key} = %s")
+                values.append(value)
+            elif key in partial_match_fields:
+                # 部分匹配
+                conditions.append(f"{key} LIKE %s")
+                values.append(f"%{value}%")
+            else:
+                # 其他字段默认使用精确匹配
+                conditions.append(f"{key} = %s")
+                values.append(value)
+        where_clause = " AND ".join(conditions)
+
+        query = sql.SQL(f"SELECT * FROM {table_name} WHERE {where_clause}")
+        if order_by:
+            query = sql.SQL(f"{query} ORDER BY {sql.SQL(order_by)}")
+
+        if limit:
+            query = sql.SQL(f"{query} LIMIT {limit}")
+
+        return query, tuple(values)
 
     def execute_query(self, query: str, params: Tuple = None) -> Optional[List[Tuple]]:
         """
@@ -86,11 +132,11 @@ class PostgreSQLManager:
                 return self.cursor.fetchall()
             else:
                 self.connection.commit()
-                self.logger.info(f"执行成功: {query[:50]}...")
+                logger.info(f"执行成功: {query[:50]}...")
                 return None
         except Exception as e:
             self.connection.rollback()
-            self.logger.error(f"查询执行失败: {e}")
+            logger.error(f"查询执行失败: {e}")
             return None
 
     def create_table(self, table_name: str, columns: Dict[str, str]) -> bool:
@@ -123,11 +169,11 @@ class PostgreSQLManager:
             # 创建 updated_at 触发器
             self._create_update_trigger(table_name)
 
-            self.logger.info(f"表 {table_name} 创建成功")
+            logger.info(f"表 {table_name} 创建成功")
             return True
         except Exception as e:
             self.connection.rollback()
-            self.logger.error(f"创建表 {table_name} 失败: {e}")
+            logger.error(f"创建表 {table_name} 失败: {e}")
             return False
 
     def _create_update_trigger(self, table_name: str):
@@ -160,7 +206,7 @@ class PostgreSQLManager:
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
-            self.logger.warning(f"创建触发器失败: {e}")
+            logger.warning(f"创建触发器失败: {e}")
 
     def insert(self, table_name: str, data: Dict[str, Any]) -> bool:
         """
@@ -187,69 +233,12 @@ class PostgreSQLManager:
 
             self.cursor.execute(query, values)
             self.connection.commit()
-            self.logger.info(f"成功插入数据到表 {table_name}")
+            logger.info(f"成功插入数据到表 {table_name}")
             return True
         except Exception as e:
             self.connection.rollback()
-            self.logger.error(f"插入数据失败: {e}")
+            logger.error(f"插入数据失败: {e}")
             return False
-
-    def select(self,
-               table_name: str,
-               columns: List[str] = None,
-               where: str = None,
-               params: Tuple = None,
-               order_by: str = None,
-               limit: int = None) -> Optional[List[Tuple]]:
-        """
-        查询数据
-        """
-        try:
-            if columns:
-                columns_sql = sql.SQL(", ").join(map(sql.Identifier, columns))
-            else:
-                columns_sql = sql.SQL("*")
-
-            query = sql.SQL("SELECT {} FROM {}").format(
-                columns_sql,
-                sql.Identifier(table_name)
-            )
-
-            if where:
-                query = sql.SQL("{} WHERE {}").format(query, sql.SQL(where))
-
-            if order_by:
-                query = sql.SQL("{} ORDER BY {}").format(query, sql.SQL(order_by))
-
-            if limit:
-                query = sql.SQL("{} LIMIT %s").format(query)
-                if params:
-                    params = params + (limit,)
-                else:
-                    params = (limit,)
-
-            results = self.execute_query(query.as_string(self.connection), params)
-
-            # 解析 JSON 字段
-            if results and columns:
-                parsed_results = []
-                for row in results:
-                    parsed_row = []
-                    for i, col in enumerate(row):
-                        if isinstance(col, str) and col.startswith(('{', '[')):
-                            try:
-                                parsed_row.append(json.loads(col))
-                            except:
-                                parsed_row.append(col)
-                        else:
-                            parsed_row.append(col)
-                    parsed_results.append(tuple(parsed_row))
-                return parsed_results
-
-            return results
-        except Exception as e:
-            self.logger.error(f"查询数据失败: {e}")
-            return None
 
     def __enter__(self):
         """上下文管理器入口"""

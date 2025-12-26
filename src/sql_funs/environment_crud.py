@@ -25,35 +25,20 @@ class Environment_Crud(PostgreSQLManager):
         - environment_list(zlpt_base_id="specific_id")  # 根据ID精确查询
         """
         logging.info(f"查询环境列表，输入参数: {kwargs}")
-        if kwargs:
-            conditions = []
-            values = []
-            for key, value in kwargs.items():
-                # 验证字段名是否合法
-                if key not in ALLOWED_FIELDS:
-                    logging.warning(f"Invalid field name: {key}")
-                    continue
-                if key == 'zlpt_base_id':
-                    # zlpt_base_id 使用精确匹配
-                    conditions.append(f"{key} = %s")
-                elif key in ['zlpt_name', 'zlpt_base_url', 'domain']:
-                    # zlpt_name, zlpt_base_url, domain 使用部分匹配
-                    conditions.append(f"{key} LIKE %s")
-                    value = f"%{value}%"
-                else:
-                    # 其他字段默认使用精确匹配
-                    conditions.append(f"{key} = %s")
-                values.append(value)
-            where_clause = " AND ".join(conditions)
-            logging.info(f"构建的查询条件: {where_clause}, 参数值: {values}")
-            result = self.select('ai_environment_info', where=where_clause, params=values)
-            logging.info(f"查询返回结果数量: {len(result) if result else 0}")
-            return result
-        else:
+        if not kwargs:
             logging.info("查询所有环境信息")
-            result = self.select('ai_environment_info')
+            query = "SELECT * FROM ai_environment_info"
+            result = self.execute_query(query)
             logging.info(f"查询返回结果数量: {len(result) if result else 0}")
             return result
+
+        exact_match_fields = {'zlpt_base_id'}  # 精确匹配字段
+        partial_match_fields = {'zlpt_name', 'zlpt_base_url', 'domain'}  # 部分匹配字段
+
+        query,values =self.gen_select_query('ai_environment_info',exact_match_fields,partial_match_fields,ALLOWED_FIELDS,**kwargs)
+        result = self.execute_query(query, values)
+        logging.info(f"查询返回结果数量: {len(result) if result else 0}")
+        return result
 
     def environment_create(self, **kwargs) -> bool:
         """
