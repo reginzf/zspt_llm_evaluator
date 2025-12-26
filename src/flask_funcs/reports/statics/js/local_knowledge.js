@@ -1,5 +1,3 @@
-// 本地知识库页面交互功能
-
 function toggleKnowledgeDetails(element) {
     const details = element.nextElementSibling;
     const toggleIcon = element.querySelector('.toggle-icon');
@@ -21,38 +19,58 @@ function toggleKnowledgeDetails(element) {
 }
 
 function loadKnowledgeFiles(headerElement) {
-    // 获取知识库ID
+    // 获取知识库ID和名称
     const knowledgeId = headerElement.querySelector('.knowledge-id').textContent;
+    const knowledgeName = headerElement.querySelector('.knowledge-name').textContent;
     const fileListContainer = headerElement.nextElementSibling.querySelector('.file-list');
     
-    // 模拟加载文件列表，实际应用中应该通过API获取
-    // 这里只是示例，实际应该从服务器获取数据
+    // 显示加载状态
     fileListContainer.innerHTML = '<li class="file-item-placeholder">正在加载文件列表...</li>';
     
-    // 模拟API调用
-    setTimeout(() => {
-        // 这里应该替换为实际的API调用
-        fileListContainer.innerHTML = `
-            <li class="file-item">
-                <span class="file-name">sample_file.txt</span>
-                <span class="file-description">示例文件描述</span>
-                <div class="file-actions">
-                    <button class="action-btn delete-btn" onclick="deleteFile('sample_file.txt')">删除</button>
-                    <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('sample_file.txt')">上传到线上知识库</button>
-                    <button class="action-btn edit-btn" onclick="editFile('sample_file.txt')">编辑</button>
-                </div>
-            </li>
-            <li class="file-item">
-                <span class="file-name">another_file.pdf</span>
-                <span class="file-description">另一个文件描述</span>
-                <div class="file-actions">
-                    <button class="action-btn delete-btn" onclick="deleteFile('another_file.pdf')">删除</button>
-                    <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('another_file.pdf')">上传到线上知识库</button>
-                    <button class="action-btn edit-btn" onclick="editFile('another_file.pdf')">编辑</button>
-                </div>
-            </li>
-        `;
-    }, 500);
+    // 通过API获取知识库详细信息
+    fetch(`/api/local_knowledge_detail/${knowledgeId}/${knowledgeName}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正常');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 清空加载提示
+            fileListContainer.innerHTML = '';
+            
+            if (data && data.length > 0) {
+                // 渲染文件列表
+                data.forEach(file => {
+                    const fileItem = document.createElement('li');
+                    fileItem.className = 'file-item';
+                    
+                    const statusClass = file.status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
+                    const statusText = file.status === 'sync_ok' ? '已同步' : '待同步';
+                    
+                    fileItem.innerHTML = `
+                        <div class="file-info">
+                            <span class="file-name">${file.kno_name}</span>
+                            <span class="file-description">${file.kno_describe || '无描述'}</span>
+                            <span class="file-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-btn delete-btn" onclick="deleteFile('${file.kno_name}')">删除</button>
+                            <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.kno_name}')">上传到线上知识库</button>
+                            <button class="action-btn edit-btn" onclick="editFile('${file.kno_name}')">编辑</button>
+                        </div>
+                    `;
+                    
+                    fileListContainer.appendChild(fileItem);
+                });
+            } else {
+                fileListContainer.innerHTML = '<li class="file-item-placeholder">暂无文件</li>';
+            }
+        })
+        .catch(error => {
+            console.error('加载文件列表时出错:', error);
+            fileListContainer.innerHTML = '<li class="file-item-placeholder">加载文件列表失败</li>';
+        });
 }
 
 function uploadFile(knowledgeId) {

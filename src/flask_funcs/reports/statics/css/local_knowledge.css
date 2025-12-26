@@ -83,6 +83,26 @@ h1 {
     font-size: 0.9em;
 }
 
+.knowledge-status {
+    margin: 0 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.knowledge-status.sync-wait {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.knowledge-status.sync-ok {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
 .knowledge-actions {
     display: flex;
     gap: 5px;

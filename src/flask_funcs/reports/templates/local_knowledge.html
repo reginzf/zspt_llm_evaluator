@@ -16,9 +16,12 @@
                 <div class="knowledge-item">
                     <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
                         <span class="toggle-icon">▶</span>
-                        <span class="knowledge-name">{{ knowledge.kno_name }}</span>
-                        <span class="knowledge-id">{{ knowledge.kno_id }}</span>
+                        <span class="knowledge-name" title="{{ knowledge.kno_name }}">{{ knowledge.kno_name }}</span>
+                        <span class="knowledge-id" title="{{ knowledge.kno_id }}">{{ knowledge.kno_id }}</span>
                         <span class="knowledge-date">{{ knowledge.created_at or '未知' }}</span>
+                        <span class="knowledge-status {% if knowledge.status == 'sync_ok' %}sync-ok{% elif knowledge.status == 'sync_wait' %}sync-wait{% else %}sync-wait{% endif %}">
+                            {% if knowledge.status == 'sync_ok' %}已同步{% elif knowledge.status == 'sync_wait' %}待同步{% else %}待同步{% endif %}
+                        </span>
                         <div class="knowledge-actions">
                             <button class="upload-btn" onclick="uploadFile('{{ knowledge.kno_id }}')">上传</button>
                         </div>
@@ -33,11 +36,6 @@
                                 <!-- 这里会通过JavaScript动态加载文件列表 -->
                                 <li class="file-item-placeholder">暂无文件</li>
                             </ul>
-                            <div class="file-actions">
-                                <button class="action-btn delete-btn">删除文件</button>
-                                <button class="action-btn upload-online-btn">上传到线上知识库</button>
-                                <button class="action-btn edit-btn">编辑</button>
-                            </div>
                         </div>
                     </div>
                 </div>
