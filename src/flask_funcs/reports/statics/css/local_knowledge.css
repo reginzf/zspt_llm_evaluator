@@ -1,0 +1,217 @@
+/* 基础重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f7fa;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    color: #667eea;
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.knowledge-list {
+    margin-top: 20px;
+}
+
+.knowledge-item {
+    margin-bottom: 15px;
+    border: 1px solid #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.knowledge-header {
+    background-color: #f8f9fa;
+    padding: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.3s ease;
+}
+
+.knowledge-header:hover {
+    background-color: #e9ecef;
+}
+
+.toggle-icon {
+    font-size: 14px;
+    margin-right: 10px;
+    transition: transform 0.3s;
+}
+
+.knowledge-header.active .toggle-icon {
+    transform: rotate(90deg);
+}
+
+.knowledge-name {
+    font-weight: bold;
+    flex-grow: 1;
+    color: #667eea;
+}
+
+.knowledge-id {
+    color: #666;
+    margin: 0 10px;
+    font-size: 0.9em;
+}
+
+.knowledge-date {
+    color: #888;
+    margin: 0 10px;
+    font-size: 0.9em;
+}
+
+.knowledge-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.upload-btn, .action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s;
+}
+
+.upload-btn {
+    background-color: #667eea;
+    color: white;
+}
+
+.upload-btn:hover {
+    background-color: #5a67d8;
+}
+
+.action-btn {
+    background-color: #6c757d;
+    color: white;
+}
+
+.action-btn:hover {
+    background-color: #5a6167;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+
+.upload-online-btn {
+    background-color: #28a745;
+}
+
+.upload-online-btn:hover {
+    background-color: #218838;
+}
+
+.edit-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.edit-btn:hover {
+    background-color: #e0a800;
+}
+
+.knowledge-details {
+    padding: 15px;
+    background-color: #fafafa;
+}
+
+.knowledge-description {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    border-left: 3px solid #667eea;
+}
+
+.file-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.file-item {
+    padding: 12px;
+    margin: 5px 0;
+    background-color: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+.file-item:hover {
+    background-color: #f8f9fa;
+}
+
+.file-item-placeholder {
+    padding: 12px;
+    color: #888;
+    text-align: center;
+    font-style: italic;
+}
+
+.file-name {
+    font-weight: bold;
+    flex-grow: 1;
+    color: #667eea;
+}
+
+.file-description {
+    color: #666;
+    font-size: 0.9em;
+    margin: 0 15px;
+    flex-grow: 1;
+}
+
+.file-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.detail-info p {
+    margin: 8px 0;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.detail-info p:last-child {
+    border-bottom: none;
+}
+
+.related-files h3 {
+    margin-top: 20px;
+    color: #667eea;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
