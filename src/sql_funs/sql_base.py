@@ -7,7 +7,6 @@ import logging
 from env_config_init import settings
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class PostgreSQLManager:
@@ -15,7 +14,8 @@ class PostgreSQLManager:
 
     _instances = {}
 
-    def __new__(cls, host: str = "localhost", port: int = 5432, database: str = "postgres", user: str = "postgres", password: str = ""):
+    def __new__(cls, host: str = "localhost", port: int = 5432, database: str = "postgres", user: str = "postgres",
+                password: str = ""):
         """
         实现以host作为key的单例模式
         """
@@ -43,6 +43,7 @@ class PostgreSQLManager:
         self.password = password or settings.SQL_PASSWORD
         self.connection = None
         self.cursor = None
+        self.logger = logging.logger(__name__)
 
     def connect(self) -> bool:
         """
@@ -57,10 +58,10 @@ class PostgreSQLManager:
                 password=self.password
             )
             self.cursor = self.connection.cursor()
-            logger.info(f"成功连接到数据库 {self.database}")
+            self.logger.info(f"成功连接到数据库 {self.database}")
             return True
         except Exception as e:
-            logger.error(f"数据库连接失败: {e}")
+            self.logger.error(f"数据库连接失败: {e}")
             return False
 
     def disconnect(self):
@@ -69,7 +70,7 @@ class PostgreSQLManager:
             self.cursor.close()
         if self.connection:
             self.connection.close()
-            logger.info("数据库连接已关闭")
+            self.logger.info("数据库连接已关闭")
 
     def execute_query(self, query: str, params: Tuple = None) -> Optional[List[Tuple]]:
         """
@@ -85,11 +86,11 @@ class PostgreSQLManager:
                 return self.cursor.fetchall()
             else:
                 self.connection.commit()
-                logger.info(f"执行成功: {query[:50]}...")
+                self.logger.info(f"执行成功: {query[:50]}...")
                 return None
         except Exception as e:
             self.connection.rollback()
-            logger.error(f"查询执行失败: {e}")
+            self.logger.error(f"查询执行失败: {e}")
             return None
 
     def create_table(self, table_name: str, columns: Dict[str, str]) -> bool:
@@ -122,11 +123,11 @@ class PostgreSQLManager:
             # 创建 updated_at 触发器
             self._create_update_trigger(table_name)
 
-            logger.info(f"表 {table_name} 创建成功")
+            self.logger.info(f"表 {table_name} 创建成功")
             return True
         except Exception as e:
             self.connection.rollback()
-            logger.error(f"创建表 {table_name} 失败: {e}")
+            self.logger.error(f"创建表 {table_name} 失败: {e}")
             return False
 
     def _create_update_trigger(self, table_name: str):
@@ -159,7 +160,7 @@ class PostgreSQLManager:
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
-            logger.warning(f"创建触发器失败: {e}")
+            self.logger.warning(f"创建触发器失败: {e}")
 
     def insert(self, table_name: str, data: Dict[str, Any]) -> bool:
         """
@@ -186,11 +187,11 @@ class PostgreSQLManager:
 
             self.cursor.execute(query, values)
             self.connection.commit()
-            logger.info(f"成功插入数据到表 {table_name}")
+            self.logger.info(f"成功插入数据到表 {table_name}")
             return True
         except Exception as e:
             self.connection.rollback()
-            logger.error(f"插入数据失败: {e}")
+            self.logger.error(f"插入数据失败: {e}")
             return False
 
     def select(self,
@@ -247,7 +248,7 @@ class PostgreSQLManager:
 
             return results
         except Exception as e:
-            logger.error(f"查询数据失败: {e}")
+            self.logger.error(f"查询数据失败: {e}")
             return None
 
     def __enter__(self):
@@ -258,4 +259,3 @@ class PostgreSQLManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口"""
         self.disconnect()
-
