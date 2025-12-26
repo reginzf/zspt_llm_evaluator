@@ -8,6 +8,17 @@ from typing import Optional
 
 class FlaskHTMLRenderer:
     """修复版的Flask HTML渲染器基类"""
+    _instances = {}
+
+    def __new__(cls, css_path=None):
+        """
+        实现以host和类名作为key的单例模式，确保每个子类有独立实例
+        """
+        # 使用类名作为唯一标识符
+        key = cls.__name__
+        if key not in cls._instances:
+            cls._instances[key] = super(FlaskHTMLRenderer, cls).__new__(cls)
+        return cls._instances[key]
 
     def __init__(self, css_path: Optional[str] = None):
         """
