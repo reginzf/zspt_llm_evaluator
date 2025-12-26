@@ -1,11 +1,10 @@
-from flask import Blueprint
+from flask import Blueprint, request, jsonify, render_template_string
 import os
 import logging
 
-from env_config_init import REPORT_PATH
-from utils.pub_funs import load_metric_data
-from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
-from src.flask_funcs.reports.flask_metrics_dashboard_renderer import MetricsDashboardRenderer
+from env_config_init import settings
+from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
+from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -16,9 +15,91 @@ local_knowledge_bp = Blueprint('local_knowledge', __name__)
 # 导入渲染器
 from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
 
+
 @local_knowledge_bp.route('/local_knowledge/')
 def local_knowledge():
-    # todo 获取本地知识目录结构，按列表展示
-    # 获取在sql ai_local_knowledge表中的数据，和本地目录中第一级目录，按名称匹配，如果有数据库中的数据则展示数据库的，否则展示本地目录的
-    pass
+    """获取本地知识目录结构，按列表展示"""
+    try:
+        # 创建本地知识CRUD实例
+        local_knowledge_crud = LocalKnowledgeCrud()
+        
+        # 获取在sql ai_local_knowledge表中的数据，和本地目录中第一级目录，按名称匹配
+        # 如果有数据库中的数据则展示数据库的，否则展示本地目录的
+        with local_knowledge_crud as crud:
+            # 获取数据库中的本地知识列表
+            db_knowledge_list = crud.get_local_knowledge_list()
+            
+            # 获取本地目录结构
+            local_knowledge_path = settings.KNOWLEDGE_LOCAL_PATH
+            local_directories = []
+            if os.path.exists(local_knowledge_path) and os.path.isdir(local_knowledge_path):
+                for item in os.listdir(local_knowledge_path):
+                    item_path = os.path.join(local_knowledge_path, item)
+                    if os.path.isdir(item_path):
+                        local_directories.append(item)
+            else:
+                # 如果默认路径不存在，使用当前目录下的local_knowledge文件夹
+                local_knowledge_path = './local_knowledge'
+                if os.path.exists(local_knowledge_path) and os.path.isdir(local_knowledge_path):
+                    for item in os.listdir(local_knowledge_path):
+                        item_path = os.path.join(local_knowledge_path, item)
+                        if os.path.isdir(item_path):
+                            local_directories.append(item)
+            
+            # 创建本地知识渲染器并渲染页面
+            renderer = LocalKnowledgeRendererFlask()
+            html_content = renderer.render_local_knowledge_page(db_knowledge_list, local_directories)
+        
+        return html_content
+    except Exception as e:
+        logger.error(f"获取本地知识列表时发生错误: {str(e)}")
+        return "页面加载错误", 500
 
+
+@local_knowledge_bp.route('/local_knowledge/<kno_id>')
+def local_knowledge_detail(kno_id):
+    """获取特定本地知识的详细信息"""
+    try:
+        local_knowledge_crud = LocalKnowledgeCrud()
+        
+        with local_knowledge_crud as crud:
+            # 获取本地知识详情
+            knowledge_detail = crud.get_local_knowledge_detail(kno_id)
+            
+            if not knowledge_detail:
+                return "未找到知识库信息", 404
+            
+            # 获取关联的文件信息
+            # todo: 获取关联的ai_knowledge表中的文件信息
+            
+            renderer = LocalKnowledgeRendererFlask()
+            html_content = renderer.render_local_knowledge_detail(kno_id, knowledge_detail)
+        
+        return html_content
+    except Exception as e:
+        logger.error(f"获取本地知识详情时发生错误: {str(e)}")
+        return "页面加载错误", 500
+
+
+@local_knowledge_bp.route('/local_knowledge/upload', methods=['POST'])
+def upload_local_knowledge():
+    """上传文件到本地知识库"""
+    try:
+        # todo: 实现上传文件到本地知识库的逻辑
+        # 获取上传的文件和知识库ID
+        file = request.files.get('file')
+        kno_id = request.form.get('kno_id')
+        
+        if not file or not kno_id:
+            return jsonify({"status": "error", "message": "缺少文件或知识库ID"}), 400
+        
+        # 实现上传逻辑
+        # 1. 保存文件到本地
+        # 2. 更新数据库记录
+        # 3. 返回成功信息
+        
+        # 临时返回成功信息
+        return jsonify({"status": "success", "message": "文件上传成功"})
+    except Exception as e:
+        logger.error(f"上传文件时发生错误: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500

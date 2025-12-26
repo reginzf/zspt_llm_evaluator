@@ -1,5 +1,52 @@
-<!--
-按列表展示本地知识信息，包含名称\id 创建时间，点击名称\id展开知识详情，每个本地知识有右侧有上传按钮，支持上传文件；上传文件后保存在对应知识的本地目录下
-展开知识详情后如下：展示本地知识信息文件名，根据sql查询表ai_knowledge内容补全展示的内容主要包括对应的doc_id，doc_describe,kno_path_id，knowledge_id；右侧提供操作按钮，支持删除文件，上传到线上知识库,编辑的操作
-编辑支持修改文件描述
--->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or '本地知识库' }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ heading or '本地知识库' }}</h1>
+        
+        <div class="knowledge-list">
+            {% if knowledge_data %}
+                {% for knowledge in knowledge_data %}
+                <div class="knowledge-item">
+                    <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
+                        <span class="toggle-icon">▶</span>
+                        <span class="knowledge-name">{{ knowledge.kno_name }}</span>
+                        <span class="knowledge-id">{{ knowledge.kno_id }}</span>
+                        <span class="knowledge-date">{{ knowledge.created_at or '未知' }}</span>
+                        <div class="knowledge-actions">
+                            <button class="upload-btn" onclick="uploadFile('{{ knowledge.kno_id }}')">上传</button>
+                        </div>
+                    </div>
+                    <div class="knowledge-details" style="display: none;">
+                        <div class="knowledge-description">
+                            <p>{{ knowledge.kno_describe or '暂无描述' }}</p>
+                        </div>
+                        <div class="knowledge-files">
+                            <h3>知识库文件</h3>
+                            <ul class="file-list">
+                                <!-- 这里会通过JavaScript动态加载文件列表 -->
+                                <li class="file-item-placeholder">暂无文件</li>
+                            </ul>
+                            <div class="file-actions">
+                                <button class="action-btn delete-btn">删除文件</button>
+                                <button class="action-btn upload-online-btn">上传到线上知识库</button>
+                                <button class="action-btn edit-btn">编辑</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>暂无本地知识库数据</p>
+            {% endif %}
+        </div>
+    </div>
+    <script src="{{ js_url }}"></script>
+</body>
+</html>
