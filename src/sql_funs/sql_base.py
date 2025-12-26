@@ -18,11 +18,13 @@ class PostgreSQLManager:
     def __new__(cls, host: str = "localhost", port: int = 5432, database: str = "postgres", user: str = "postgres",
                 password: str = ""):
         """
-        实现以host作为key的单例模式
+        实现以host和类名作为key的单例模式，确保每个子类有独立实例
         """
-        if host not in cls._instances:
-            cls._instances[host] = super(PostgreSQLManager, cls).__new__(cls)
-        return cls._instances[host]
+        # 使用类名和主机作为唯一标识符
+        key = (cls.__name__, host)
+        if key not in cls._instances:
+            cls._instances[key] = super(PostgreSQLManager, cls).__new__(cls)
+        return cls._instances[key]
 
     def __init__(self,
                  host: str = None,
