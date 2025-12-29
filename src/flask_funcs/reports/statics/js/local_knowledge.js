@@ -56,8 +56,8 @@ function loadKnowledgeFiles(headerElement) {
                         </div>
                         <div class="file-actions">
                             <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id}','${file.kno_name}')">删除</button>
-                            <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.kno_name}')">上传到线上知识库</button>
-                            <button class="action-btn edit-btn" onclick="editFile('${file.kno_name}')">编辑</button>
+                            <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.knol_id}')">上传到线上知识库</button>
+                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id}')">编辑</button>
                         </div>
                     `;
                     
@@ -85,10 +85,6 @@ function uploadFile(knowledgeId) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('kno_id', knowledgeId);
-            
-            // 显示上传进度提示
-            alert(`准备上传文件: ${file.name} 到知识库: ${knowledgeId}`);
-            
             // 发送文件到服务器
             fetch('/local_knowledge/upload', {
                 method: 'POST',
