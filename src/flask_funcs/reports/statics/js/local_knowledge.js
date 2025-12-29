@@ -55,7 +55,7 @@ function loadKnowledgeFiles(headerElement) {
                             <span class="file-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="file-actions">
-                            <button class="action-btn delete-btn" onclick="deleteFile('${file.kno_name}')">删除</button>
+                            <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id}','${file.kno_name}')">删除</button>
                             <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.kno_name}')">上传到线上知识库</button>
                             <button class="action-btn edit-btn" onclick="editFile('${file.kno_name}')">编辑</button>
                         </div>
@@ -75,28 +75,77 @@ function loadKnowledgeFiles(headerElement) {
 
 function uploadFile(knowledgeId) {
     // 上传文件功能
-    alert(`准备上传文件到知识库: ${knowledgeId}`);
-    
-    // 这里应该实现实际的上传逻辑
-    // 例如显示文件选择对话框并上传到服务器
+    // 显示文件选择对话框
     const input = document.createElement('input');
     input.type = 'file';
     input.onchange = function(e) {
         const file = e.target.files[0];
         if (file) {
-            // 执行上传逻辑
-            console.log('准备上传文件:', file.name, '到知识库:', knowledgeId);
-            // 实际上传代码...
+            // 创建 FormData 对象来发送文件
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('kno_id', knowledgeId);
+            
+            // 显示上传进度提示
+            alert(`准备上传文件: ${file.name} 到知识库: ${knowledgeId}`);
+            
+            // 发送文件到服务器
+            fetch('/local_knowledge/upload', {
+                method: 'POST',
+                body: formData  // 注意：不设置 Content-Type，让浏览器自动设置
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    // 重新加载页面或刷新知识库详情
+                    location.reload(); // 或者可以只刷新对应的知识库详情
+                } else {
+                    alert('上传失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('上传文件时出错:', error);
+                alert('上传过程中发生错误: ' + error.message);
+            });
         }
     };
     input.click();
 }
 
-function deleteFile(fileName) {
-    if (confirm(`确定要删除文件 "${fileName}" 吗？`)) {
+function deleteFile(knolId, knoName) {
+    if (confirm(`确定要删除文件 "${knoName}" 吗？`)) {
         // 执行删除逻辑
-        console.log('删除文件:', fileName);
-        // 这里应该调用API删除文件
+        console.log('删除文件:', knolId);
+        
+        // 调用API删除文件
+        fetch(`/local_knowledge/delete/${knolId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正常');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                // 重新加载页面以更新文件列表
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除文件时出错:', error);
+            alert('删除过程中发生错误: ' + error.message);
+        });
     }
 }
 

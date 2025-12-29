@@ -1,7 +1,9 @@
 from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class LocalKnowledgeCrud(PostgreSQLManager):
     def local_knowledge_insert(self, kno_id: str, kno_name: str, kno_describe: str, kno_path: str,
@@ -93,16 +95,17 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         """
         exact_match_fields = ['kno_id', 'ls_status']
         partial_match_fields = ['kno_name', 'kno_describe', 'kno_path']
-        allowed_fileds = ['kno_id', 'ls_status','kno_name', 'kno_describe', 'kno_path']
-        query,params = self.gen_select_query('ai_local_knowledge', order_by=order_by, limit=limit,
-                              exact_match_fields=exact_match_fields, partial_match_fields=partial_match_fields,
-                              allowed_fileds=allowed_fileds, **kwargs)
+        allowed_fileds = ['kno_id', 'ls_status', 'kno_name', 'kno_describe', 'kno_path']
+        query, params = self.gen_select_query('ai_local_knowledge', order_by=order_by, limit=limit,
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **kwargs)
         logger.info(f"执行查询: {query}")
         return self.execute_query(query, params)
 
     # 为 ai_local_knowledge_list 表添加 CRUD 方法
     def local_knowledge_list_insert(self, knol_id: str, knol_name: str, knol_describe: str = None,
-                                    knol_path: str = None, knowledge_doc_count: int = 0, ls_status: int = 1):
+                                    knol_path: str = None, ls_status: int = 1, kno_id=None):
         """
         插入本地知识库列表信息
         """
@@ -111,12 +114,12 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             "knol_name": knol_name,
             "knol_describe": knol_describe,
             "knol_path": knol_path,
-            "knowledge_doc_count": knowledge_doc_count,
-            "ls_status": ls_status
+            "ls_status": ls_status,
+            "kno_id": kno_id
         })
 
     def local_knowledge_list_update(self, knol_id: str, knol_name: str = None, knol_describe: str = None,
-                                    knol_path: str = None, knowledge_doc_count: int = None, ls_status: int = None):
+                                    knol_path: str = None, ls_status: int = None):
         """
         更新本地知识库列表信息
         """
@@ -127,8 +130,6 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             data["knol_describe"] = knol_describe
         if knol_path is not None:
             data["knol_path"] = knol_path
-        if knowledge_doc_count is not None:
-            data["knowledge_doc_count"] = knowledge_doc_count
         if ls_status is not None:
             data["ls_status"] = ls_status
 

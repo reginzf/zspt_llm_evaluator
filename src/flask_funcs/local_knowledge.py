@@ -3,7 +3,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify, render_template_string
 import os
 import logging
-
+import uuid
 from env_config_init import settings
 from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
 from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
@@ -80,11 +80,53 @@ def api_local_knowledge_detail(kno_id, kno_name):
     """API接口：获取特定本地知识的详细信息"""
     try:
         with LocalKnowledgeCrud() as crud:
-            # 获取本地知识详情
-            knowledge_detail = crud.get_local_knowledge_detail(kno_id)
-            logger.info(f"获取本地知识详情: {knowledge_detail}")
-            if not knowledge_detail:
-                return jsonify({"error": "未找到知识库信息"}), 404
+            # 获取本地知识列表详情（从ai_local_knowledge_list表）
+            # 获取所有知识列表记录
+            all_knowledge_list_records = crud.get_local_knowledge_list()
+            logger.info(f"获取本地知识列表详情: {all_knowledge_list_records}")
+            
+            # 首先尝试使用kno_id过滤
+            filtered_knowledge_list = []
+            if all_knowledge_list_records:
+                for record in all_knowledge_list_records:
+                    # record格式: (id, knol_id, knol_name, knol_describe, knol_path, ls_status, created_at, updated_at, kno_id)
+                    if len(record) > 8 and record[8] == kno_id:  # record[8] 是kno_id字段
+                        # 重构数据格式，使其包含所需字段
+                        filtered_record = {
+                            "knol_id": record[1],  # knol_id
+                            "kno_name": record[2],  # knol_name
+                            "kno_describe": record[3],  # knol_describe
+                            "knol_path": record[4],  # knol_path
+                            "ls_status": record[5],  # ls_status
+                            "created_at": record[6],  # created_at
+                            "updated_at": record[7] ,  # updated_at
+                            "kno_id":record[8]
+                        }
+                        filtered_knowledge_list.append(filtered_record)
+            
+            # 如果没找到记录，尝试使用kno_name来查找对应的kno_id
+            if not filtered_knowledge_list:
+                # 先通过kno_name在ai_local_knowledge表中查找真正的kno_id
+                knowledge_records = crud.get_local_knowledge(kno_name=kno_name)
+                if knowledge_records:
+                    # 获取正确的kno_id
+                    correct_kno_id = knowledge_records[0][1]  # 第二个字段是kno_id
+                    logger.info(f"使用kno_name '{kno_name}'查找到正确的kno_id: {correct_kno_id}")
+                    # 再次尝试过滤
+                    for record in all_knowledge_list_records:
+                        if len(record) > 8 and record[8] == correct_kno_id:
+                            # 重构数据格式
+                            filtered_record = {
+                                "knol_id": record[1],  # knol_id
+                                "kno_name": record[2],  # knol_name
+                                "kno_describe": record[3],  # knol_describe
+                                "knol_path": record[4],  # knol_path
+                                "ls_status": record[5],  # ls_status
+                                "created_at": record[6],  # created_at
+                                "updated_at": record[7] ,  # updated_at
+                                "kno_id": record[8]
+                            }
+                            filtered_knowledge_list.append(filtered_record)
 
             # 获取本地目录指定文件夹的文件名称
             folder_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / kno_name
@@ -98,34 +140,110 @@ def api_local_knowledge_detail(kno_id, kno_name):
         logger.error(f"获取本地知识详情时发生错误: {str(e)}")
         return jsonify({"error": "页面加载错误"}), 500
     
-    result = renderer.gen_knowledge_detail(local_files, knowledge_detail)
-    return jsonify(result)
+    # 直接返回过滤后的知识列表详情，因为这是前端需要的数据格式
+    return jsonify(filtered_knowledge_list)
 
 
 @local_knowledge_bp.route('/local_knowledge/upload', methods=['POST'])
 def upload_local_knowledge():
     """上传文件到本地知识库"""
     try:
-        # todo: 实现上传文件到本地知识库的逻辑
         # 获取上传的文件和本地知识库的id
         file = request.files.get('file')
         kno_id = request.form.get('kno_id')
+        
         # 检查参数
         if not file or not kno_id:
             return jsonify({"status": "error", "message": "缺少文件或知识库ID"}), 400
+
         # 根据本地知识库id 获取知识库信息
         with LocalKnowledgeCrud() as crud:
-            knowledge_detail = crud.get_local_knowledge(kno_id)
-        # 根据知识库中对应名称和kno_path获取文件夹的路径
+            knowledge_list = crud.get_local_knowledge(kno_id=kno_id)
+            if not knowledge_list:
+                return jsonify({"status": "error", "message": "未找到对应的知识库"}), 404
+            knowledge_detail = knowledge_list[0]  # 获取第一个结果
+            logger.info(f"获取知识库信息: {knowledge_detail}")
+            # 根据知识库中对应名称和kno_path获取文件夹的路径
+            kno_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / knowledge_detail[4]
 
-        # 将文件保存到本地的文件夹中
+            # 确保目录存在
+            kno_path.mkdir(parents=True, exist_ok=True)
+            
+            # 验证文件类型（可以根据需要添加更多类型）
+            filename = file.filename
+            if not filename:
+                return jsonify({"status": "error", "message": "文件名无效"}), 400
 
-        # 在ai_local_knowledge_list表中新增一条记录
+            # 构建安全的文件路径
+            file_path = kno_path / filename
+            logger.info(f"获取知识库路径: {kno_path}")
+            # 检查是否已存在同名文件，如果存在则重命名
+            counter = 1
+            name, ext = file_path.stem, file_path.suffix
+            while file_path.exists():
+                new_filename = f"{name}_{counter}{ext}"
+                file_path = kno_path / new_filename
+                counter += 1
 
+            # 保存文件到本地文件夹
+            file.save(str(file_path))
+            
+            # 生成新的知识文档ID
+            knol_id = str(uuid.uuid4())
+            
+            # 在ai_local_knowledge_list表中新增一条记录
+            success = crud.local_knowledge_list_insert(
+                knol_id=knol_id,
+                knol_name=file_path.name,
+                knol_describe=f"上传到知识库 {knowledge_detail[1]} 的文件",
+                knol_path=str(file_path.relative_to(Path(settings.KNOWLEDGE_LOCAL_PATH))),
+                ls_status=1,  # 默认状态为1，表示已上传
+                kno_id=kno_id  # 关联到知识库ID
+            )
 
-        # 临时返回成功信息
-        return jsonify({"status": "success", "message": "文件上传成功"})
+            if not success:
+                # 如果插入失败，删除已保存的文件
+                if file_path.exists():
+                    file_path.unlink()
+                return jsonify({"status": "error", "message": "保存文件记录失败"}), 500
+
+        return jsonify({"status": "success", "message": f"文件 {file_path.name} 上传成功"})
     except Exception as e:
         logger.error(f"上传文件时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@local_knowledge_bp.route('/local_knowledge/delete/<knol_id>', methods=['DELETE'])
+def delete_local_knowledge(knol_id):
+    """删除本地知识库文件"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取知识库文件信息 from ai_local_knowledge_list表
+            knowledge_list_records = crud.get_local_knowledge_list(knol_id=knol_id)
+            if not knowledge_list_records:
+                return jsonify({"status": "error", "message": "未找到对应的文件记录"}), 404
+            knowledge_list_record = knowledge_list_records[0]  # 获取第一个结果
+            logger.info(f"获取知识库列表文件信息: {knowledge_list_record}")
+            
+            # 获取文件路径
+            file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / knowledge_list_record[4]  # knol_path 是第5列 (索引4)
+            
+            # 检查文件是否存在
+            if not file_path.exists():
+                logger.warning(f"文件不存在: {file_path}")
+                # 即使文件不存在，也继续删除数据库记录
+            else:
+                # 删除本地文件
+                file_path.unlink()
+                logger.info(f"已删除本地文件: {file_path}")
+            
+            # 删除数据库ai_local_knowledge_list表中knol_id对应的记录
+            delete_success = crud.local_knowledge_list_delete(knol_id=knol_id)
+            
+            if delete_success:
+                return jsonify({"status": "success", "message": "文件删除成功"})
+            else:
+                return jsonify({"status": "error", "message": "删除数据库记录失败"}), 500
+
+    except Exception as e:
+        logger.error(f"删除文件时发生错误: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500

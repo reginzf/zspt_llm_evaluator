@@ -110,18 +110,18 @@ class PostgreSQLManager:
                 # 其他字段默认使用精确匹配
                 conditions.append(f"{key} = %s")
                 values.append(value)
-        query = sql.SQL(f"SELECT * FROM {table_name}")
+        query = f"SELECT * FROM {table_name}"
         if conditions:
             where_clause = " AND ".join(conditions)
-            query = sql.SQL(f"{query} WHERE {where_clause}")
+            query = f"{query} WHERE {where_clause}"
         if order_by:
-            query = sql.SQL(f"{query} ORDER BY {sql.SQL(order_by)}")
+            query = f"{query} ORDER BY {sql.SQL(order_by)}"
         if limit:
-            query = sql.SQL(f"{query} LIMIT {limit}")
+            query = f"{query} LIMIT {limit}"
         logger.info(f"查询语句: {query} 条件参数:{values}")
         return query, tuple(values)
 
-    def execute_query(self, query: Union[str, sql.SQL], params: Tuple = None) -> Optional[List[Tuple]]:
+    def execute_query(self, query:str, params: Tuple = None) -> Optional[List[Tuple]]:
         """
         执行查询语句
         """
@@ -135,7 +135,7 @@ class PostgreSQLManager:
                 query = query.as_string(self.cursor)
             if query.strip().upper().startswith("SELECT"):
                 res = self.cursor.fetchall()
-                logger.info(f"查询成功: res.")
+                logger.info(f"查询成功: {res}")
                 return res
             else:
                 self.connection.commit()

@@ -56,13 +56,14 @@ class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
         if knowledge_detail and len(knowledge_detail) > 0:
             for detail_row in knowledge_detail:
                 temp = {
-                    'kno_id': detail_row[1],
-                    'kno_name': detail_row[2],
-                    'kno_describe': detail_row[3],
-                    'kno_path': detail_row[4],
+                    'knol_id': detail_row[1],
+                    'knol_name': detail_row[2],
+                    'knol_describe': detail_row[3],
+                    'knol_path': detail_row[4],
                     'ls_status': KNOWLEDGE_DETAIL_STATUS_MAP[detail_row[5]],
                     'created_at': detail_row[6],
-                    'updated_at': detail_row[7]
+                    'updated_at': detail_row[7],
+                    'kno_id': detail_row[8],
                 }
                 res.append(temp)
                 name_dict[temp['kno_name']] = temp
