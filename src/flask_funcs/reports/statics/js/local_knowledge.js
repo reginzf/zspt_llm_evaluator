@@ -45,8 +45,8 @@ function loadKnowledgeFiles(headerElement) {
                     const fileItem = document.createElement('li');
                     fileItem.className = 'file-item';
                     
-                    const statusClass = file.status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
-                    const statusText = file.status === 'sync_ok' ? '已同步' : '待同步';
+                    const statusClass = file.ls_status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
+                    const statusText = file.ls_status === 'sync_ok' ? '已同步' : '待同步';
                     
                     fileItem.innerHTML = `
                         <div class="file-info">

@@ -35,7 +35,9 @@ class Environment_Crud(PostgreSQLManager):
         exact_match_fields = {'zlpt_base_id'}  # 精确匹配字段
         partial_match_fields = {'zlpt_name', 'zlpt_base_url', 'domain'}  # 部分匹配字段
 
-        query,values =self.gen_select_query('ai_environment_info',exact_match_fields,partial_match_fields,ALLOWED_FIELDS,**kwargs)
+        query, values = self.gen_select_query('ai_environment_info', exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields, allowed_fileds=ALLOWED_FIELDS,
+                                              **kwargs)
         result = self.execute_query(query, values)
         logging.info(f"查询返回结果数量: {len(result) if result else 0}")
         return result
@@ -102,6 +104,7 @@ class Environment_Crud(PostgreSQLManager):
 
         # 先查询是否存在匹配的记录
         logging.info(f"查询是否存在匹配的记录: {kwargs}")
+        logging.info(f"查询条件: {kwargs}")
         existing_env = self.environment_list(**kwargs)
         if not existing_env:
             logging.error("错误: 未找到匹配的环境信息")

@@ -120,7 +120,7 @@ class PostgreSQLManager:
 
         return query, tuple(values)
 
-    def execute_query(self, query: str, params: Tuple = None) -> Optional[List[Tuple]]:
+    def execute_query(self, query:sql.SQL, params: Tuple = None) -> Optional[List[Tuple]]:
         """
         执行查询语句
         """
@@ -129,7 +129,9 @@ class PostgreSQLManager:
                 self.cursor.execute(query, params)
             else:
                 self.cursor.execute(query)
-
+            # 将 SQL 对象转换为字符串进行检查
+            if isinstance(query, sql.SQL):
+                query = query.as_string(self.cursor)
             if query.strip().upper().startswith("SELECT"):
                 return self.cursor.fetchall()
             else:

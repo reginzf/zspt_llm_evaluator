@@ -190,6 +190,7 @@ class CreateTables(PostgreSQLManager):
             "knol_name": "VARCHAR(200) NOT NULL",
             "knol_describe": "TEXT",  # 描述
             "knol_path": "VARCHAR(500)",  # 文件夹绝对目录
+            "knowledge_doc_count": "INTEGER DEFAULT 0",  # 知识文档数量
             "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",

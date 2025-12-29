@@ -7,6 +7,12 @@ from pathlib import Path
 from .flask_renderer_base import FlaskHTMLRenderer
 from env_config_init import settings
 
+KNOWLEDGE_DETAIL_STATUS_MAP = {
+    0: "sync_wait",  # 等待同步
+    1: "sync_ok",  # 同步成功
+    2: "syncing"  # 进行中
+}
+
 
 class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
     """本地知识库渲染器 - Flask版本"""
@@ -51,7 +57,7 @@ class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
                     'kno_name': detail_row[2],
                     'kno_describe': detail_row[3],
                     'kno_path': detail_row[4],
-                    'ls_status': detail_row[5],
+                    'ls_status': KNOWLEDGE_DETAIL_STATUS_MAP[detail_row[5]],
                     'created_at': detail_row[6],
                     'updated_at': detail_row[7]
                 }
