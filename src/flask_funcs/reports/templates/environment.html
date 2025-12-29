@@ -193,7 +193,11 @@
                 <tbody id="environmentTableBody">
                     {% for env in environment_list %}
                     <tr>
-                        <td>{{ env.zlpt_name }}<br><small>{{ env.zlpt_base_id }}</small></td>
+                        <td>
+                            <a href="/environment_detail/?zlpt_base_id={{ env.zlpt_base_id }}" target="_blank" style="text-decoration: none; color: #2619AF;">
+                                {{ env.zlpt_name }}<br><small>{{ env.zlpt_base_id }}</small>
+                            </a>
+                        </td>
                         <td>{{ env.zlpt_base_url }}</td>
                         <td>{{ env.domain }}</td>
                         <td>{{ env.username }}</td>
