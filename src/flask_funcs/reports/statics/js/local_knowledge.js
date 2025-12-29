@@ -57,7 +57,7 @@ function loadKnowledgeFiles(headerElement) {
                         <div class="file-actions">
                             <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id}','${file.kno_name}')">删除</button>
                             <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.knol_id}')">上传到线上知识库</button>
-                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id}')">编辑</button>
+                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id}','${file.kno_name}')">编辑</button>
                         </div>
                     `;
                     
@@ -163,10 +163,41 @@ function uploadToOnlineKnowledge(fileName) {
     }
 }
 
-function editFile(fileName) {
+function editFile(knolId, knolName) {
     // 编辑文件功能
-    alert(`编辑文件: ${fileName}`);
-    // 这里应该打开编辑界面
+    // 获取当前描述
+    const currentDescription = prompt(`请输入文件 "${knolName}" 的新描述:`, '');
+    
+    if (currentDescription !== null) {  // 用户没有取消
+        // 创建 FormData 对象来发送描述信息
+        const formData = new FormData();
+        formData.append('knol_describe', currentDescription);
+        
+        // 发送请求到服务器
+        fetch(`/local_knowledge/edit/${knolId}`, {
+            method: 'PUT',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正常');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                // 重新加载页面以更新文件列表
+                location.reload();
+            } else {
+                alert('编辑失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('编辑文件时出错:', error);
+            alert('编辑过程中发生错误: ' + error.message);
+        });
+    }
 }
 
 // 初始化页面
