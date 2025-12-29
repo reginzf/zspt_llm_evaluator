@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or '知识平台详情' }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ heading or '知识平台详细信息' }}</h1>
+        
+        <!-- 环境详情部分 -->
+        <div class="environment-detail">
+            <h2>环境信息</h2>
+            <div class="detail-card">
+                <div class="detail-row">
+                    <label>平台ID:</label>
+                    <span>{{ environment.zlpt_base_id }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>平台名称:</label>
+                    <span>{{ environment.zlpt_name }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>平台URL:</label>
+                    <span>{{ environment.zlpt_base_url }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>用户名:</label>
+                    <span>{{ environment.username }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>域:</label>
+                    <span>{{ environment.domain }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>创建时间:</label>
+                    <span>{{ environment.created_at }}</span>
+                </div>
+                <div class="detail-row">
+                    <label>更新时间:</label>
+                    <span>{{ environment.updated_at }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 知识库列表部分 -->
+        <div class="knowledge-base-list">
+            <div class="list-header">
+                <h2>知识库列表</h2>
+                <div class="list-controls">
+                    <input type="text" class="search-box" placeholder="搜索知识库...">
+                    <button class="create-btn">创建知识库</button>
+                </div>
+            </div>
+            
+            <div class="knowledge-base-items">
+                {% if knowledge_bases %}
+                    {% for kb in knowledge_bases %}
+                    <div class="knowledge-base-item">
+                        <div class="item-header">
+                            <h3>{{ kb.knowledge_name }}</h3>
+                            <div class="item-actions">
+                                <button class="action-btn edit-btn" onclick="editKnowledgeBase('{{ kb.knowledge_id }}')">编辑</button>
+                                <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('{{ kb.knowledge_id }}')">删除</button>
+                            </div>
+                        </div>
+                        <div class="item-details">
+                            <div class="detail-row">
+                                <label>ID:</label>
+                                <span>{{ kb.knowledge_id }}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>根ID:</label>
+                                <span>{{ kb.kno_root_id or 'N/A' }}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>分块大小:</label>
+                                <span>{{ kb.chunk_size }}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>分块重叠:</label>
+                                <span>{{ kb.chunk_overlap }}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>可见范围:</label>
+                                <span>{{ kb.visiblerange }}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>创建时间:</label>
+                                <span>{{ kb.created_at }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>暂无知识库</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ js_url }}"></script>
+</body>
