@@ -148,12 +148,12 @@ def api_local_knowledge_detail(kno_id, kno_name):
 def upload_local_knowledge():
     """上传文件到本地知识库"""
     try:
-        # 获取上传的文件和本地知识库的id
-        file = request.files.get('file')
+        # 获取上传的文件列表和本地知识库的id
+        files = request.files.getlist('files')  # 获取多个文件
         kno_id = request.form.get('kno_id')
         
         # 检查参数
-        if not file or not kno_id:
+        if not files or not kno_id:
             return jsonify({"status": "error", "message": "缺少文件或知识库ID"}), 400
 
         # 根据本地知识库id 获取知识库信息
@@ -169,45 +169,54 @@ def upload_local_knowledge():
             # 确保目录存在
             kno_path.mkdir(parents=True, exist_ok=True)
             
-            # 验证文件类型（可以根据需要添加更多类型）
-            filename = file.filename
-            if not filename:
-                return jsonify({"status": "error", "message": "文件名无效"}), 400
-
-            # 构建安全的文件路径
-            file_path = kno_path / filename
-            logger.info(f"获取知识库路径: {kno_path}")
-            # 检查是否已存在同名文件，如果存在则重命名
-            counter = 1
-            name, ext = file_path.stem, file_path.suffix
-            while file_path.exists():
-                new_filename = f"{name}_{counter}{ext}"
-                file_path = kno_path / new_filename
-                counter += 1
-
-            # 保存文件到本地文件夹
-            file.save(str(file_path))
+            success_count = 0
+            failed_files = []
             
-            # 生成新的知识文档ID
-            knol_id = str(uuid.uuid4())
-            
-            # 在ai_local_knowledge_list表中新增一条记录
-            success = crud.local_knowledge_list_insert(
-                knol_id=knol_id,
-                knol_name=file_path.name,
-                knol_describe=f"上传到知识库 {knowledge_detail[1]} 的文件",
-                knol_path=str(file_path.relative_to(Path(settings.KNOWLEDGE_LOCAL_PATH))),
-                ls_status=1,  # 默认状态为1，表示已上传
-                kno_id=kno_id  # 关联到知识库ID
-            )
+            for file in files:
+                if file and file.filename:
+                    # 验证文件类型（可以根据需要添加更多类型）
+                    filename = file.filename
+                    
+                    # 构建安全的文件路径
+                    file_path = kno_path / filename
+                    logger.info(f"获取知识库路径: {kno_path}")
+                    # 检查是否已存在同名文件，如果存在则重命名
+                    counter = 1
+                    name, ext = file_path.stem, file_path.suffix
+                    while file_path.exists():
+                        new_filename = f"{name}_{counter}{ext}"
+                        file_path = kno_path / new_filename
+                        counter += 1
 
-            if not success:
-                # 如果插入失败，删除已保存的文件
-                if file_path.exists():
-                    file_path.unlink()
-                return jsonify({"status": "error", "message": "保存文件记录失败"}), 500
+                    # 保存文件到本地文件夹
+                    file.save(str(file_path))
+                    
+                    # 生成新的知识文档ID
+                    knol_id_new = str(uuid.uuid4())
+                    
+                    # 在ai_local_knowledge_list表中新增一条记录
+                    success = crud.local_knowledge_list_insert(
+                        knol_id=knol_id_new,
+                        knol_name=file_path.name,
+                        knol_describe=f"上传到知识库 {knowledge_detail[1]} 的文件",
+                        knol_path=str(file_path.relative_to(Path(settings.KNOWLEDGE_LOCAL_PATH))),
+                        ls_status=1,  # 默认状态为1，表示已上传
+                        kno_id=kno_id  # 关联到知识库ID
+                    )
 
-        return jsonify({"status": "success", "message": f"文件 {file_path.name} 上传成功"})
+                    if success:
+                        success_count += 1
+                    else:
+                        # 如果插入失败，删除已保存的文件
+                        if file_path.exists():
+                            file_path.unlink()
+                        failed_files.append(file_path.name)
+
+        if failed_files:
+            message = f"成功上传 {success_count} 个文件，失败文件: {', '.join(failed_files)}"
+            return jsonify({"status": "partial_success", "message": message, "success_count": success_count, "failed_count": len(failed_files)})
+        else:
+            return jsonify({"status": "success", "message": f"成功上传 {success_count} 个文件"})
     except Exception as e:
         logger.error(f"上传文件时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500

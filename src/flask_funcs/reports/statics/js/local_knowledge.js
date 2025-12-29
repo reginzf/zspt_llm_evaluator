@@ -75,16 +75,26 @@ function loadKnowledgeFiles(headerElement) {
 
 function uploadFile(knowledgeId) {
     // 上传文件功能
-    // 显示文件选择对话框
+    // 显示文件选择对话框，支持多选
     const input = document.createElement('input');
     input.type = 'file';
+    input.multiple = true;  // 支持多文件选择
     input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (file) {
+        const files = e.target.files;
+        if (files.length > 0) {
             // 创建 FormData 对象来发送文件
             const formData = new FormData();
-            formData.append('file', file);
+            
+            // 添加所有选中的文件
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            
             formData.append('kno_id', knowledgeId);
+            
+            // 显示上传进度提示
+            alert(`准备上传 ${files.length} 个文件到知识库: ${knowledgeId}`);
+            
             // 发送文件到服务器
             fetch('/local_knowledge/upload', {
                 method: 'POST',
@@ -97,7 +107,7 @@ function uploadFile(knowledgeId) {
                 return response.json();
             })
             .then(data => {
-                if (data.status === 'success') {
+                if (data.status === 'success' || data.status === 'partial_success') {
                     alert(data.message);
                     // 重新加载页面或刷新知识库详情
                     location.reload(); // 或者可以只刷新对应的知识库详情
