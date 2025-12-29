@@ -209,7 +209,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
     # 为 ai_knowledge_base 表添加 CRUD 方法
     def knowledge_base_insert(self, knowledge_id: str, knowledge_name: str, kno_root_id: str = None,
                               chunk_size: int = 500, chunk_overlap: float = 0.2, sliceidentifier: list = None,
-                              visiblerange: int = 0, deptidlist: list = None, managedeptidlist: list = None):
+                              visiblerange: int = 0, deptidlist: list = None, managedeptidlist: list = None, zlpt_base_id: str = None):
         """
         插入知识库基础信息
         """
@@ -222,12 +222,13 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             "sliceidentifier": sliceidentifier or [],
             "visiblerange": visiblerange,
             "deptidlist": deptidlist or [],
-            "managedeptidlist": managedeptidlist or []
+            "managedeptidlist": managedeptidlist or [],
+            "zlpt_base_id": zlpt_base_id
         })
 
     def knowledge_base_update(self, knowledge_id: str, knowledge_name: str = None, kno_root_id: str = None,
                               chunk_size: int = None, chunk_overlap: float = None, sliceidentifier: list = None,
-                              visiblerange: int = None, deptidlist: list = None, managedeptidlist: list = None):
+                              visiblerange: int = None, deptidlist: list = None, managedeptidlist: list = None, zlpt_base_id: str = None):
         """
         更新知识库基础信息
         """
@@ -248,6 +249,8 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             data["deptidlist"] = deptidlist
         if managedeptidlist is not None:
             data["managedeptidlist"] = managedeptidlist
+        if zlpt_base_id is not None:
+            data["zlpt_base_id"] = zlpt_base_id
 
         if not data:
             return False  # 如果没有要更新的数据，返回False

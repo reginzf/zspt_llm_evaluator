@@ -47,8 +47,10 @@ class CreateTables(PostgreSQLManager):
             "visiblerange": "INTEGER DEFAULT 0",
             "deptidlist": "JSONB DEFAULT '[]'::jsonb",
             "managedeptidlist": "JSONB DEFAULT '[]'::jsonb",
+            "zlpt_base_id": "VARCHAR(100)",  # 外键，关联环境信息
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "FOREIGN KEY (zlpt_base_id)": "REFERENCES ai_environment_info(zlpt_base_id) ON DELETE SET NULL"
         }
 
         return self.create_table("ai_knowledge_base", columns)
