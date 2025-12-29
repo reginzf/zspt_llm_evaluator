@@ -2,6 +2,7 @@
 本地知识库渲染器模块 - Flask版本
 使用Flask模板引擎生成本地知识库页面
 """
+import logging
 from pathlib import Path
 
 from .flask_renderer_base import FlaskHTMLRenderer
@@ -12,6 +13,8 @@ KNOWLEDGE_DETAIL_STATUS_MAP = {
     1: "sync_ok",  # 同步成功
     2: "syncing"  # 进行中
 }
+
+logger = logging.getLogger(__name__)
 
 
 class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
@@ -95,7 +98,6 @@ class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
         knowledge_data = []
         kno_name_data_dict = {}
         # 将数据库中的数据转换为字典格式
-        # ai_local_knowledge表的列顺序: id, kno_id, kno_name, kno_describe, kno_path, knol_id, ls_status, created_at, updated_at
         for row in db_knowledge_list:
             temp = {
                 'kno_id': row[1] if len(row) > 1 else row[0],  # kno_id

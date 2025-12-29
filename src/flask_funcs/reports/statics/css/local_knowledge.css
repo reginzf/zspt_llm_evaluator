@@ -67,14 +67,25 @@ h1 {
 
 .knowledge-name {
     font-weight: bold;
-    flex-grow: 1;
     color: #667eea;
+    display: inline-block;
 }
 
 .knowledge-id {
     color: #666;
-    margin: 0 10px;
     font-size: 0.9em;
+}
+
+.knowledge-info-left {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.knowledge-info-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .knowledge-date {

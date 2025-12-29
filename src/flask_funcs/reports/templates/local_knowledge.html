@@ -14,20 +14,24 @@
                 {% for knowledge in knowledge_data %}
                 <div class="knowledge-item">
                     <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
-                        <span class="toggle-icon">▶</span>
-                        <span class="knowledge-name" title="{{ knowledge.kno_name }}">{{ knowledge.kno_name }}</span>
-                        <span class="knowledge-id" title="{{ knowledge.kno_id }}">{{ knowledge.kno_id }}</span>
-                        <span class="knowledge-date">{{ knowledge.created_at or '未知' }}</span>
-                        <span class="knowledge-status {% if knowledge.status == 'sync_ok' %}sync-ok{% elif knowledge.status == 'sync_wait' %}sync-wait{% else %}sync-wait{% endif %}">
-                            {% if knowledge.status == 'sync_ok' %}已同步{% elif knowledge.status == 'sync_wait' %}待同步{% else %}待同步{% endif %}
-                        </span>
-                        <div class="knowledge-actions">
-                            <button class="upload-btn" onclick="uploadFile('{{ knowledge.kno_id }}')">上传</button>
+                        <div class="knowledge-info-left">
+                            <span class="toggle-icon">▶</span>
+                            <span class="knowledge-name" title="{{ knowledge.kno_name }}">{{ knowledge.kno_name }}/<span class="knowledge-id" title="{{ knowledge.kno_id }}">{{ knowledge.kno_id }}</span></span>
+                        </div>
+                        <div class="knowledge-info-right">
+
+                            <span class="knowledge-status {% if knowledge.status == 'sync_ok' %}sync-ok{% elif knowledge.status == 'sync_wait' %}sync-wait{% else %}sync-wait{% endif %}">
+                                {% if knowledge.status == 'sync_ok' %}已同步{% elif knowledge.status == 'sync_wait' %}待同步{% else %}待同步{% endif %}
+                            </span>
+                            <div class="knowledge-actions">
+                                <button class="upload-btn" onclick="uploadFile('{{ knowledge.kno_id }}')">上传</button>
+                            </div>
                         </div>
                     </div>
                     <div class="knowledge-details" style="display: none;">
                         <div class="knowledge-description">
                             <p>{{ knowledge.kno_describe or '暂无描述' }}</p>
+                              <span class="knowledge-date">{{ knowledge.created_at or '未知' }}</span>
                         </div>
                         <div class="knowledge-files">
                             <h3>知识库文件</h3>

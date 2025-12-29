@@ -21,7 +21,7 @@ function toggleKnowledgeDetails(element) {
 function loadKnowledgeFiles(headerElement) {
     // 获取知识库ID和名称
     const knowledgeId = headerElement.querySelector('.knowledge-id').textContent;
-    const knowledgeName = headerElement.querySelector('.knowledge-name').textContent;
+    const knowledgeName = headerElement.querySelector('.knowledge-name').getAttribute('title');
     const fileListContainer = headerElement.nextElementSibling.querySelector('.file-list');
     
     // 显示加载状态

@@ -42,7 +42,6 @@ def local_knowledge():
                 raise FileExistsError
 
             # 创建本地知识渲染器并渲染页面
-
             html_content = renderer.render_local_knowledge_page(db_knowledge_list, local_directories)
 
         return html_content
@@ -108,20 +107,25 @@ def upload_local_knowledge():
     """上传文件到本地知识库"""
     try:
         # todo: 实现上传文件到本地知识库的逻辑
-        # 获取上传的文件和知识库ID
+        # 获取上传的文件和本地知识库的id
         file = request.files.get('file')
         kno_id = request.form.get('kno_id')
-
+        # 检查参数
         if not file or not kno_id:
             return jsonify({"status": "error", "message": "缺少文件或知识库ID"}), 400
+        # 根据本地知识库id 获取知识库信息
+        with LocalKnowledgeCrud() as crud:
+            knowledge_detail = crud.get_local_knowledge(kno_id)
+        # 根据知识库中对应名称和kno_path获取文件夹的路径
 
-        # 实现上传逻辑
-        # 1. 保存文件到本地
-        # 2. 更新数据库记录
-        # 3. 返回成功信息
+        # 将文件保存到本地的文件夹中
+
+        # 在ai_local_knowledge_list表中新增一条记录
+
 
         # 临时返回成功信息
         return jsonify({"status": "success", "message": "文件上传成功"})
     except Exception as e:
         logger.error(f"上传文件时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
