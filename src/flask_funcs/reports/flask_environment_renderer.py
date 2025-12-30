@@ -32,17 +32,15 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
             渲染后的HTML内容
         """
         try:
-            # 准备环境数据
-            environment_list = self._prepare_environment_data(environment_data)
             current_environment = self._prepare_current_environment(environment_data, current_environment_id)
-            
+
             # 准备JS文件URL
             js_url = self._get_js_url("environment.js")
-            
+
             # 渲染模板
             html_content = self.render_template(
                 'environment.html',
-                environment_list=environment_list,
+                environment_list=environment_data,
                 current_environment=current_environment,
                 js_url=js_url
             )
@@ -77,23 +75,7 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
         Returns:
             环境字典列表
         """
-        environment_list = []
-        for env_tuple in environment_data:
-            env_dict = {
-                'zlpt_base_id': env_tuple[0],
-                'zlpt_name': env_tuple[1],
-                'zlpt_base_url': env_tuple[2],
-                'key1': env_tuple[3],
-                'key2_add': env_tuple[4],
-                'pk': env_tuple[5],
-                'username': env_tuple[6],
-                'password': env_tuple[7],
-                'domain': env_tuple[8],
-                'created_at': env_tuple[9],
-                'updated_at': env_tuple[10]
-            }
-            environment_list.append(env_dict)
-        return environment_list
+        return environment_data
 
     def _prepare_current_environment(self, environment_data: List, current_environment_id: str) -> Dict[str, Any]:
         """
@@ -106,38 +88,7 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
         Returns:
             当前环境数据字典
         """
-        # 根据ID查找当前环境数据
-        for env_tuple in environment_data:
-            # env_tuple[0] 是 zlpt_base_id
-            if env_tuple[0] == current_environment_id:
-                # 将元组转换为字典
-                return {
-                    'zlpt_base_id': env_tuple[0],
-                    'zlpt_name': env_tuple[1],
-                    'zlpt_base_url': env_tuple[2],
-                    'key1': env_tuple[3],
-                    'key2_add': env_tuple[4],
-                    'pk': env_tuple[5],
-                    'username': env_tuple[6],
-                    'password': env_tuple[7],
-                    'domain': env_tuple[8],
-                    'created_at': env_tuple[9],
-                    'updated_at': env_tuple[10]
-                }
-        # 如果未找到，返回环境信息列表的第一条环境信息
-        if environment_data:
-            first_env = environment_data[0]
-            return {
-                'zlpt_base_id': first_env[0],
-                'zlpt_name': first_env[1],
-                'zlpt_base_url': first_env[2],
-                'key1': first_env[3],
-                'key2_add': first_env[4],
-                'pk': first_env[5],
-                'username': first_env[6],
-                'password': first_env[7],
-                'domain': first_env[8],
-                'created_at': first_env[9],
-                'updated_at': first_env[10]
-            }
-        return {}
+        for environment in environment_data:
+            if environment['zlpt_base_id'] == current_environment_id:
+                return environment
+        return environment_data[0]

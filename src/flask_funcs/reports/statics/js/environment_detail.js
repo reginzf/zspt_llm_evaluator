@@ -18,7 +18,7 @@ function searchKnowledgeBases() {
     
     // 构建搜索参数
     let searchParams = {
-        zlpt_base_id: zlpt_base_id  // 后端方法使用zlpt_base_id参数
+        zlpt_id: zlpt_base_id  // 后端方法使用zlpt_id参数
     };
     
     // 如果搜索词不为空，添加搜索字段和值

@@ -43,6 +43,23 @@ class Environment_Crud(PostgreSQLManager):
         logging.info(f"查询返回结果数量: {len(result) if result else 0}")
         return result
 
+    def _environment_list_to_json(self, environment: Tuple):
+        if environment is not None:
+            return {
+                "zlpt_base_id": environment[0],
+                "zlpt_name": environment[1],
+                "zlpt_base_url": environment[2],
+                "key1": environment[3],
+                "key2_add": environment[4],
+                "pk": environment[5],
+                "username": environment[6],
+                "password": environment[7],
+                "domain": environment[8],
+                "created_at": environment[9],
+                "updated_at": environment[10]
+            }
+        return None
+
     def environment_create(self, **kwargs) -> bool:
         """
         在ai_environment_info中插入环境信息
@@ -280,7 +297,6 @@ class Environment_Crud(PostgreSQLManager):
         return self.execute_query(query, params)
 
     def _knowledge_base_to_json(self, kb):
-        logger.info(f"{kb}")
         if kb is not None:
             return {
                 "knowledge_id": kb[0],

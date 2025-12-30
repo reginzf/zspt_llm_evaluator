@@ -49,28 +49,13 @@ class EnvironmentDetailRendererFlask(FlaskHTMLRenderer):
             environment_detail: 环境详情数据
             knowledge_base_list: 知识库列表数据
         """
-        # 解析环境详情数据
-        # environment_detail 格式: (zlpt_base_id, zlpt_name, zlpt_base_url, key1, key2_add, pk, username, password, domain, created_at, updated_at)
-        env_data = {
-            "zlpt_base_id": environment_detail[0],
-            "zlpt_name": environment_detail[1],
-            "zlpt_base_url": environment_detail[2],
-            "key1": environment_detail[3],
-            "key2_add": environment_detail[4],
-            "pk": environment_detail[5],
-            "username": environment_detail[6],
-            "password": "***",  # 隐藏密码
-            "domain": environment_detail[8],
-            "created_at": environment_detail[9],
-            "updated_at": environment_detail[10]
-        }
-
-        # 解析知识库列表数据
-        knowledge_list = []
-        for kb in knowledge_base_list:
-            knowledge_list.append(kb)
-
+        from src.sql_funs.environment_crud import Environment_Crud
+        env_crud = Environment_Crud()
+        
+        # 将环境详情元组转换为字典格式
+        env_data = env_crud._environment_list_to_json(environment_detail)
+        
         return {
             "environment": env_data,
-            "knowledge_bases": knowledge_list
+            "knowledge_bases": knowledge_base_list
         }

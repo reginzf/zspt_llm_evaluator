@@ -19,7 +19,8 @@ def environment():
     try:
         with Environment_Crud() as env_crud:
             environment_data = env_crud.environment_list()
-            logger.info(f"成功获取环境列表数据，共{len(environment_data)}条记录")
+            environment_data = [env_crud._environment_list_to_json(env) for env in environment_data]
+            logger.info(f"成功获取环境列表数据，共{len(environment_data)}条记录\n{environment_data}")
         current_environment_id = ""  # 默认当前环境ID为空，可以根据需要设置
     except Exception as e:
         environment_data = []
@@ -63,7 +64,7 @@ def environment_create():
         return jsonify({'success': False, 'message': f'创建环境时发生错误: {str(e)}'}), 500
 
 
-@environment_bp.route('/environment/list/', methods=['GET'])
+@environment_bp.route('/environment/list/', methods=['GET'])  # todo 前端未实现
 def environment_list():
     try:
         # 获取查询参数
