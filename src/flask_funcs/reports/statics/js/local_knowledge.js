@@ -268,7 +268,7 @@ function loadKnowledgeBases() {
             data.data.forEach(kb => {
                 const option = document.createElement('option');
                 option.value = kb.knowledge_id;
-                option.textContent = kb.knowledge_name;
+                option.textContent = kb.knowledge_name + ' / ' + kb.knowledge_id;
                 kbSelect.appendChild(option);
             });
         } else {
@@ -315,7 +315,6 @@ function bindKnowledge() {
         if (data.success) {
             alert('绑定成功');
             closeBindDialog();
-            // 可以选择刷新页面以显示更新后的状态
             location.reload();
         } else {
             alert('绑定失败: ' + data.message);

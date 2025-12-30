@@ -18,6 +18,7 @@
                 <span class="knowledge-name" title="{{ item.kno_name }}">{{ item.kno_name }}</span>
                 <span class="knowledge-id" style="display: none;">{{ item.kno_id }}</span>
                 <div class="header-actions">
+                    <button class="action-btn upload-btn" onclick="event.stopPropagation(); uploadFile('{{ item.kno_id }}')">上传文件</button>
                     <button class="action-btn" onclick="event.stopPropagation(); editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
                     <button class="action-btn" onclick="event.stopPropagation(); deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
                     <button class="action-btn bind-btn" onclick="event.stopPropagation(); showBindDialog('{{ item.kno_id }}', '{{ item.kno_name }}')">绑定</button>

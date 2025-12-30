@@ -69,6 +69,8 @@ h1 {
     font-weight: bold;
     color: #667eea;
     display: inline-block;
+    flex: 1;
+    margin-right: 15px; /* 与右侧操作按钮保持一定距离 */
 }
 
 .knowledge-id {
