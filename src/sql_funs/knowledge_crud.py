@@ -1,3 +1,4 @@
+# ai_knowledge* 开头表的增删改查走这个模块
 from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 
