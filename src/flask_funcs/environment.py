@@ -73,6 +73,7 @@ def environment_list():
         # 使用上下文管理器自动处理连接和断开
         with Environment_Crud() as env_crud:
             result = env_crud.environment_list(**query_params)
+            result = [env_crud._environment_list_to_json(env) for env in result]
             return jsonify({'success': True, 'data': result})
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取环境列表时发生错误: {str(e)}'}), 500

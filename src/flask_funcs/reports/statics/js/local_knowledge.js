@@ -226,7 +226,7 @@ function loadEnvironments() {
                 data.data.forEach(env => {
                     const option = document.createElement('option');
                     option.value = env.zlpt_base_id;
-                    option.textContent = env.zlpt_name;
+                    option.textContent = env.zlpt_name + ' / ' + env.zlpt_base_id;
                     envSelect.appendChild(option);
                 });
             } else {
@@ -258,7 +258,7 @@ function loadKnowledgeBases() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            zlpt_base_id: selectedEnvId
+            zlpt_id: selectedEnvId
         })
     })
     .then(response => response.json())
