@@ -124,74 +124,7 @@ h2 {
     margin-top: 15px;
 }
 
-.knowledge-base-item {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    overflow: hidden;
-}
-
-.item-header {
-    background-color: #f8fafc;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.item-header h3 {
-    margin: 0;
-    color: #667eea;
-    font-size: 16px;
-}
-
-.item-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.action-btn {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: background-color 0.3s;
-}
-
-.edit-btn {
-    background-color: #48bb78;
-    color: white;
-}
-
-.edit-btn:hover {
-    background-color: #38a169;
-}
-
-.delete-btn {
-    background-color: #e53e3e;
-    color: white;
-}
-
-.delete-btn:hover {
-    background-color: #c53030;
-}
-
-.item-details {
-    padding: 15px;
-}
-
-.item-details .detail-row {
-    margin-bottom: 10px;
-    padding: 6px 0;
-}
-
-.item-details .detail-row label {
-    width: 100px;
-    color: #718096;
-}
+/* 旧的知识库项目样式已移除，使用新的表格布局 */
 
 .empty-state {
     text-align: center;
@@ -201,4 +134,163 @@ h2 {
 
 .empty-state p {
     font-size: 16px;
+}
+
+/* 知识库表格样式 */
+.knowledge-base-table-header {
+    display: flex;
+    background-color: #4a5568;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+}
+
+.table-header-cell {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-right: 1px solid #e2e8f0;
+}
+
+.table-header-cell:last-child {
+    border-right: none;
+}
+
+.knowledge-base-table-row {
+    display: flex;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    transition: background-color 0.2s;
+}
+
+.knowledge-base-table-row:hover {
+    background-color: #f7fafc;
+}
+
+.table-cell {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-right: 1px solid #edf2f7;
+    word-break: break-word;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.table-cell:last-child {
+    border-right: none;
+}
+
+.actions-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
+.knowledge-name {
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 4px;
+}
+
+.knowledge-id {
+    font-size: 0.9em;
+    color: #718096;
+    font-style: italic;
+}
+
+/* 调整操作按钮样式 */
+.table-cell .action-btn {
+    margin: 0 2px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.table-cell .edit-btn {
+    background-color: #48bb78;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.3s;
+}
+
+.table-cell .edit-btn:hover {
+    background-color: #38a169;
+}
+
+.table-cell .delete-btn {
+    background-color: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.3s;
+}
+
+.table-cell .delete-btn:hover {
+    background-color: #c53030;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .knowledge-base-table-header {
+        display: none; /* 在小屏幕上隐藏表头 */
+    }
+    
+    .knowledge-base-table-row {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .table-cell {
+        padding: 10px;
+        text-align: left;
+        border-right: none;
+        border-bottom: 1px solid #edf2f7;
+        display: block;
+    }
+    
+    .table-cell:last-child {
+        border-bottom: none;
+    }
+    
+    /* 使用data-label属性显示列标题 */
+    .table-cell::before {
+        content: attr(data-label);
+        display: block;
+        font-weight: bold;
+        color: #4a5568;
+        margin-bottom: 4px;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .knowledge-name {
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 4px;
+    }
+    
+    .knowledge-id {
+        font-size: 0.9em;
+        color: #718096;
+        font-style: italic;
+    }
+    
+    .actions-cell {
+        background-color: #f8fafc;
+        padding: 10px !important;
+    }
 }

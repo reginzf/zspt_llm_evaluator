@@ -58,7 +58,7 @@ def local_knowledge_detail(kno_id, kno_name):
     try:
         with LocalKnowledgeCrud() as crud:
             # 获取本地知识详情
-            knowledge_detail = crud.get_local_knowledge_detail(kno_id)
+            knowledge_detail = crud.get_local_knowledge(kno_id=kno_id)
             logger.info(f"获取本地知识详情: {knowledge_detail}")
             if not knowledge_detail:
                 return "未找到知识库信息", 404

@@ -101,6 +101,7 @@ class FlaskHTMLRenderer:
             return render_template(template_name, **context)
         except Exception as e:
             # 如果渲染失败，返回简单的错误页面
+            raise e
             return f"""
             <!DOCTYPE html>
             <html>

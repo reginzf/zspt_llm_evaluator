@@ -1,9 +1,12 @@
+import uuid
+import logging
 from flask import Blueprint, request, jsonify
 
 from src.flask_funcs.reports.flask_environment_renderer import EnvironmentRendererFlask
+from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
-import uuid
-import logging
+from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
+
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -121,8 +124,7 @@ def environment_delete():
 
 @environment_bp.route('/environment_detail/', methods=['GET'])
 def environment_detail_page():
-    from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
-    from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
+
     
     # 获取查询参数中的zlpt_base_id
     zlpt_base_id = request.args.get('zlpt_base_id')
@@ -139,23 +141,18 @@ def environment_detail_page():
                 return "未找到指定的环境", 404
                 
             environment_detail = environment_data[0]  # 获取环境详情
-        
+        logger.info(f"{environment_detail}")
         # 根据zlpt_base_id获取关联的知识库列表
         with LocalKnowledgeCrud() as knowledge_crud:
-            knowledge_base_list = knowledge_crud.get_knowledge_base()
+            knowledge_base_list = knowledge_crud.get_knowledge_base(zlpt_id=environment_detail[0])
             # 过滤出与当前环境关联的知识库
-            filtered_knowledge_base_list = []
-            for kb in knowledge_base_list:
-                # kb格式: (knowledge_id, knowledge_name, kno_root_id, chunk_size, chunk_overlap, 
-                #         sliceidentifier, visiblerange, deptidlist, managedeptidlist, zlpt_base_id, created_at, updated_at)
-                if len(kb) > 9 and kb[9] == zlpt_base_id:  # 索引9是zlpt_base_id字段
-                    filtered_knowledge_base_list.append(kb)
+        logger.info(f"成功获取环境列表数据，共{len(knowledge_base_list)}条记录")
         
         # 创建HTML渲染器
         renderer = EnvironmentDetailRendererFlask()
         
         # 渲染模板
-        html_content = renderer.render_environment_detail_page(environment_detail, filtered_knowledge_base_list)
+        html_content = renderer.render_environment_detail_page(environment_detail, knowledge_base_list)
         
         return html_content
     

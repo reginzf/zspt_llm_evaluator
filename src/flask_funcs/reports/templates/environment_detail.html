@@ -57,40 +57,32 @@
             
             <div class="knowledge-base-items">
                 {% if knowledge_bases %}
+                    <!-- 知识库表格头部 -->
+                    <div class="knowledge-base-table-header">
+                        <div class="table-header-cell">名称/ID</div>
+                        <div class="table-header-cell">根ID</div>
+                        <div class="table-header-cell">分块大小</div>
+                        <div class="table-header-cell">分块重叠</div>
+                        <div class="table-header-cell">可见范围</div>
+                        <div class="table-header-cell">创建时间</div>
+                        <div class="table-header-cell">编辑时间</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
                     {% for kb in knowledge_bases %}
-                    <div class="knowledge-base-item">
-                        <div class="item-header">
-                            <h3>{{ kb.knowledge_name }}</h3>
-                            <div class="item-actions">
-                                <button class="action-btn edit-btn" onclick="editKnowledgeBase('{{ kb.knowledge_id }}')">编辑</button>
-                                <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('{{ kb.knowledge_id }}')">删除</button>
-                            </div>
+                    <div class="knowledge-base-table-row">
+                        <div class="table-cell" data-label="名称/ID">
+                            <div class="knowledge-name">{{ kb.knowledge_name }}</div>
+                            <div class="knowledge-id">{{ kb.knowledge_id }}</div>
                         </div>
-                        <div class="item-details">
-                            <div class="detail-row">
-                                <label>ID:</label>
-                                <span>{{ kb.knowledge_id }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <label>根ID:</label>
-                                <span>{{ kb.kno_root_id or 'N/A' }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <label>分块大小:</label>
-                                <span>{{ kb.chunk_size }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <label>分块重叠:</label>
-                                <span>{{ kb.chunk_overlap }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <label>可见范围:</label>
-                                <span>{{ kb.visiblerange }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <label>创建时间:</label>
-                                <span>{{ kb.created_at }}</span>
-                            </div>
+                        <div class="table-cell" data-label="根ID">{{ kb.kno_root_id or 'N/A' }}</div>
+                        <div class="table-cell" data-label="分块大小">{{ kb.chunk_size }}</div>
+                        <div class="table-cell" data-label="分块重叠">{{ kb.chunk_overlap }}</div>
+                        <div class="table-cell" data-label="可见范围">{{ kb.visiblerange }}</div>
+                        <div class="table-cell" data-label="创建时间">{{ kb.created_at if kb.created_at else 'N/A' }}</div>
+                        <div class="table-cell" data-label="编辑时间">{{ kb.updated_at if kb.updated_at else 'N/A' }}</div>
+                        <div class="table-cell actions-cell" data-label="操作">
+                            <button class="action-btn edit-btn" onclick="editKnowledgeBase('{{ kb.knowledge_id }}')">编辑</button>
+                            <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('{{ kb.knowledge_id }}')">删除</button>
                         </div>
                     </div>
                     {% endfor %}
