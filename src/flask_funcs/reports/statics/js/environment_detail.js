@@ -55,7 +55,7 @@ function renderKnowledgeBaseList(knowledgeBases) {
     
     // 清空当前内容
     container.innerHTML = '';
-    
+
     if (knowledgeBases && knowledgeBases.length > 0) {
         // 添加表格头部
         const tableHeader = document.createElement('div');
@@ -74,24 +74,25 @@ function renderKnowledgeBaseList(knowledgeBases) {
         
         // 添加每个知识库行
         knowledgeBases.forEach(kb => {
+            console.log('Processing knowledge base:', kb); // 调试信息
             const row = document.createElement('div');
             row.className = 'knowledge-base-table-row';
-            row.innerHTML = `
-                <div class="table-cell" data-label="名称/ID">
-                    <div class="knowledge-name">\${kb.knowledge_name}</div>
-                    <div class="knowledge-id">/\${kb.knowledge_id}</div>
-                </div>
-                <div class="table-cell" data-label="根ID">\${kb.kno_root_id || 'N/A'}</div>
-                <div class="table-cell" data-label="分块大小">\${kb.chunk_size || 'N/A'}</div>
-                <div class="table-cell" data-label="分块重叠">\${kb.chunk_overlap || 'N/A'}</div>
-                <div class="table-cell" data-label="可见范围">\${kb.visiblerange || 'N/A'}</div>
-                <div class="table-cell" data-label="创建时间">\${kb.created_at || 'N/A'}</div>
-                <div class="table-cell" data-label="编辑时间">\${kb.updated_at || 'N/A'}</div>
-                <div class="table-cell actions-cell" data-label="操作">
-                    <button class="action-btn edit-btn" onclick="editKnowledgeBase('\${kb.knowledge_id}')">编辑</button>
-                    <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('\${kb.knowledge_id}')">删除</button>
-                </div>
-            `;
+            // 在模板字符串中，使用 ${} 语法来引用变量
+            let innerHTML = '<div class="table-cell" data-label="名称/ID">' +
+                '<div class="knowledge-name">' + (kb.knowledge_name || '') + '</div>' +
+                '<div class="knowledge-id">/' + (kb.knowledge_id || '') + '</div>' +
+                '</div>' +
+                '<div class="table-cell" data-label="根ID">' + (kb.kno_root_id || 'N/A') + '</div>' +
+                '<div class="table-cell" data-label="分块大小">' + (kb.chunk_size || 'N/A') + '</div>' +
+                '<div class="table-cell" data-label="分块重叠">' + (kb.chunk_overlap || 'N/A') + '</div>' +
+                '<div class="table-cell" data-label="可见范围">' + (kb.visiblerange || 'N/A') + '</div>' +
+                '<div class="table-cell" data-label="创建时间">' + (kb.created_at || 'N/A') + '</div>' +
+                '<div class="table-cell" data-label="编辑时间">' + (kb.updated_at || 'N/A') + '</div>' +
+                '<div class="table-cell actions-cell" data-label="操作">' +
+                '<button class="action-btn edit-btn" onclick="editKnowledgeBase(\'' + kb.knowledge_id + '\')">编辑</button>' +
+                '<button class="action-btn delete-btn" onclick="deleteKnowledgeBase(\'' + kb.knowledge_id + '\')">删除</button>' +
+                '</div>';
+            row.innerHTML = innerHTML;
             container.appendChild(row);
         });
     } else {

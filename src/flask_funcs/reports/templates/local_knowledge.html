@@ -7,47 +7,70 @@
     <link rel="stylesheet" href="{{ css_path }}">
 </head>
 <body>
-    <div class="container">
-        <h1>{{ heading or '本地知识库' }}</h1>
-        <div class="knowledge-list">
-            {% if knowledge_data %}
-                {% for knowledge in knowledge_data %}
-                <div class="knowledge-item">
-                    <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
-                        <div class="knowledge-info-left">
-                            <span class="toggle-icon">▶</span>
-                            <span class="knowledge-name" title="{{ knowledge.kno_name }}">{{ knowledge.kno_name }}/<span class="knowledge-id" title="{{ knowledge.kno_id }}">{{ knowledge.kno_id }}</span></span>
-                        </div>
-                        <div class="knowledge-info-right">
-
-                            <span class="knowledge-status {% if knowledge.status == 'sync_ok' %}sync-ok{% elif knowledge.status == 'sync_wait' %}sync-wait{% else %}sync-wait{% endif %}">
-                                {% if knowledge.status == 'sync_ok' %}已同步{% elif knowledge.status == 'sync_wait' %}待同步{% else %}待同步{% endif %}
-                            </span>
-                            <div class="knowledge-actions">
-                                <button class="upload-btn" onclick="uploadFile('{{ knowledge.kno_id }}')">上传</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="knowledge-details" style="display: none;">
-                        <div class="knowledge-description">
-                            <p>{{ knowledge.kno_describe or '暂无描述' }}</p>
-                              <span class="knowledge-date">{{ knowledge.created_at or '未知' }}</span>
-                        </div>
-                        <div class="knowledge-files">
-                            <h3>知识库文件</h3>
-                            <ul class="file-list">
-                                <!-- 这里会通过JavaScript动态加载文件列表 -->
-                                <li class="file-item-placeholder">暂无文件</li>
-                            </ul>
-                        </div>
-                    </div>
+<div class="container">
+    <h1>{{ heading or '本地知识库' }}</h1>
+    <div class="knowledge-list">
+        {% if knowledge_data %}
+        {% for item in knowledge_data %}
+        <div class="knowledge-item">
+            <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
+                <span class="toggle-icon">▶</span>
+                <span class="knowledge-name" title="{{ item.kno_name }}">{{ item.kno_name }}</span>
+                <span class="knowledge-id" style="display: none;">{{ item.kno_id }}</span>
+                <div class="header-actions">
+                    <button class="action-btn" onclick="event.stopPropagation(); editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
+                    <button class="action-btn" onclick="event.stopPropagation(); deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
+                    <button class="action-btn bind-btn" onclick="event.stopPropagation(); showBindDialog('{{ item.kno_id }}', '{{ item.kno_name }}')">绑定</button>
                 </div>
-                {% endfor %}
-            {% else %}
-                <p>暂无本地知识库数据</p>
-            {% endif %}
+            </div>
+            <div class="knowledge-details" style="display: none;">
+                <div class="knowledge-description">
+                    <p>{{ item.kno_describe or '暂无描述' }}</p>
+                    <span class="knowledge-date">{{ item.created_at or '未知' }}</span>
+                </div>
+                <div class="knowledge-files">
+                    <h3>知识库文件</h3>
+                    <ul class="file-list">
+                        <!-- 这里会通过JavaScript动态加载文件列表 -->
+                        <li class="file-item-placeholder">暂无文件</li>
+                    </ul>
+                </div>
+            </div>
         </div>
+        {% endfor %}
+        {% else %}
+        <p>暂无本地知识库数据</p>
+        {% endif %}
     </div>
-    <script src="{{ js_url }}"></script>
+</div>
+<script src="{{ js_url }}"></script>
 </body>
 </html>
+
+<!-- 绑定对话框 -->
+<div id="bindDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>绑定知识库</h3>
+            <span class="close" onclick="closeBindDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="environmentSelect">选择环境:</label>
+                <select id="environmentSelect" class="form-control" onchange="loadKnowledgeBases()">
+                    <option value="">请选择环境</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="knowledgeBaseSelect">选择知识库:</label>
+                <select id="knowledgeBaseSelect" class="form-control">
+                    <option value="">请先选择环境</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="bindKnowledge()">绑定</button>
+            <button class="btn btn-secondary" onclick="closeBindDialog()">取消</button>
+        </div>
+    </div>
+</div>

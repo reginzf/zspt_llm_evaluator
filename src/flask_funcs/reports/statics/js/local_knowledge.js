@@ -200,6 +200,141 @@ function editFile(knolId, knolName) {
     }
 }
 
+// 显示绑定对话框
+function showBindDialog(knoId, knoName) {
+    // 保存当前知识库ID和名称
+    window.currentKnoId = knoId;
+    window.currentKnoName = knoName;
+    
+    // 显示对话框
+    document.getElementById('bindDialog').style.display = 'block';
+    
+    // 加载环境列表
+    loadEnvironments();
+}
+
+// 加载环境列表
+function loadEnvironments() {
+    const envSelect = document.getElementById('environmentSelect');
+    envSelect.innerHTML = '<option value="">请选择环境</option>';
+    
+    // 通过API获取环境列表
+    fetch('/environment/list/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data) {
+                data.data.forEach(env => {
+                    const option = document.createElement('option');
+                    option.value = env.zlpt_base_id;
+                    option.textContent = env.zlpt_name;
+                    envSelect.appendChild(option);
+                });
+            } else {
+                console.error('获取环境列表失败:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('加载环境列表时出错:', error);
+        });
+}
+
+// 根据选择的环境加载知识库列表
+function loadKnowledgeBases() {
+    const envSelect = document.getElementById('environmentSelect');
+    const kbSelect = document.getElementById('knowledgeBaseSelect');
+    const selectedEnvId = envSelect.value;
+    
+    // 清空知识库选择框
+    kbSelect.innerHTML = '<option value="">请先选择环境</option>';
+    
+    if (!selectedEnvId) {
+        return;
+    }
+    
+    // 通过API获取指定环境下的知识库列表
+    fetch('/environment_detail_list', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            zlpt_base_id: selectedEnvId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data) {
+            kbSelect.innerHTML = '<option value="">请选择知识库</option>';
+            data.data.forEach(kb => {
+                const option = document.createElement('option');
+                option.value = kb.knowledge_id;
+                option.textContent = kb.knowledge_name;
+                kbSelect.appendChild(option);
+            });
+        } else {
+            console.error('获取知识库列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('加载知识库列表时出错:', error);
+    });
+}
+
+// 执行绑定操作
+function bindKnowledge() {
+    const envSelect = document.getElementById('environmentSelect');
+    const kbSelect = document.getElementById('knowledgeBaseSelect');
+    
+    const selectedEnvId = envSelect.value;
+    const selectedEnvName = envSelect.options[envSelect.selectedIndex].text;
+    const selectedKbId = kbSelect.value;
+    const selectedKbName = kbSelect.options[kbSelect.selectedIndex].text;
+    
+    if (!selectedEnvId || !selectedKbId) {
+        alert('请先选择环境和知识库');
+        return;
+    }
+    
+    // 调用绑定API
+    fetch('/local_knowledge/bind', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            local_kno_id: window.currentKnoId,
+            local_kno_name: window.currentKnoName,
+            env_id: selectedEnvId,
+            env_name: selectedEnvName,
+            kb_id: selectedKbId,
+            kb_name: selectedKbName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('绑定成功');
+            closeBindDialog();
+            // 可以选择刷新页面以显示更新后的状态
+            location.reload();
+        } else {
+            alert('绑定失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('绑定知识库时出错:', error);
+        alert('绑定过程中发生错误: ' + error.message);
+    });
+}
+
+// 关闭绑定对话框
+function closeBindDialog() {
+    document.getElementById('bindDialog').style.display = 'none';
+    // 清空选择框
+    document.getElementById('environmentSelect').value = '';
+    document.getElementById('knowledgeBaseSelect').innerHTML = '<option value="">请先选择环境</option>';
+}
+
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
     console.log('本地知识库页面已加载');

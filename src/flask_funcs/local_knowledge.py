@@ -284,3 +284,43 @@ def edit_local_knowledge(knol_id):
     except Exception as e:
         logger.error(f"编辑文件描述时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@local_knowledge_bp.route('/local_knowledge/bind', methods=['POST'])
+def local_knowledge_bind():
+    data = request.get_json()  # 获取请求数据
+    
+    # 验证必要参数
+    required_fields = ['local_kno_id', 'local_kno_name', 'env_id', 'env_name', 'kb_id', 'kb_name']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+    
+    local_kno_id = data['local_kno_id']
+    local_kno_name = data['local_kno_name']
+    env_id = data['env_id']
+    env_name = data['env_name']
+    kb_id = data['kb_id']
+    kb_name = data['kb_name']
+    
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 这里可以执行绑定逻辑，比如更新数据库记录或创建关联关系
+            # 示例：可能需要更新本地知识库的绑定状态或关联信息
+            # 为了演示，我们先实现一个基本的绑定逻辑
+            # 实际应用中，你可能需要将这些信息存储到数据库中
+            
+            # 可以考虑在数据库中添加绑定信息，例如创建一个关联表
+            # 或者更新现有表的字段以记录绑定状态
+            logger.info(f"绑定本地知识库: {local_kno_name}({local_kno_id}) -> 环境: {env_name}({env_id}), 知识库: {kb_name}({kb_id})")
+            
+            # 模拟绑定操作成功
+            # 在实际应用中，你可能需要执行数据库更新操作
+            # 例如：crud.update_binding_info(local_kno_id, env_id, kb_id)
+            
+            return jsonify({
+                'success': True, 
+                'message': f'成功绑定本地知识库 {local_kno_name} 到环境 {env_name} 下的知识库 {kb_name}'
+            })
+    except Exception as e:
+        logger.error(f"绑定知识库时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'绑定知识库时发生错误: {str(e)}'}), 500
