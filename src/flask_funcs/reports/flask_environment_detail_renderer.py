@@ -68,23 +68,7 @@ class EnvironmentDetailRendererFlask(FlaskHTMLRenderer):
         # 解析知识库列表数据
         knowledge_list = []
         for kb in knowledge_base_list:
-            # kb格式: (knowledge_id, knowledge_name, kno_root_id, chunk_size, chunk_overlap, 
-            #         sliceidentifier, visiblerange, deptidlist, managedeptidlist, created_at, updated_at,zlpt_base_id)
-            kb_data = {
-                "knowledge_id": kb[0],
-                "knowledge_name": kb[1],
-                "kno_root_id": kb[2],
-                "chunk_size": kb[3],
-                "chunk_overlap": kb[4],
-                "sliceidentifier": kb[5],
-                "visiblerange": kb[6],
-                "deptidlist": kb[7],
-                "managedeptidlist": kb[8],
-                "created_at": kb[9],
-                "updated_at": kb[10],
-                "zlpt_base_id": kb[11],
-            }
-            knowledge_list.append(kb_data)
+            knowledge_list.append(kb)
 
         return {
             "environment": env_data,

@@ -7,7 +7,6 @@ from src.flask_funcs.reports.flask_environment_detail_renderer import Environmen
 from src.sql_funs.environment_crud import Environment_Crud
 from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
 
-
 # 创建logger
 logger = logging.getLogger(__name__)
 # 创建蓝图
@@ -124,38 +123,79 @@ def environment_delete():
 
 @environment_bp.route('/environment_detail/', methods=['GET'])
 def environment_detail_page():
-
-    
     # 获取查询参数中的zlpt_base_id
     zlpt_base_id = request.args.get('zlpt_base_id')
-    
+
     if not zlpt_base_id:
         return "缺少zlpt_base_id参数", 400
-    
+
     try:
         # 获取环境详情
         with Environment_Crud() as env_crud:
             environment_data = env_crud.environment_list(zlpt_base_id=zlpt_base_id)
-            
+
             if not environment_data:
                 return "未找到指定的环境", 404
-                
+
             environment_detail = environment_data[0]  # 获取环境详情
-        logger.info(f"{environment_detail}")
-        # 根据zlpt_base_id获取关联的知识库列表
-        with LocalKnowledgeCrud() as knowledge_crud:
-            knowledge_base_list = knowledge_crud.get_knowledge_base(zlpt_id=environment_detail[0])
+            logger.info(f"{environment_detail}")
+            # 根据zlpt_base_id获取关联的知识库列表
+
+            knowledge_base_list = env_crud.get_knowledge_base(zlpt_base_id=environment_detail[0])
+            knowledge_base_list = [env_crud._knowledge_base_to_json(kb) for kb in knowledge_base_list]
             # 过滤出与当前环境关联的知识库
-        logger.info(f"成功获取环境列表数据，共{len(knowledge_base_list)}条记录")
-        
+            logger.info(f"成功获取环境列表数据，共{len(knowledge_base_list)}条记录")
+
         # 创建HTML渲染器
         renderer = EnvironmentDetailRendererFlask()
-        
+
         # 渲染模板
         html_content = renderer.render_environment_detail_page(environment_detail, knowledge_base_list)
-        
+
         return html_content
-    
+
     except Exception as e:
         logger.error(f"渲染环境详情页面时发生错误: {str(e)}")
         return "页面渲染错误", 500
+
+
+@environment_bp.route('/environment_detail_list', methods=['POST'])
+def environment_detail_list():
+    try:
+        data = request.get_json()  # 至少要包含zlpt_base_id，可选包含search_field和search_value
+        logger.info(f"接收到环境详情列表请求，数据: {data}")
+
+        if not data or 'zlpt_id' not in data:
+            logger.warning("请求数据中缺少zlpt_id字段")
+            return jsonify({'success': False, 'message': '缺少必要字段: zlpt_id'}), 400
+
+        zlpt_id = data['zlpt_id']
+        logger.info(f"获取环境ID: {zlpt_id}的知识库列表")
+
+        with Environment_Crud() as env_crud:
+            # 如果提供了搜索字段和值，则进行搜索
+            if data and 'search_field' in data and 'search_value' in data:
+                search_field = data['search_field']
+                search_value = data['search_value']
+
+                logger.info(f"执行搜索查询，搜索字段: {search_field}，搜索值: {search_value}")
+                # 根据搜索字段构建查询条件
+                search_params = {
+                    'zlpt_id': zlpt_id,
+                    f'{search_field}': search_value  # 使用模糊匹配
+                }
+
+                result = env_crud.get_knowledge_base(**search_params)
+                logger.info(f"搜索查询完成，返回{len(result)}条记录")
+            else:
+                # 没有搜索条件时，只按zlpt_base_id查询
+                logger.info("执行无搜索条件的查询")
+                result = env_crud.get_knowledge_base(zlpt_id=zlpt_id)
+                logger.info(f"查询完成，返回{len(result)}条记录")
+
+            result = [env_crud._knowledge_base_to_json(kb) for kb in result]
+            logger.info(f"成功获取环境详情列表数据，共{len(result)}条记录")
+            return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"获取环境详情列表时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取环境列表时发生错误: {str(e)}'}), 500

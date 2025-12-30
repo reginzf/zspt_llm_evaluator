@@ -50,8 +50,17 @@
             <div class="list-header">
                 <h2>知识库列表</h2>
                 <div class="list-controls">
-                    <input type="text" class="search-box" placeholder="搜索知识库...">
                     <button class="create-btn">创建知识库</button>
+                    <select class="search-field">
+                        <option value="knowledge_name">名称</option>
+                        <option value="knowledge_id">ID</option>
+                        <option value="chunk_size">分块大小</option>
+                        <option value="chunk_overlap">分块重叠</option>
+                        <option value="visiblerange">可见范围</option>
+                        <option value="all">全部</option>
+                    </select>
+                    <input type="text" class="search-box" placeholder="搜索知识库...">
+                    <button class="search-btn" onclick="searchKnowledgeBases()">搜索</button>
                 </div>
             </div>
             

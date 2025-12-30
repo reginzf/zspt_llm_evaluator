@@ -1,9 +1,10 @@
 import logging
 from typing import Optional, List, Tuple
-
+import logging
 from env_config_init import settings
 from src.sql_funs.sql_base import PostgreSQLManager
 
+logger = logging.getLogger(__name__)
 ALLOWED_FIELDS = {'zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'domain'}
 
 
@@ -189,6 +190,113 @@ class Environment_Crud(PostgreSQLManager):
             self.connection.rollback()
             logging.error(f"错误: 更新数据时发生异常: {e}")
             return False
+
+    # 为 ai_knowledge_base 表添加 CRUD 方法
+    def knowledge_base_insert(self, knowledge_id: str, knowledge_name: str, kno_root_id: str = None,
+                              chunk_size: int = 500, chunk_overlap: float = 0.2, sliceidentifier: list = None,
+                              visiblerange: int = 0, deptidlist: list = None, managedeptidlist: list = None,
+                              zlpt_base_id: str = None):
+        """
+        插入知识库基础信息
+        """
+        return self.insert("ai_knowledge_base", data={
+            "knowledge_id": knowledge_id,
+            "knowledge_name": knowledge_name,
+            "kno_root_id": kno_root_id,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "sliceidentifier": sliceidentifier or [],
+            "visiblerange": visiblerange,
+            "deptidlist": deptidlist or [],
+            "managedeptidlist": managedeptidlist or [],
+            "zlpt_base_id": zlpt_base_id
+        })
+
+    def knowledge_base_update(self, knowledge_id: str, knowledge_name: str = None, kno_root_id: str = None,
+                              chunk_size: int = None, chunk_overlap: float = None, sliceidentifier: list = None,
+                              visiblerange: int = None, deptidlist: list = None, managedeptidlist: list = None,
+                              zlpt_base_id: str = None):
+        """
+        更新知识库基础信息
+        """
+        data = {
+            key: value for key, value in locals().items()
+            if key not in ['self', 'knowledge_id'] and value is not None
+        }
+
+        if not data:
+            return False
+
+            # 构建更新语句
+        set_clauses = []
+        param_values = []
+        for key, value in data.items():
+            set_clauses.append(f"{key} = %s")
+            param_values.append(value)
+
+        set_clause = ", ".join(set_clauses)
+        query = f"UPDATE ai_knowledge_base SET {set_clause} WHERE knowledge_id = %s"
+        params = param_values + [knowledge_id]
+
+        try:
+            self.cursor.execute(query, params)
+            self.connection.commit()
+            # 检查是否有行被更新
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            self.connection.rollback()
+            return False
+
+    def knowledge_base_delete(self, knowledge_id: str):
+        """
+        删除知识库基础信息
+        """
+        query = "DELETE FROM ai_knowledge_base WHERE knowledge_id = %s"
+        params = (knowledge_id,)
+
+        try:
+            self.cursor.execute(query, params)
+            self.connection.commit()
+            # 检查是否有行被删除
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            self.connection.rollback()
+            return False
+
+    def get_knowledge_base(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
+        """
+        获取ai_knowledge_base表
+        支持按 knowledge_id 精确查询，或按 knowledge_name 模糊查询
+        支持排序和限制结果数量
+        """
+
+        exact_match_fields = ('knowledge_id', 'chunk_size', 'chunk_overlap', 'kno_root_id', 'zlpt_id')
+        partial_match_fields = ('knowledge_name', 'sliceidentifier')
+        allowed_fileds = exact_match_fields + partial_match_fields
+        query, params = self.gen_select_query('ai_knowledge_base', order_by=order_by, limit=limit,
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **kwargs)
+        return self.execute_query(query, params)
+
+    def _knowledge_base_to_json(self, kb):
+        logger.info(f"{kb}")
+        if kb is not None:
+            return {
+                "knowledge_id": kb[0],
+                "knowledge_name": kb[1],
+                "kno_root_id": kb[2],
+                "chunk_size": int(kb[3]) if kb[3] is not None else None,  # 转换为int
+                "chunk_overlap": float(kb[4]) if kb[4] is not None else None,  # 转换为float
+                "sliceidentifier": kb[5],
+                "visiblerange": int(kb[6]) if kb[6] is not None else None,  # 转换为int
+                "deptidlist": kb[7],
+                "managedeptidlist": kb[8],
+                "created_at": str(kb[9]) if kb[9] is not None else None,  # 转换为字符串
+                "updated_at": str(kb[10]) if kb[10] is not None else None,  # 转换为字符串
+                "zlpt_base_id": kb[11],
+            }
+        return None
 
 
 if __name__ == '__main__':
