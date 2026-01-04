@@ -75,7 +75,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             self.connection.rollback()
             return False
 
-    def local_knowledge_bind_func(self, kno_id: str, knowledge_id: str, action: None, target_status=None):
+    def local_knowledge_bind_func(self, kno_id: str, knowledge_id: str, action=None, target_status=None):
         # 0-未绑定, 1-绑定中, 2-已绑定, 3-解绑中, 4-已解绑
         if action == "bind":
             return self._local_knowledge_bind(kno_id, knowledge_id)
@@ -86,7 +86,30 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         else:
             return False
 
-    def local_knowledge_bind_insert(self, kno_id: str, knowledge_id: str, bind_status: int = 0):
+    def get_local_knowledge_bind(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
+        exact_match_fields = ['kno_id', 'knowledge_id', 'bind_status']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        query, params = self.gen_select_query('ai_knowledge_bind', order_by=order_by, limit=limit,
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **kwargs)
+        logger.info(f"执行查询: {query}")
+        return self.execute_query(query, params)
+
+    def _local_knowledge_bind_to_json(self, kno_bind: Tuple):
+        if kno_bind is not None:
+            return {
+                "id": kno_bind[0],
+                "kno_id": kno_bind[1],
+                "knowledge_id": kno_bind[2],
+                "bind_status": kno_bind[3],
+                "created_at": kno_bind[4].isoformat() if kno_bind[4] else None,
+                "updated_at": kno_bind[5].isoformat() if kno_bind[5] else None
+            }
+        return None
+
+    def _local_knowledge_bind_insert(self, kno_id: str, knowledge_id: str, bind_status: int = 0):
         """
         插入知识库绑定关系
         :param kno_id: 本地知识库ID
@@ -109,17 +132,6 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             "bind_status": bind_status
         })
 
-    def get_local_knowledge_bind(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
-        exact_match_fields = ['kno_id', 'knowledge_id', 'bind_status']
-        partial_match_fields = []
-        allowed_fileds = exact_match_fields + partial_match_fields
-        query, params = self.gen_select_query('ai_knowledge_bind', order_by=order_by, limit=limit,
-                                              exact_match_fields=exact_match_fields,
-                                              partial_match_fields=partial_match_fields,
-                                              allowed_fileds=allowed_fileds, **kwargs)
-        logger.info(f"执行查询: {query}")
-        return self.execute_query(query, params)
-
     def _local_knowledge_bind(self, kno_id: str, knowledge_id: str):
         # 按kno_id和knowledge_id查找绑定关系，如果存在且绑定关系为1、2、3则返回错误
         bind_info = self.get_local_knowledge_bind(kno_id=kno_id, knowledge_id=knowledge_id)
@@ -134,7 +146,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
 
         else:
             # 如果记录不存在，插入新记录，初始状态为绑定中(1)
-            return self.local_knowledge_bind_insert(kno_id, knowledge_id, bind_status=1)
+            return self._local_knowledge_bind_insert(kno_id, knowledge_id, bind_status=1)
 
     def _local_knowledge_unbind(self, kno_id: str, knowledge_id: str):
         # 按kno_id和knowledge_id获取绑定关系
@@ -166,6 +178,8 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         res = self.execute_query(query, params)
         if res is False:
             logger.error(f"更新绑定状态失败")
+            return
+        return res
 
     def get_local_knowledge(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
         """

@@ -6,6 +6,7 @@ import logging
 import uuid
 from env_config_init import settings
 from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
+from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
 
 # 创建logger
@@ -266,17 +267,17 @@ def delete_local_knowledge(knol_id):
 def edit_local_knowledge(knol_id):
     try:
         describe = request.form.get('knol_describe')
-        
+
         if not describe:
             return jsonify({"status": "error", "message": "描述内容不能为空"}), 400
-        
+
         with LocalKnowledgeCrud() as crud:
             # 更新ai_local_knowledge_list表的knol_describe字段
             success = crud.local_knowledge_list_update(
                 knol_id=knol_id,
                 knol_describe=describe
             )
-            
+
             if success:
                 return jsonify({"status": "success", "message": "文件描述更新成功"})
             else:
@@ -285,42 +286,64 @@ def edit_local_knowledge(knol_id):
         logger.error(f"编辑文件描述时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @local_knowledge_bp.route('/local_knowledge/bind', methods=['POST'])
 def local_knowledge_bind():
     data = request.get_json()  # 获取请求数据
-    
     # 验证必要参数
-    required_fields = ['local_kno_id', 'local_kno_name', 'env_id', 'env_name', 'kb_id', 'kb_name']
+    required_fields = ['local_kno_id', 'kb_id', 'action']
     for field in required_fields:
         if field not in data:
             return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
-    
-    local_kno_id = data['local_kno_id']
-    local_kno_name = data['local_kno_name']
-    env_id = data['env_id']
-    env_name = data['env_name']
-    kb_id = data['kb_id']
-    kb_name = data['kb_name']
-    
+    local_kno_id = data['local_kno_id']  # ai_local_knowledge的kno_id
+    kb_id = data['kb_id']  # ai_knowledge_base的knowledge_id
+    action = data['action']  # #action 操作 bind、unbind、update
+    status = data.get('status', None)  # status 可选参数，默认为None
+
+    if action not in ['bind', 'unbind', 'update']:
+        return jsonify({
+            'success': False,
+            'message': f'无效的操作: {action}'
+        }), 400
+
     try:
         with LocalKnowledgeCrud() as crud:
-            # 这里可以执行绑定逻辑，比如更新数据库记录或创建关联关系
-            # 示例：可能需要更新本地知识库的绑定状态或关联信息
-            # 为了演示，我们先实现一个基本的绑定逻辑
-            # 实际应用中，你可能需要将这些信息存储到数据库中
-            
-            # 可以考虑在数据库中添加绑定信息，例如创建一个关联表
-            # 或者更新现有表的字段以记录绑定状态
-            logger.info(f"绑定本地知识库: {local_kno_name}({local_kno_id}) -> 环境: {env_name}({env_id}), 知识库: {kb_name}({kb_id})")
-            
-            # 模拟绑定操作成功
-            # 在实际应用中，你可能需要执行数据库更新操作
-            # 例如：crud.update_binding_info(local_kno_id, env_id, kb_id)
-            
-            return jsonify({
-                'success': True, 
-                'message': f'成功绑定本地知识库 {local_kno_name} 到环境 {env_name} 下的知识库 {kb_name}'
-            })
+            success = crud.local_knowledge_bind_func(local_kno_id, kb_id, action, status)
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': f'{action}本地知识库 {local_kno_id} 知识库 {kb_id}成功'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': f' {action}本地知识库 {local_kno_id} 知识库 {kb_id}失败'
+                }), 500
+
     except Exception as e:
         logger.error(f"绑定知识库时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'绑定知识库时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/bindings/<kno_id>', methods=['GET'])
+def get_local_knowledge_bindings(kno_id):
+    """获取特定本地知识库的绑定状态"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取绑定状态信息
+            bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
+            if not bindings:
+                return jsonify([]), 200
+            # 构建返回数据，包含知识库名称
+        binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
+        knowledge_id = binding_dict['knowledge_id']
+        # 获取知识库名称，需要使用EnvironmentCrud
+        with Environment_Crud() as env_crud:
+            knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
+            if not knowledge_base:
+                return jsonify({'error': '知识库不存在'}), 404
+            binding_dict['knowledge_name'] = knowledge_base[0][1]
+        return jsonify(binding_dict), 200
+    except Exception as e:
+        logger.error(f"获取绑定状态时发生错误: {str(e)}")
+        return jsonify({'error': '获取绑定状态失败'}), 500

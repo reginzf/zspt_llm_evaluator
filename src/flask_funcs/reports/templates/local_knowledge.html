@@ -29,6 +29,13 @@
                     <p>{{ item.kno_describe or '暂无描述' }}</p>
                     <span class="knowledge-date">{{ item.created_at or '未知' }}</span>
                 </div>
+                <div class="knowledge-bindings">
+                    <h3>绑定状态</h3>
+                    <ul class="binding-list" id="binding-list-{{ item.kno_id }}">
+                        <!-- 这里会通过JavaScript动态加载绑定状态 -->
+                        <li class="binding-item-placeholder">正在加载绑定状态...</li>
+                    </ul>
+                </div>
                 <div class="knowledge-files">
                     <h3>知识库文件</h3>
                     <ul class="file-list">

@@ -347,3 +347,116 @@ h1 {
 .btn-secondary:hover {
     background-color: #545b62;
 }
+
+/* 绑定状态样式 */
+.knowledge-bindings {
+    margin-top: 15px;
+}
+
+.knowledge-bindings h3 {
+    color: #667eea;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.binding-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.binding-item {
+    padding: 12px;
+    margin: 5px 0;
+    background-color: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+.binding-item:hover {
+    background-color: #f8f9fa;
+}
+
+.binding-info {
+    flex-grow: 1;
+}
+
+.binding-kb-name {
+    font-weight: bold;
+    color: #667eea;
+    margin-right: 15px;
+}
+
+.binding-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.bind-status-unbound {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.bind-status-binding {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.bind-status-bound {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.bind-status-unbinding {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.bind-status-unbounded {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border: 1px solid #d6d8db;
+}
+
+.bind-status-unknown {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+}
+
+.binding-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.unbind-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s;
+}
+
+.unbind-btn:hover {
+    background-color: #c82333;
+}
+
+.binding-item-placeholder {
+    padding: 12px;
+    color: #888;
+    text-align: center;
+    font-style: italic;
+}

@@ -140,7 +140,7 @@ class PostgreSQLManager:
             else:
                 self.connection.commit()
                 logger.info(f"执行成功: {query[:50]}...")
-                return None
+                return True
         except Exception as e:
             self.connection.rollback()
             logger.error(f"查询执行失败: {e}")
