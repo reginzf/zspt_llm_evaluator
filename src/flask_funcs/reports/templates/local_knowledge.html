@@ -52,6 +52,34 @@
     </div>
 </div>
 <script src="{{ js_url }}"></script>
+
+<!-- HTML模板 -->
+<template id="file-item-template">
+    <li class="file-item">
+        <div class="file-info">
+            <span class="file-name"></span>
+            <span class="file-description"></span>
+            <span class="file-status"></span>
+        </div>
+        <div class="file-actions">
+            <button class="action-btn delete-btn">删除</button>
+            <button class="action-btn edit-btn">编辑</button>
+        </div>
+    </li>
+</template>
+
+<template id="binding-item-template">
+    <li class="binding-item">
+        <div class="binding-info">
+            <span class="binding-kb-name"></span>
+            <span class="binding-status"></span>
+        </div>
+        <div class="binding-actions">
+            <button class="action-btn unbind-btn">解绑</button>
+        </div>
+    </li>
+</template>
+
 </body>
 </html>
 

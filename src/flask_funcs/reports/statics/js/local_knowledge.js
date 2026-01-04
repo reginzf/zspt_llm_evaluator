@@ -42,25 +42,7 @@ function loadKnowledgeFiles(headerElement) {
             if (data && data.length > 0) {
                 // 渲染文件列表
                 data.forEach(file => {
-                    const fileItem = document.createElement('li');
-                    fileItem.className = 'file-item';
-
-                    const statusClass = file.ls_status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
-                    const statusText = file.ls_status === 'sync_ok' ? '已同步' : '待同步';
-
-                    fileItem.innerHTML = `
-                        <div class="file-info">
-                            <span class="file-name">${file.kno_name}</span>
-                            <span class="file-description">${file.kno_describe || '无描述'}</span>
-                            <span class="file-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <div class="file-actions">
-                            <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id}','${file.kno_name}')">删除</button>
-                            <button class="action-btn upload-online-btn" onclick="uploadToOnlineKnowledge('${file.knol_id}')">上传到线上知识库</button>
-                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id}','${file.kno_name}')">编辑</button>
-                        </div>
-                    `;
-
+                    const fileItem = createFileItem(file);
                     fileListContainer.appendChild(fileItem);
                 });
             } else {
@@ -71,6 +53,35 @@ function loadKnowledgeFiles(headerElement) {
             console.error('加载文件列表时出错:', error);
             fileListContainer.innerHTML = '<li class="file-item-placeholder">加载文件列表失败</li>';
         });
+}
+
+// 创建文件项
+function createFileItem(file) {
+    const template = document.getElementById('file-item-template');
+    const clone = template.content.cloneNode(true);
+    
+    const fileItem = clone.querySelector('.file-item');
+    const fileName = clone.querySelector('.file-name');
+    const fileDescription = clone.querySelector('.file-description');
+    const fileStatus = clone.querySelector('.file-status');
+    const deleteBtn = clone.querySelector('.delete-btn');
+    const editBtn = clone.querySelector('.edit-btn');
+    
+    fileName.textContent = file.kno_name;
+    fileDescription.textContent = file.kno_describe || '无描述';
+    
+    const statusClass = file.ls_status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
+    const statusText = file.ls_status === 'sync_ok' ? '已同步' : '待同步';
+    fileStatus.textContent = statusText;
+    fileStatus.className = `file-status ${statusClass}`;
+    
+    deleteBtn.textContent = '删除';
+    deleteBtn.onclick = () => deleteFile(file.knol_id, file.kno_name);
+    
+    editBtn.textContent = '编辑';
+    editBtn.onclick = () => editFile(file.knol_id, file.kno_name);
+    
+    return fileItem;
 }
 
 function uploadFile(knowledgeId) {
@@ -155,17 +166,8 @@ function deleteFile(knolId, knoName) {
     }
 }
 
-function uploadToOnlineKnowledge(fileName) {
-    if (confirm(`确定要将文件 "${fileName}" 上传到线上知识库吗？`)) {
-        // 执行上传到线上知识库的逻辑
-        console.log('上传文件到线上知识库:', fileName);
-        // 这里应该调用API上传文件到线上知识库
-    }
-}
 
 function editFile(knolId, knolName) {
-    // 编辑文件功能
-    // 获取当前描述
     const currentDescription = prompt(`请输入文件 "${knolName}" 的新描述:`, '');
 
     if (currentDescription !== null) {  // 用户没有取消
@@ -354,46 +356,7 @@ function loadBindingStatus(knoId) {
             
             if (data && typeof data === 'object' && !Array.isArray(data)) {
                 // 后端返回单个对象
-                const bindingItem = document.createElement('li');
-                bindingItem.className = 'binding-item';
-                let statusText = '';
-                let statusClass = '';
-                switch (data.bind_status) {
-                    case 0:
-                        statusText = '未绑定';
-                        statusClass = 'bind-status-unbound';
-                        break;
-                    case 1:
-                        statusText = '绑定中';
-                        statusClass = 'bind-status-binding';
-                        break;
-                    case 2:
-                        statusText = '已绑定';
-                        statusClass = 'bind-status-bound';
-                        break;
-                    case 3:
-                        statusText = '解绑中';
-                        statusClass = 'bind-status-unbinding';
-                        break;
-                    case 4:
-                        statusText = '已解绑';
-                        statusClass = 'bind-status-unbounded';
-                        break;
-                    default:
-                        statusText = '未知';
-                        statusClass = 'bind-status-unknown';
-                }
-
-                bindingItem.innerHTML = `
-                        <div class="binding-info">
-                            <span class="binding-kb-name">知识库: ${data.knowledge_name || data.knowledge_id}</span>
-                            <span class="binding-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <div class="binding-actions">
-                            <button class="action-btn unbind-btn" onclick="unbindKnowledge('${knoId}', '${data.knowledge_id}')">解绑</button>
-                        </div>
-                    `;
-
+                const bindingItem = createBindingItem(data, knoId);
                 bindingListContainer.appendChild(bindingItem);
             } else {
                 bindingListContainer.innerHTML = '<li class="binding-item-placeholder">暂无绑定</li>';
@@ -403,6 +366,55 @@ function loadBindingStatus(knoId) {
             console.error('加载绑定状态时出错:', error);
             bindingListContainer.innerHTML = '<li class="binding-item-placeholder">加载绑定状态失败</li>';
         });
+}
+
+// 创建绑定项
+function createBindingItem(data, knoId) {
+    const template = document.getElementById('binding-item-template');
+    const clone = template.content.cloneNode(true);
+    
+    const bindingItem = clone.querySelector('.binding-item');
+    const bindingKbName = clone.querySelector('.binding-kb-name');
+    const bindingStatus = clone.querySelector('.binding-status');
+    const unbindBtn = clone.querySelector('.unbind-btn');
+    
+    bindingKbName.textContent = `知识库: ${data.knowledge_name || data.knowledge_id}`;
+    
+    let statusText = '';
+    let statusClass = '';
+    switch (data.bind_status) {
+        case 0:
+            statusText = '未绑定';
+            statusClass = 'bind-status-unbound';
+            break;
+        case 1:
+            statusText = '绑定中';
+            statusClass = 'bind-status-binding';
+            break;
+        case 2:
+            statusText = '已绑定';
+            statusClass = 'bind-status-bound';
+            break;
+        case 3:
+            statusText = '解绑中';
+            statusClass = 'bind-status-unbinding';
+            break;
+        case 4:
+            statusText = '已解绑';
+            statusClass = 'bind-status-unbounded';
+            break;
+        default:
+            statusText = '未知';
+            statusClass = 'bind-status-unknown';
+    }
+    
+    bindingStatus.textContent = statusText;
+    bindingStatus.className = `binding-status ${statusClass}`;
+    
+    unbindBtn.textContent = '解绑';
+    unbindBtn.onclick = () => unbindKnowledge(knoId, data.knowledge_id);
+    
+    return bindingItem;
 }
 
 // 解绑知识库
