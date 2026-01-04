@@ -185,6 +185,7 @@ class CreateTables(PostgreSQLManager):
 
         }
         return self.create_table("ai_local_knowledge", columns)
+
     def create_local_knowledge_list(self) -> bool:
         columns = {
             "id": "SERIAL PRIMARY KEY",
@@ -195,12 +196,41 @@ class CreateTables(PostgreSQLManager):
             "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "kno_id":"VARCHAR(100) NOT NULL UNIQUE",
-            "FOREIGN KEY (kno_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE" # 上级文件夹作为外键
+            "kno_id": "VARCHAR(100) NOT NULL UNIQUE",
+            "FOREIGN KEY (kno_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE"  # 上级文件夹作为外键
         }
         return self.create_table("ai_local_knowledge_list", columns)
 
+    def create_knowledge_bind_table(self) -> bool:
+        """创建知识库绑定关系表"""
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "kno_id": "VARCHAR(100) NOT NULL",  # ai_local_knowledge表的kno_id
+            "knowledge_id": "VARCHAR(100) NOT NULL",  # ai_knowledge_base表的knowledge_id
+            "bind_status": "INTEGER DEFAULT 0 CHECK (bind_status IN (0, 1, 2, 3, 4))",  # 绑定状态: 0-未绑定, 1-绑定中, 2-已绑定, 3-解绑中, 4-已解绑
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "UNIQUE (kno_id, knowledge_id)": "",  # 确保每对kno_id和knowledge_id的组合唯一
+            "FOREIGN KEY (kno_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
+            "FOREIGN KEY (knowledge_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE"
+        }
+        return self.create_table("ai_knowledge_bind", columns)
 
+    def create_all_tables(self):
+        """创建所有表"""
+        self.create_environment_table()
+        self.create_knowledge_base_table()
+        self.create_knowledge_path_table()
+        self.create_label_studio_table()
+        self.create_knowledge_table()
+        self.create_question_config_table()
+        self.create_basic_questions_table()
+        self.create_detailed_questions_table()
+        self.create_mechanism_questions_table()
+        self.create_thematic_questions_table()
+        self.create_local_knowledge()
+        self.create_local_knowledge_list()
+        self.create_knowledge_bind_table()  # 新增绑定关系表
 
 
 if __name__ == '__main__':

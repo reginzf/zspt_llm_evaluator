@@ -121,7 +121,7 @@ class PostgreSQLManager:
         logger.info(f"查询语句: {query} 条件参数:{values}")
         return query, tuple(values)
 
-    def execute_query(self, query:str, params: Tuple = None) -> Optional[List[Tuple]]:
+    def execute_query(self, query: str, params: Tuple = None) -> Optional[List[Tuple]]:
         """
         执行查询语句
         """
@@ -144,7 +144,7 @@ class PostgreSQLManager:
         except Exception as e:
             self.connection.rollback()
             logger.error(f"查询执行失败: {e}")
-            return None
+            return False
 
     def create_table(self, table_name: str, columns: Dict[str, str]) -> bool:
         """
