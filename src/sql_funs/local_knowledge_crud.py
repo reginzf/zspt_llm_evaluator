@@ -141,12 +141,12 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             if current_status in [1, 2, 3]:  # 绑定中、已绑定、解绑中
                 logger.error(f"当前状态为{BIND_STATUS_MAP[current_status]}，不能重复绑定")
                 return False  # 不能重复绑定
-            elif current_status in [0, 4]:  # 未绑定、已解绑状态，可以更新为绑定中
-                return self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=1)
+            elif current_status in [0, 4]:  # 未绑定、已解绑状态，更新为已绑定
+                return self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=2)
 
         else:
-            # 如果记录不存在，插入新记录，初始状态为绑定中(1)
-            return self._local_knowledge_bind_insert(kno_id, knowledge_id, bind_status=1)
+            # 如果记录不存在，插入新记录，初始状态为已绑定
+            return self._local_knowledge_bind_insert(kno_id, knowledge_id, bind_status=2)
 
     def _local_knowledge_unbind(self, kno_id: str, knowledge_id: str):
         # 按kno_id和knowledge_id获取绑定关系
@@ -154,15 +154,13 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         if bind_info:
             # 如果记录存在，检查当前状态
             current_status = bind_info[0][3]  # bind_status是第4列
-            if current_status in [0, 1, 3, 4]:  # 未绑定、绑定中、解绑中、已解绑状态
-                # 如果是已解绑(4)则不需要再解绑，直接返回True
-                if current_status == 4:
-                    return True
-                # 如果是其他状态，更新为解绑中(3)，然后到已解绑(4)
-                self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=3)
-            elif current_status == 2:  # 已绑定状态，可以解绑
+            if current_status in [0,  4]:  # 未绑定、绑定中、已解绑状态
+                return True
+            elif current_status in [1, 2]:  # 绑定中、已绑定状态，更新为解绑中(3)
+                return self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=3)
+            else:  # 已绑定状态，可以解绑
                 # 更新状态为已解绑(4)
-                self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=4)
+                return self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=4)
         else:
             # 如果记录不存在，插入新记录并设置为已解绑状态
             logger.error(f"绑定信息不存在: kno_id={kno_id}, knowledge_id={knowledge_id}")

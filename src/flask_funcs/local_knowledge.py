@@ -305,7 +305,6 @@ def local_knowledge_bind():
             'success': False,
             'message': f'无效的操作: {action}'
         }), 400
-
     try:
         with LocalKnowledgeCrud() as crud:
             success = crud.local_knowledge_bind_func(local_kno_id, kb_id, action, status)
