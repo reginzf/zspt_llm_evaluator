@@ -8,8 +8,14 @@ function toggleKnowledgeDetails(element) {
         toggleIcon.textContent = '▼';
         element.classList.add('active');
 
+        // 获取知识库ID
+        const knowledgeId = element.querySelector('.knowledge-id').textContent;
+
         // 加载文件列表
         loadKnowledgeFiles(element);
+
+        // 加载绑定状态
+        loadBindingStatus(knowledgeId);
     } else {
         details.style.display = 'none';
         // 更新图标为向右箭头
@@ -376,6 +382,7 @@ function createBindingItem(data, knoId) {
     const bindingItem = clone.querySelector('.binding-item');
     const bindingKbName = clone.querySelector('.binding-kb-name');
     const bindingStatus = clone.querySelector('.binding-status');
+    const syncBtn = clone.querySelector('.sync-btn');
     const unbindBtn = clone.querySelector('.unbind-btn');
     
     bindingKbName.textContent = `知识库: ${data.knowledge_name || data.knowledge_id}`;
@@ -411,10 +418,46 @@ function createBindingItem(data, knoId) {
     bindingStatus.textContent = statusText;
     bindingStatus.className = `binding-status ${statusClass}`;
     
+    // 根据绑定状态显示或隐藏同步按钮
+    if (data.bind_status === 2) { // 已绑定状态
+        syncBtn.style.display = 'inline-block';
+        syncBtn.onclick = () => syncKnowledge(knoId, data.knowledge_id);
+    } else {
+        syncBtn.style.display = 'none';
+    }
+    
     unbindBtn.textContent = '解绑';
     unbindBtn.onclick = () => unbindKnowledge(knoId, data.knowledge_id);
     
     return bindingItem;
+}
+
+// 同步知识库
+function syncKnowledge(knoId, knowledgeId) {
+    if (confirm(`确定要同步知识库 ${knowledgeId} 吗？`)) {
+        fetch('/local_knowledge/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                local_kno_id: knoId,
+                knowledge_id: knowledgeId
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('知识库同步成功');
+                } else {
+                    alert('知识库同步失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('同步知识库时出错:', error);
+                alert('同步过程中发生错误: ' + error.message);
+            });
+    }
 }
 
 // 解绑知识库
@@ -445,33 +488,6 @@ function unbindKnowledge(knoId, knowledgeId) {
                 console.error('解绑知识库时出错:', error);
                 alert('解绑过程中发生错误: ' + error.message);
             });
-    }
-}
-
-// 修改toggleKnowledgeDetails函数以加载绑定状态
-function toggleKnowledgeDetails(element) {
-    const details = element.nextElementSibling;
-    const toggleIcon = element.querySelector('.toggle-icon');
-
-    if (details.style.display === 'none' || details.style.display === '') {
-        details.style.display = 'block';
-        // 更新图标为向下箭头
-        toggleIcon.textContent = '▼';
-        element.classList.add('active');
-
-        // 获取知识库ID
-        const knowledgeId = element.querySelector('.knowledge-id').textContent;
-
-        // 加载文件列表
-        loadKnowledgeFiles(element);
-
-        // 加载绑定状态
-        loadBindingStatus(knowledgeId);
-    } else {
-        details.style.display = 'none';
-        // 更新图标为向右箭头
-        toggleIcon.textContent = '▶';
-        element.classList.remove('active');
     }
 }
 

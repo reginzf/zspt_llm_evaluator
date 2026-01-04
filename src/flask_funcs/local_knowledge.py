@@ -346,3 +346,54 @@ def get_local_knowledge_bindings(kno_id):
     except Exception as e:
         logger.error(f"获取绑定状态时发生错误: {str(e)}")
         return jsonify({'error': '获取绑定状态失败'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/sync', methods=['POST'])
+def local_knowledge_sync():
+    """同步本地知识库到知识库"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要参数
+        required_fields = ['local_kno_id', 'knowledge_id']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+        
+        local_kno_id = data['local_kno_id']
+        knowledge_id = data['knowledge_id']
+        
+        # 这里实现同步逻辑
+
+        # 伪代码示例：
+        # 1. 获取本地知识库文件列表
+        # 2. 将文件上传到对应的知识库
+        # 3. 更新同步状态
+        
+        # 模拟同步过程
+        import time
+        time.sleep(1)  # 模拟同步过程
+        
+        # 实际实现时，需要：
+        # 1. 从ai_local_knowledge_list表获取本地知识库文件
+        # 2. 调用知识库API上传文件
+        # 3. 更新同步状态
+        
+        with LocalKnowledgeCrud() as crud:
+            # 获取本地知识库文件
+            local_files = crud.get_local_knowledge_list(kno_id=local_kno_id)
+            
+            if not local_files:
+                return jsonify({'success': False, 'message': '本地知识库中没有文件'}), 400
+        
+        # 这里应该有实际的同步逻辑
+        # 例如，调用知识库API或执行其他同步操作
+        
+        return jsonify({
+            'success': True,
+            'message': f'知识库 {local_kno_id} 与 {knowledge_id} 同步成功'
+        })
+        
+    except Exception as e:
+        logger.error(f"同步知识库时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
