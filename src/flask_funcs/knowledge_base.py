@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify
 import uuid
 import logging
-from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
-
+from src.sql_funs.environment_crud import Environment_Crud
 # 创建logger
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ def knowledge_base_list():
         knowledge_id = request.args.get('knowledge_id')
         knowledge_name = request.args.get('knowledge_name')
         
-        with LocalKnowledgeCrud() as crud:
+        with Environment_Crud() as crud:
             knowledge_list = crud.get_knowledge_base(knowledge_id=knowledge_id, knowledge_name=knowledge_name)
             
         return jsonify({
@@ -46,7 +45,7 @@ def knowledge_base_create():
         knowledge_id = 'kb_' + str(uuid.uuid4())[:8]
         data['knowledge_id'] = knowledge_id
         
-        with LocalKnowledgeCrud() as crud:
+        with Environment_Crud() as crud:
             result = crud.knowledge_base_insert(**data)
             
             if result:
@@ -68,7 +67,7 @@ def knowledge_base_update(knowledge_id):
     try:
         data = request.get_json()
         
-        with LocalKnowledgeCrud() as crud:
+        with Environment_Crud() as crud:
             result = crud.knowledge_base_update(knowledge_id=knowledge_id, **data)
             
             if result:
@@ -84,7 +83,7 @@ def knowledge_base_update(knowledge_id):
 def knowledge_base_delete(knowledge_id):
     """删除知识库"""
     try:
-        with LocalKnowledgeCrud() as crud:
+        with Environment_Crud() as crud:
             result = crud.knowledge_base_delete(knowledge_id=knowledge_id)
             
             if result:
