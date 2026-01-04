@@ -1,48 +1,61 @@
 // 生成知识库列表的HTML结构
 function generateKnowledgeBaseTable(knowledgeBases) {
-    let html = '';
+    const container = document.querySelector('.knowledge-base-items');
+    
+    // 清空容器（除了模板）
+    const templates = container.querySelectorAll('template');
+    container.innerHTML = '';
+    
+    // 重新添加模板
+    templates.forEach(template => {
+        container.appendChild(template);
+    });
     
     if (knowledgeBases && knowledgeBases.length > 0) {
         // 添加表格头部
-        html += `
-            <div class="knowledge-base-table-header">
-                <div class="table-header-cell">名称/ID</div>
-                <div class="table-header-cell">根ID</div>
-                <div class="table-header-cell">分块大小</div>
-                <div class="table-header-cell">分块重叠</div>
-                <div class="table-header-cell">可见范围</div>
-                <div class="table-header-cell">创建时间</div>
-                <div class="table-header-cell">编辑时间</div>
-                <div class="table-header-cell">操作</div>
-            </div>
-        `;
+        const headerTemplate = document.getElementById('knowledge-base-table-header-template');
+        const headerClone = headerTemplate.content.cloneNode(true);
+        container.appendChild(headerClone);
         
         // 添加每个知识库行
         knowledgeBases.forEach(kb => {
-            html += `
-                <div class="knowledge-base-table-row">
-                    <div class="table-cell" data-label="名称/ID">
-                        <div class="knowledge-name">${kb.knowledge_name || ''}</div>
-                        <div class="knowledge-id">${kb.knowledge_id || ''}</div>
-                    </div>
-                    <div class="table-cell" data-label="根ID">${kb.kno_root_id || 'N/A'}</div>
-                    <div class="table-cell" data-label="分块大小">${kb.chunk_size || 'N/A'}</div>
-                    <div class="table-cell" data-label="分块重叠">${kb.chunk_overlap || 'N/A'}</div>
-                    <div class="table-cell" data-label="可见范围">${kb.visiblerange || 'N/A'}</div>
-                    <div class="table-cell" data-label="创建时间">${kb.created_at || 'N/A'}</div>
-                    <div class="table-cell" data-label="编辑时间">${kb.updated_at || 'N/A'}</div>
-                    <div class="table-cell actions-cell" data-label="操作">
-                        <button class="action-btn edit-btn" onclick="editKnowledgeBase('${kb.knowledge_id}')">编辑</button>
-                        <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('${kb.knowledge_id}')">删除</button>
-                    </div>
-                </div>
-            `;
+            const rowTemplate = document.getElementById('knowledge-base-table-row-template');
+            const rowClone = rowTemplate.content.cloneNode(true);
+            
+            // 填充数据
+            const knowledgeName = rowClone.querySelector('.knowledge-name');
+            const knowledgeId = rowClone.querySelector('.knowledge-id');
+            const rootId = rowClone.querySelector('.table-cell[data-label="根ID"]');
+            const chunkSize = rowClone.querySelector('.table-cell[data-label="分块大小"]');
+            const chunkOverlap = rowClone.querySelector('.table-cell[data-label="分块重叠"]');
+            const visibleRange = rowClone.querySelector('.table-cell[data-label="可见范围"]');
+            const createdAt = rowClone.querySelector('.table-cell[data-label="创建时间"]');
+            const updatedAt = rowClone.querySelector('.table-cell[data-label="编辑时间"]');
+            const editBtn = rowClone.querySelector('.edit-btn');
+            const deleteBtn = rowClone.querySelector('.delete-btn');
+            
+            knowledgeName.textContent = kb.knowledge_name || '';
+            knowledgeId.textContent = kb.knowledge_id || '';
+            rootId.textContent = kb.kno_root_id || 'N/A';
+            chunkSize.textContent = kb.chunk_size || 'N/A';
+            chunkOverlap.textContent = kb.chunk_overlap || 'N/A';
+            visibleRange.textContent = kb.visiblerange || 'N/A';
+            createdAt.textContent = kb.created_at || 'N/A';
+            updatedAt.textContent = kb.updated_at || 'N/A';
+            
+            // 添加事件监听器
+            editBtn.textContent = '编辑';
+            editBtn.onclick = () => editKnowledgeBase(kb.knowledge_id);
+            deleteBtn.textContent = '删除';
+            deleteBtn.onclick = () => deleteKnowledgeBase(kb.knowledge_id);
+            
+            container.appendChild(rowClone);
         });
     } else {
-        html += '<div class="empty-state"><p>暂无知识库</p></div>';
+        const emptyTemplate = document.getElementById('empty-state-template');
+        const emptyClone = emptyTemplate.content.cloneNode(true);
+        container.appendChild(emptyClone);
     }
-    
-    return html;
 }
 
 // 渲染知识库列表

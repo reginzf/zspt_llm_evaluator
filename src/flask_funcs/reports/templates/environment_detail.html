@@ -66,12 +66,51 @@
             
             <div class="knowledge-base-items" id="knowledgeBaseTable">
                 <!-- 初始内容将通过JavaScript加载 -->
-                <div class="loading-state">
-                    <p>正在加载...</p>
-                </div>
+                
+                <!-- 知识库表格头部模板 -->
+                <template id="knowledge-base-table-header-template">
+                    <div class="knowledge-base-table-header">
+                        <div class="table-header-cell">名称/ID</div>
+                        <div class="table-header-cell">根ID</div>
+                        <div class="table-header-cell">分块大小</div>
+                        <div class="table-header-cell">分块重叠</div>
+                        <div class="table-header-cell">可见范围</div>
+                        <div class="table-header-cell">创建时间</div>
+                        <div class="table-header-cell">编辑时间</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
+                </template>
+                
+                <!-- 知识库行模板 -->
+                <template id="knowledge-base-table-row-template">
+                    <div class="knowledge-base-table-row">
+                        <div class="table-cell" data-label="名称/ID">
+                            <div class="knowledge-name"></div>
+                            <div class="knowledge-id"></div>
+                        </div>
+                        <div class="table-cell" data-label="根ID"></div>
+                        <div class="table-cell" data-label="分块大小"></div>
+                        <div class="table-cell" data-label="分块重叠"></div>
+                        <div class="table-cell" data-label="可见范围"></div>
+                        <div class="table-cell" data-label="创建时间"></div>
+                        <div class="table-cell" data-label="编辑时间"></div>
+                        <div class="table-cell actions-cell" data-label="操作">
+                            <button class="action-btn edit-btn">编辑</button>
+                            <button class="action-btn delete-btn">删除</button>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- 空状态模板 -->
+                <template id="empty-state-template">
+                    <div class="empty-state">
+                        <p>暂无知识库</p>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
     
     <script src="{{ js_url }}"></script>
 </body>
+</```
