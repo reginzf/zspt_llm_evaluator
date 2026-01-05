@@ -11,6 +11,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 statics_dir = os.path.join(project_root, 'src', 'flask_funcs', 'reports', 'statics')
 js_dir = os.path.join(statics_dir, 'js')
 css_dir = os.path.join(statics_dir, 'css')
+lib_dir = os.path.join(js_dir, 'lib')
 
 
 @static_bp.route('/js/<path:filename>')
@@ -21,3 +22,8 @@ def custom_js(filename):
 @static_bp.route('/css/<path:filename>')
 def custom_css(filename):
     return send_from_directory(css_dir, filename)
+
+
+@static_bp.route('/js/lib/<path:filename>')
+def custom_lib(filename):
+    return send_from_directory(lib_dir, filename)

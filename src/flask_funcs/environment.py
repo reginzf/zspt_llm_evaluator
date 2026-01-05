@@ -6,11 +6,33 @@ from src.flask_funcs.reports.flask_environment_renderer import EnvironmentRender
 from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
 from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
+from src.flask_funcs.common_utils import validate_required_fields, execute_with_crud_operation
 
 # 创建logger
 logger = logging.getLogger(__name__)
 # 创建蓝图
 environment_bp = Blueprint('environment', __name__)
+
+
+def _validate_required_fields(data, required_fields):
+    """验证必要字段是否存在"""
+    for field in required_fields:
+        if field not in data:
+            return field
+    return None
+
+
+def _execute_with_crud_operation(operation_func, success_message, error_message_prefix):
+    """执行数据库操作的通用函数"""
+    try:
+        with Environment_Crud() as env_crud:
+            result = operation_func(env_crud)
+            if result:
+                return jsonify({'success': True, 'message': success_message})
+            else:
+                return jsonify({'success': False, 'message': f'{error_message_prefix}失败'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'{error_message_prefix}时发生错误: {str(e)}'}), 500
 
 
 @environment_bp.route('/environment/')
@@ -46,22 +68,23 @@ def environment_create():
 
     # 检查必要字段（不包括zlpt_base_id，因为它将自动生成）
     required_fields = ['zlpt_name', 'zlpt_base_url', 'username', 'password']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+    missing_field = validate_required_fields(data, required_fields)
+    if missing_field:
+        return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
 
     # 自动生成zlpt_base_id
     data['zlpt_base_id'] = 'env_' + str(uuid.uuid4())[:8]
 
-    try:
+    def operation_func():
         with Environment_Crud() as env_crud:
-            result = env_crud.environment_create(**data)
-            if result:
-                return jsonify({'success': True, 'message': '环境创建成功'})
-            else:
-                return jsonify({'success': False, 'message': '环境创建失败'}), 400
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'创建环境时发生错误: {str(e)}'}), 500
+            return env_crud.environment_create(**data)
+    
+    return execute_with_crud_operation(
+        operation_func,
+        '环境创建成功',
+        '创建环境',
+        logger
+    )
 
 
 @environment_bp.route('/environment/list/', methods=['GET'])  # todo 前端未实现
@@ -87,20 +110,21 @@ def environment_update():
         return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
     # 检查必要字段
     required_fields = ['zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'username', 'password']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+    missing_field = validate_required_fields(data, required_fields)
+    if missing_field:
+        return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
     zlpt_base_id = data.pop('zlpt_base_id')
-    try:
-        # 使用上下文管理器自动处理连接和断开
+
+    def operation_func():
         with Environment_Crud() as env_crud:
-            result = env_crud.environment_update(zlpt_base_id, **data)
-            if result:
-                return jsonify({'success': True, 'message': '环境更新成功'})
-            else:
-                return jsonify({'success': False, 'message': '环境更新失败'}), 400
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'更新环境时发生错误: {str(e)}'}), 500
+            return env_crud.environment_update(zlpt_base_id, **data)
+    
+    return execute_with_crud_operation(
+        operation_func,
+        '环境更新成功',
+        '更新环境',
+        logger
+    )
 
 
 @environment_bp.route('/environment/delete/', methods=['DELETE'])
@@ -111,16 +135,16 @@ def environment_delete():
     if not data or 'zlpt_base_id' not in data:
         return jsonify({'success': False, 'message': '缺少必要字段: zlpt_base_id'}), 400
 
-    try:
-        # 使用上下文管理器自动处理连接和断开
+    def operation_func():
         with Environment_Crud() as env_crud:
-            result = env_crud.environment_delete(zlpt_base_id=data['zlpt_base_id'])
-            if result:
-                return jsonify({'success': True, 'message': '环境删除成功'})
-            else:
-                return jsonify({'success': False, 'message': '环境删除失败'}), 400
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'删除环境时发生错误: {str(e)}'}), 500
+            return env_crud.environment_delete(zlpt_base_id=data['zlpt_base_id'])
+    
+    return execute_with_crud_operation(
+        operation_func,
+        '环境删除成功',
+        '删除环境',
+        logger
+    )
 
 
 @environment_bp.route('/environment_detail/', methods=['GET'])

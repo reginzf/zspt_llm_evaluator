@@ -6,6 +6,7 @@ from env_config_init import REPORT_PATH
 from utils.pub_funs import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
 from src.flask_funcs.reports.flask_metrics_dashboard_renderer import MetricsDashboardRenderer
+from src.flask_funcs.common_utils import get_directory_structure
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -22,21 +23,8 @@ def list_reports():
     """获取REPORT_PATH目录下的目录结构"""
     try:
         report_path = REPORT_PATH
-        directory_structure = {}
-
-        if os.path.exists(report_path):
-            for item in os.listdir(report_path):
-                item_path = os.path.join(report_path, item)
-                if os.path.isdir(item_path):
-                    # 如果是目录，获取该目录下的所有.json文件
-                    json_files = [f for f in os.listdir(item_path) if f.endswith('.json')]
-                    directory_structure[item] = json_files
-                elif item.endswith('.json'):
-                    # 如果是根目录下的json文件，放到'根目录'键下
-                    if '根目录' not in directory_structure:
-                        directory_structure['根目录'] = []
-                    directory_structure['根目录'].append(item)
-
+        # 使用通用的目录结构获取函数
+        directory_structure = get_directory_structure(report_path, '.json')
 
     except Exception as e:
         logger.error(f"获取报告目录结构时发生错误: {str(e)}")

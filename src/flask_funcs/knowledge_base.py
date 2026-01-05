@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 import uuid
 import logging
 from src.sql_funs.environment_crud import Environment_Crud
+from src.flask_funcs.common_utils import validate_required_fields
+
 # 创建logger
 logger = logging.getLogger(__name__)
 
@@ -37,9 +39,9 @@ def knowledge_base_create():
         
         # 验证必要字段
         required_fields = ['knowledge_name', 'zlpt_base_id']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'success': False, 'message': f'缺少必要字段: {field}'}), 400
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
         
         # 生成知识库ID
         knowledge_id = 'kb_' + str(uuid.uuid4())[:8]
