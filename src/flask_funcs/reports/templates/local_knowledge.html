@@ -11,41 +11,45 @@
     <h1>{{ heading or '本地知识库' }}</h1>
     <div class="knowledge-list">
         {% if knowledge_data %}
-        {% for item in knowledge_data %}
-        <div class="knowledge-item">
-            <div class="knowledge-header" onclick="toggleKnowledgeDetails(this)">
-                <span class="toggle-icon">▶</span>
-                <span class="knowledge-name" title="{{ item.kno_name }}">{{ item.kno_name }}</span>
-                <span class="knowledge-id" style="display: none;">{{ item.kno_id }}</span>
-                <div class="header-actions">
-                    <button class="action-btn upload-btn" onclick="event.stopPropagation(); uploadFile('{{ item.kno_id }}')">上传文件</button>
-                    <button class="action-btn" onclick="event.stopPropagation(); editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
-                    <button class="action-btn" onclick="event.stopPropagation(); deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
-                    <button class="action-btn bind-btn" onclick="event.stopPropagation(); showBindDialog('{{ item.kno_id }}', '{{ item.kno_name }}')">绑定</button>
-                </div>
-            </div>
-            <div class="knowledge-details" style="display: none;">
-                <div class="knowledge-description">
-                    <p>{{ item.kno_describe or '暂无描述' }}</p>
-                    <span class="knowledge-date">{{ item.created_at or '未知' }}</span>
-                </div>
-                <div class="knowledge-bindings">
-                    <h3>绑定状态</h3>
-                    <ul class="binding-list" id="binding-list-{{ item.kno_id }}">
-                        <!-- 这里会通过JavaScript动态加载绑定状态 -->
-                        <li class="binding-item-placeholder">正在加载绑定状态...</li>
-                    </ul>
-                </div>
-                <div class="knowledge-files">
-                    <h3>知识库文件</h3>
-                    <ul class="file-list">
-                        <!-- 这里会通过JavaScript动态加载文件列表 -->
-                        <li class="file-item-placeholder">暂无文件</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+        <table class="knowledge-table">
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>描述</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>绑定的知识库数量</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in knowledge_data %}
+                <tr>
+                    <td>{{ item.kno_name }}</td>
+                    <td>{{ item.kno_describe or '暂无描述' }}</td>
+                    <td>
+                        {% if item.ls_status == 0 %}
+                            已完成
+                        {% elif item.ls_status == 1 %}
+                            未开始
+                        {% elif item.ls_status == 2 %}
+                            进行中
+                        {% else %}
+                            未知
+                        {% endif %}
+                    </td>
+                    <td>{{ item.created_at or '未知' }}</td>
+                    <td class="binding-count" data-kno-id="{{ item.kno_id }}">加载中...</td>
+                    <td>
+                        <button class="action-btn detail-btn" onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">详情</button>
+                        <button class="action-btn upload-btn" onclick="uploadFile('{{ item.kno_id }}')">上传文件</button>
+                        <button class="action-btn edit-btn" onclick="editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
+                        <button class="action-btn delete-btn" onclick="deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
         <p>暂无本地知识库数据</p>
         {% endif %}
@@ -53,61 +57,37 @@
 </div>
 <script src="{{ js_url }}"></script>
 
-<!-- HTML模板 -->
-<template id="file-item-template">
-    <li class="file-item">
-        <div class="file-info">
-            <span class="file-name"></span>
-            <span class="file-description"></span>
-            <span class="file-status"></span>
-        </div>
-        <div class="file-actions">
-            <button class="action-btn delete-btn">删除</button>
-            <button class="action-btn edit-btn">编辑</button>
-        </div>
-    </li>
-</template>
+<script>
+    // 页面加载完成后获取绑定数量
+    document.addEventListener('DOMContentLoaded', function() {
+        loadBindingCounts();
+    });
 
-<template id="binding-item-template">
-    <li class="binding-item">
-        <div class="binding-info">
-            <span class="binding-kb-name"></span>
-            <span class="binding-status"></span>
-        </div>
-        <div class="binding-actions">
-            <button class="action-btn sync-btn" style="display: none;">同步知识库</button>
-            <button class="action-btn unbind-btn">解绑</button>
-        </div>
-    </li>
-</template>
+    // 加载所有知识库的绑定数量
+    function loadBindingCounts() {
+        const bindingCountElements = document.querySelectorAll('.binding-count');
+        bindingCountElements.forEach(element => {
+            const knoId = element.getAttribute('data-kno-id');
+            fetch(`/local_knowledge/bindings/${knoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let count = 0;
+                    if (data && !Array.isArray(data)) {
+                        // 如果返回单个对象，计为1
+                        count = 1;
+                    } else if (Array.isArray(data)) {
+                        // 如果返回数组，计算长度
+                        count = data.length;
+                    }
+                    element.textContent = count;
+                })
+                .catch(error => {
+                    console.error('加载绑定数量时出错:', error);
+                    element.textContent = '获取失败';
+                });
+        });
+    }
+</script>
 
 </body>
 </html>
-
-<!-- 绑定对话框 -->
-<div id="bindDialog" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>绑定知识库</h3>
-            <span class="close" onclick="closeBindDialog()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="environmentSelect">选择环境:</label>
-                <select id="environmentSelect" class="form-control" onchange="loadKnowledgeBases()">
-                    <option value="">请选择环境</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="knowledgeBaseSelect">选择知识库:</label>
-                <select id="knowledgeBaseSelect" class="form-control">
-                    <option value="">请先选择环境</option>
-                </select>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-primary" onclick="bindKnowledge()">绑定</button>
-            <button class="btn btn-secondary" onclick="closeBindDialog()">取消</button>
-        </div>
-    </div>
-</div>
