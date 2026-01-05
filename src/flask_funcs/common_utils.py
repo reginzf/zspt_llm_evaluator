@@ -50,7 +50,7 @@ def execute_with_crud_operation(operation_func, success_message, error_message_p
         if logger:
             logger.error(error_msg)
         response = jsonify({'success': False, 'message': error_msg}), 500
-    
+
     return response
 
 
@@ -66,7 +66,7 @@ def get_directory_structure(base_path, file_extension=None):
         dict: 目录结构字典
     """
     directory_structure = {}
-    
+
     if os.path.exists(base_path):
         for item in os.listdir(base_path):
             item_path = os.path.join(base_path, item)
@@ -82,7 +82,7 @@ def get_directory_structure(base_path, file_extension=None):
                 if '根目录' not in directory_structure:
                     directory_structure['根目录'] = []
                 directory_structure['根目录'].append(item)
-    
+
     return directory_structure
 
 
@@ -144,10 +144,10 @@ def handle_file_upload(files, target_directory, related_info=None):
     """
     success_count = 0
     failed_files = []
-    
+    success_file_names = []
     # 确保目录存在
     Path(target_directory).mkdir(parents=True, exist_ok=True)
-    
+
     for file in files:
         if file and file.filename:
             # 验证文件类型（可以根据需要添加更多类型）
@@ -155,10 +155,11 @@ def handle_file_upload(files, target_directory, related_info=None):
 
             # 构建安全的文件路径
             file_path = Path(target_directory) / filename
-            
+
             # 检查是否已存在同名文件，如果存在则重命名
             counter = 1
             name, ext = file_path.stem, file_path.suffix
+            new_filename = None
             while file_path.exists():
                 new_filename = f"{name}_{counter}{ext}"
                 file_path = Path(target_directory) / new_filename
@@ -166,14 +167,19 @@ def handle_file_upload(files, target_directory, related_info=None):
 
             # 保存文件到本地文件夹
             file.save(str(file_path))
-            
+            if new_filename:
+                success_file_names.append(new_filename)
+            else:
+                success_file_names.append(filename)
             success_count += 1
-    
+
     return {
+        "success_file_names": success_file_names,
         "success_count": success_count,
         "failed_count": len(failed_files),
         "failed_files": failed_files,
-        "message": f"成功上传 {success_count} 个文件" + (f"，失败文件: {', '.join(failed_files)}" if failed_files else "")
+        "message": f"成功上传 {success_count} 个文件" + (
+            f"，失败文件: {', '.join(failed_files)}" if failed_files else "")
     }
 
 
@@ -192,15 +198,15 @@ def render_template_with_version(template_name, css_static_dir="css", js_static_
     """
     import os
     from flask import render_template
-    
+
     # 生成带版本参数的静态资源路径
     css_path = f"/static/{css_static_dir}/local_knowledge.css?version={os.urandom(4).hex()}"
     js_url = f"/static/{js_static_dir}/local_knowledge.js?version={os.urandom(4).hex()}"
-    
+
     # 如果有额外的CSS和JS参数
     detail_css_path = f"/static/{css_static_dir}/local_knowledge_detail.css?version={os.urandom(4).hex()}"
     detail_js_url = f"/static/{js_static_dir}/local_knowledge_detail.js?version={os.urandom(4).hex()}"
-    
+
     # 将路径添加到参数中
     kwargs.update({
         'css_path': css_path,
@@ -208,7 +214,7 @@ def render_template_with_version(template_name, css_static_dir="css", js_static_
         'detail_css_path': detail_css_path,
         'detail_js_url': detail_js_url
     })
-    
+
     return render_template(template_name, **kwargs)
 
 
@@ -229,16 +235,16 @@ def get_knowledge_base_binding_info(kno_id, local_crud_class, env_crud_class):
         bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
         if not bindings:
             return None
-        
+
         # 构建返回数据，包含知识库名称
         binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
         knowledge_id = binding_dict['knowledge_id']
-        
+
         # 获取知识库名称
         knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
         if not knowledge_base:
             return None
-        
+
         binding_dict['knowledge_name'] = knowledge_base[0][1]
         return binding_dict
 
@@ -265,8 +271,8 @@ def safe_execute_with_rollback(operation_func, rollback_func=None, logger=None):
             except Exception as rollback_error:
                 if logger:
                     logger.error(f"回滚操作也失败: {str(rollback_error)}")
-        
+
         if logger:
             logger.error(f"操作失败: {str(e)}")
-        
+
         raise e

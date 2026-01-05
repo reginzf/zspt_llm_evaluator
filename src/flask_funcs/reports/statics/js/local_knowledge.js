@@ -1,143 +1,4 @@
-// 用于列表页面的功能
-function toggleKnowledgeDetails(element) {
-    const details = element.nextElementSibling;
-    const toggleIcon = element.querySelector('.toggle-icon');
-
-    if (details.style.display === 'none' || details.style.display === '') {
-        details.style.display = 'block';
-        // 更新图标为向下箭头
-        toggleIcon.textContent = '▼';
-        element.classList.add('active');
-
-        // 获取知识库ID
-        const knowledgeId = element.querySelector('.knowledge-id').textContent;
-
-        // 加载文件列表
-        loadKnowledgeFiles(element);
-
-        // 加载绑定状态
-        loadBindingStatus(knowledgeId);
-    } else {
-        details.style.display = 'none';
-        // 更新图标为向右箭头
-        toggleIcon.textContent = '▶';
-        element.classList.remove('active');
-    }
-}
-
-function loadKnowledgeFiles(headerElement) {
-    // 获取知识库ID和名称
-    const knowledgeId = headerElement.querySelector('.knowledge-id').textContent;
-    const knowledgeName = headerElement.querySelector('.knowledge-name').getAttribute('title');
-    const fileListContainer = headerElement.nextElementSibling.querySelector('.file-list');
-
-    // 显示加载状态
-    fileListContainer.innerHTML = '<li class="file-item-placeholder">正在加载文件列表...</li>';
-
-    // 通过API获取知识库详细信息
-    fetch(`/api/local_knowledge_detail/${knowledgeId}/${knowledgeName}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('网络响应不正常');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // 清空加载提示
-            fileListContainer.innerHTML = '';
-
-            if (data && data.length > 0) {
-                // 渲染文件列表
-                data.forEach(file => {
-                    const fileItem = createFileItem(file);
-                    fileListContainer.appendChild(fileItem);
-                });
-            } else {
-                fileListContainer.innerHTML = '<li class="file-item-placeholder">暂无文件</li>';
-            }
-        })
-        .catch(error => {
-            console.error('加载文件列表时出错:', error);
-            fileListContainer.innerHTML = '<li class="file-item-placeholder">加载文件列表失败</li>';
-        });
-}
-
-// 创建文件项
-function createFileItem(file) {
-    const template = document.getElementById('file-item-template');
-    const clone = template.content.cloneNode(true);
-    
-    const fileItem = clone.querySelector('.file-item');
-    const fileName = clone.querySelector('.file-name');
-    const fileDescription = clone.querySelector('.file-description');
-    const fileStatus = clone.querySelector('.file-status');
-    const deleteBtn = clone.querySelector('.delete-btn');
-    const editBtn = clone.querySelector('.edit-btn');
-    
-    fileName.textContent = file.kno_name;
-    fileDescription.textContent = file.kno_describe || '无描述';
-    
-    const statusClass = file.ls_status === 'sync_ok' ? 'sync-ok' : 'sync-wait';
-    const statusText = file.ls_status === 'sync_ok' ? '已同步' : '待同步';
-    fileStatus.textContent = statusText;
-    fileStatus.className = `file-status ${statusClass}`;
-    
-    deleteBtn.textContent = '删除';
-    deleteBtn.onclick = () => deleteFile(file.knol_id, file.kno_name);
-    
-    editBtn.textContent = '编辑';
-    editBtn.onclick = () => editFile(file.knol_id, file.kno_name);
-    
-    return fileItem;
-}
-
 // 上传文件功能 - 用于列表页面
-function uploadFile(knowledgeId) {
-    // 显示文件选择对话框，支持多选
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;  // 支持多文件选择
-    input.onchange = function (e) {
-        const files = e.target.files;
-        if (files.length > 0) {
-            // 创建 FormData 对象来发送文件
-            const formData = new FormData();
-
-            // 添加所有选中的文件
-            for (let i = 0; i < files.length; i++) {
-                formData.append('files', files[i]);
-            }
-
-            formData.append('kno_id', knowledgeId);
-
-            // 发送文件到服务器
-            fetch('/local_knowledge/upload', {
-                method: 'POST',
-                body: formData  // 注意：不设置 Content-Type，让浏览器自动设置
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('网络响应不正常');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.status === 'success' || data.status === 'partial_success') {
-                        alert(data.message);
-                        // 重新加载页面或刷新知识库详情
-                        location.reload(); // 或者可以只刷新对应的知识库详情
-                    } else {
-                        alert('上传失败: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('上传文件时出错:', error);
-                    alert('上传过程中发生错误: ' + error.message);
-                });
-        }
-    };
-    input.click();
-}
 
 // 用于详细页面的上传文件功能
 function showUploadDialogFromJS(knoId) {
@@ -151,44 +12,44 @@ function showUploadDialogFromJS(knoId) {
 function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const files = fileInput.files;
-    
+
     if (files.length === 0) {
         alert('请选择要上传的文件');
         return;
     }
-    
+
     const formData = new FormData();
-    
+
     // 添加所有选中的文件
     for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i]);
     }
-    
+
     formData.append('kno_id', window.currentKnoId);
-    
+
     fetch('/local_knowledge/upload', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success' || data.status === 'partial_success') {
-            alert(data.message);
-            closeUploadDialog();
-            // 重新加载文件列表
-            if (typeof loadFileList !== 'undefined') {
-                loadFileList();
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' || data.status === 'partial_success') {
+                alert(data.message);
+                closeUploadDialog();
+                // 重新加载文件列表
+                if (typeof loadFileList !== 'undefined') {
+                    loadFileList();
+                } else {
+                    location.reload();
+                }
             } else {
-                location.reload();
+                alert('上传失败: ' + data.message);
             }
-        } else {
-            alert('上传失败: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('上传文件时出错:', error);
-        alert('上传过程中发生错误: ' + error.message);
-    });
+        })
+        .catch(error => {
+            console.error('上传文件时出错:', error);
+            alert('上传过程中发生错误: ' + error.message);
+        });
 }
 
 // 关闭上传对话框
@@ -198,81 +59,7 @@ function closeUploadDialog() {
     document.getElementById('fileInput').value = '';
 }
 
-function deleteFile(knolId, knoName) {
-    if (confirm(`确定要删除文件 "${knoName}" 吗？`)) {
-        // 执行删除逻辑
-        console.log('删除文件:', knolId);
 
-        // 调用API删除文件
-        fetch(`/local_knowledge/delete/${knolId}`, {
-            method: 'DELETE'
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('网络响应不正常');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                    // 重新加载页面以更新文件列表
-                    if (typeof loadFileList !== 'undefined') {
-                        loadFileList(); // 详细页面使用函数重新加载
-                    } else {
-                        location.reload(); // 列表页面刷新整个页面
-                    }
-                } else {
-                    alert('删除失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('删除文件时出错:', error);
-                alert('删除过程中发生错误: ' + error.message);
-            });
-    }
-}
-
-function editFile(knolId, knolName) {
-    const currentDescription = prompt(`请输入文件 "${knolName}" 的新描述:`, '');
-
-    if (currentDescription !== null) {  // 用户没有取消
-        // 创建 FormData 对象来发送描述信息
-        const formData = new FormData();
-        formData.append('knol_describe', currentDescription);
-
-        // 发送请求到服务器
-        fetch(`/local_knowledge/edit/${knolId}`, {
-            method: 'PUT',
-            body: formData
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('网络响应不正常');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                    // 重新加载页面以更新文件列表
-                    if (typeof loadFileList !== 'undefined') {
-                        loadFileList(); // 详细页面使用函数重新加载
-                    } else {
-                        location.reload(); // 列表页面刷新整个页面
-                    }
-                } else {
-                    alert('编辑失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('编辑文件时出错:', error);
-                alert('编辑过程中发生错误: ' + error.message);
-            });
-    }
-}
-
-// 编辑知识库功能
 function editKnowledge(event, knoId, knoName, currentDescribe) {
     event.stopPropagation(); // 防止事件冒泡
     const newDescribe = prompt('请输入新的描述:', currentDescribe);
@@ -289,19 +76,19 @@ function editKnowledge(event, knoId, knoName, currentDescribe) {
                 kno_describe: newDescribe
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('知识库更新成功');
-                location.reload();
-            } else {
-                alert('知识库更新失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('更新知识库时出错:', error);
-            alert('更新过程中发生错误: ' + error.message);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('知识库更新成功');
+                    location.reload();
+                } else {
+                    alert('知识库更新失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('更新知识库时出错:', error);
+                alert('更新过程中发生错误: ' + error.message);
+            });
     }
 }
 
@@ -312,46 +99,33 @@ function deleteKnowledge(event, knoId) {
         fetch(`/local_knowledge/delete_main/${knoId}`, {
             method: 'DELETE'
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('知识库删除成功');
-                location.reload();
-            } else {
-                alert('知识库删除失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('删除知识库时出错:', error);
-            alert('删除过程中发生错误: ' + error.message);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('知识库删除成功');
+                    location.reload();
+                } else {
+                    alert('知识库删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('删除知识库时出错:', error);
+                alert('删除过程中发生错误: ' + error.message);
+            });
     }
-}
-
-// 显示绑定对话框 - 用于列表页面
-function showBindDialog(knoId, knoName) {
-    // 保存当前知识库ID和名称
-    window.currentKnoId = knoId;
-    window.currentKnoName = knoName;
-
-    // 显示对话框
-    document.getElementById('bindDialog').style.display = 'block';
-
-    // 加载环境列表
-    loadEnvironments();
 }
 
 // 显示绑定对话框 - 用于详细页面
 function showBindDialogFromJS() {
     // 显示对话框
     document.getElementById('bindDialog').style.display = 'block';
-    
+
     // 从页面元素获取当前知识库ID
     const knowledgeIdElement = document.getElementById('knowledge-id');
     if (knowledgeIdElement) {
         window.currentKnoId = knowledgeIdElement.textContent.trim();
     }
-    
+
     // 加载环境列表
     loadEnvironments();
 }
@@ -477,41 +251,6 @@ function closeBindDialog() {
     document.getElementById('knowledgeBaseSelect').innerHTML = '<option value="">请先选择环境</option>';
 }
 
-// 加载绑定状态 - 用于列表页面
-function loadBindingStatus(knoId) {
-    const bindingListContainer = document.getElementById('binding-list-' + knoId);
-
-    if (!bindingListContainer) {
-        console.error('找不到绑定状态容器:', 'binding-list-' + knoId);
-        return;
-    }
-
-    // 通过API获取绑定状态
-    fetch(`/local_knowledge/bindings/${knoId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('网络响应不正常');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // 清空加载提示
-            bindingListContainer.innerHTML = '';
-            
-            if (data && typeof data === 'object' && !Array.isArray(data)) {
-                // 后端返回单个对象
-                const bindingItem = createBindingItem(data, knoId);
-                bindingListContainer.appendChild(bindingItem);
-            } else {
-                bindingListContainer.innerHTML = '<li class="binding-item-placeholder">暂无绑定</li>';
-            }
-        })
-        .catch(error => {
-            console.error('加载绑定状态时出错:', error);
-            bindingListContainer.innerHTML = '<li class="binding-item-placeholder">加载绑定状态失败</li>';
-        });
-}
-
 // 同步知识库
 function syncKnowledge(knoId, knowledgeId) {
     if (confirm(`确定要同步知识库 ${knowledgeId} 吗？`)) {
@@ -536,42 +275,6 @@ function syncKnowledge(knoId, knowledgeId) {
             .catch(error => {
                 console.error('同步知识库时出错:', error);
                 alert('同步过程中发生错误: ' + error.message);
-            });
-    }
-}
-
-// 解绑知识库
-function unbindKnowledge(knoId, knowledgeId) {
-    if (confirm(`确定要解绑知识库 ${knowledgeId} 吗？`)) {
-        // 调用解绑API
-        fetch('/local_knowledge/bind', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                local_kno_id: knoId,
-                kb_id: knowledgeId,
-                action: 'unbind'
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('解绑成功');
-                    // 如果在详细页面，重新加载绑定状态
-                    if (typeof loadBindingStatus !== 'undefined') {
-                        loadBindingStatus();
-                    } else {
-                        location.reload();
-                    }
-                } else {
-                    alert('解绑失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('解绑知识库时出错:', error);
-                alert('解绑过程中发生错误: ' + error.message);
             });
     }
 }

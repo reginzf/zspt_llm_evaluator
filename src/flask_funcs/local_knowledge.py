@@ -8,7 +8,8 @@ from env_config_init import settings
 from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
-from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, render_template_with_version
+from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
+    generate_unique_id
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -99,7 +100,7 @@ def local_knowledge_detail(kno_id, kno_name):
         return "页面加载错误", 500
 
 
-@local_knowledge_bp.route('/api/local_knowledge_detail',methods=['POST'])
+@local_knowledge_bp.route('/api/local_knowledge_detail', methods=['POST'])
 def api_local_knowledge_detail():
     data = request.get_json()
     kno_id = data.get('kno_id')
@@ -109,7 +110,7 @@ def api_local_knowledge_detail():
         with LocalKnowledgeCrud() as crud:
             # 获取本地知识列表详情（从ai_local_knowledge_list表）
             # 获取所有知识列表记录
-            all_knowledge_list_records = crud.get_local_knowledge_list()
+            all_knowledge_list_records = crud.get_local_knowledge_list(kno_id=kno_id)
             logger.info(f"获取本地知识列表详情: {all_knowledge_list_records}")
 
             # 首先尝试使用kno_id过滤
@@ -195,7 +196,12 @@ def upload_local_knowledge():
 
             # 使用通用的文件上传处理函数
             result = handle_file_upload(files, kno_path, {'kno_id': kno_id, 'knowledge_detail': knowledge_detail})
-            
+            # 更新结果到sql
+            success_file_names = result['success_file_names']
+            for success_file_name in success_file_names:
+                logger.info(f"更新知识列表: {success_file_name}")
+                crud.local_knowledge_list_insert(generate_unique_id('knol', 8), success_file_name, '', str(kno_path), 1,
+                                                 kno_id)
             return jsonify({"status": "success", "message": result['message']})
     except Exception as e:
         logger.error(f"上传文件时发生错误: {str(e)}")
@@ -210,7 +216,7 @@ def local_knowledge_bind():
     missing_field = validate_required_fields(data, required_fields)
     if missing_field:
         return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
-    
+
     local_kno_id = data['local_kno_id']  # ai_local_knowledge的kno_id
     kb_id = data['kb_id']  # ai_knowledge_base的knowledge_id
     action = data['action']  # #action 操作 bind、unbind、update
@@ -284,7 +290,7 @@ def get_local_knowledge_bindings_count(kno_id):
             bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
             if not bindings:
                 return jsonify({'count': 0}), 200
-            
+
             # 计算绑定数量
             count = len(bindings) if isinstance(bindings, list) else 1
             return jsonify({'count': count}), 200
@@ -358,7 +364,7 @@ def update_local_knowledge():
                 kno_name=kno_name,
                 kno_describe=kno_describe
             )
-            
+
             if success:
                 return jsonify({'success': True, 'message': '知识库更新成功'})
             else:
@@ -381,7 +387,7 @@ def delete_main_local_knowledge(kno_id):
                 file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / file_record[4]  # knol_path 是第5列 (索引4)
                 if file_path.exists():
                     file_path.unlink()
-                
+
                 # 删除数据库记录
                 crud.local_knowledge_list_delete(knol_id=file_record[1])  # knol_id 是第2列 (索引1)
 
@@ -403,3 +409,69 @@ def delete_main_local_knowledge(kno_id):
     except Exception as e:
         logger.error(f"删除知识库时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'删除知识库时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/edit/<knol_id>', methods=['PUT'])
+def edit_local_knowledge_file(knol_id):
+    """编辑本地知识库中的单个文件（仅支持编辑描述）"""
+    try:
+        # 从请求中获取新的描述
+        knol_describe = request.form.get('knol_describe')
+
+        with LocalKnowledgeCrud() as crud:
+            # 更新数据库记录
+            success = crud.local_knowledge_list_update(knol_id=knol_id, knol_describe=knol_describe)
+
+            if success:
+                return jsonify({'status': 'success', 'message': '文件描述更新成功'})
+            else:
+                return jsonify({'status': 'error', 'message': '文件描述更新失败'}), 500
+    except Exception as e:
+        logger.error(f"更新文件描述时发生错误: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'更新文件描述时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/delete/<knol_id>', methods=['DELETE'])
+def delete_local_knowledge_file(knol_id):
+    """删除本地知识库中的单个文件"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取文件记录信息
+            file_records = crud.get_local_knowledge_list(knol_id=knol_id)
+            if not file_records:
+                return jsonify({'status': 'error', 'message': '未找到对应的文件记录'}), 404
+
+            file_record = file_records[0]  # 获取第一个结果
+            # file_record 结构: (id, knol_id, knol_name, knol_describe, knol_path, ls_status, created_at, updated_at, kno_id)
+            knol_path_str = file_record[4]  # knol_path 是第5列 (索引4)
+            knol_name = file_record[2]  # knol_name 是第3列 (索引2)
+            knowledge_id = file_record[8]  # kno_id 是第9列 (索引8)
+
+            # 获取知识库路径信息以构建完整文件路径
+            knowledge_list = crud.get_local_knowledge(kno_id=knowledge_id)
+            if not knowledge_list:
+                return jsonify({'status': 'error', 'message': '未找到对应的主知识库信息'}), 404
+            
+            knowledge_detail = knowledge_list[0]
+            knowledge_path = knowledge_detail[4]  # kno_path 是第5列 (索引4)
+            
+            # 构建完整的文件路径
+            file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / knowledge_path / knol_name
+            
+            # 删除本地文件
+            if file_path.exists():
+                file_path.unlink()
+                logger.info(f"本地文件已删除: {file_path}")
+            else:
+                logger.warning(f"文件在本地未找到: {file_path}")
+
+            # 删除数据库记录
+            success = crud.local_knowledge_list_delete(knol_id=knol_id)
+
+            if success:
+                return jsonify({'status': 'success', 'message': '文件删除成功'})
+            else:
+                return jsonify({'status': 'error', 'message': '文件删除失败'}), 500
+    except Exception as e:
+        logger.error(f"删除文件时发生错误: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'删除文件时发生错误: {str(e)}'}), 500

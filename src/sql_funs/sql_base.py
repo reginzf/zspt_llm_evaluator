@@ -245,7 +245,7 @@ class PostgreSQLManager:
         except Exception as e:
             self.connection.rollback()
             logger.error(f"插入数据失败: {e}")
-            return False
+            raise e
 
     def __enter__(self):
         """上下文管理器入口"""

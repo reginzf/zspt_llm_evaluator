@@ -265,7 +265,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         支持排序和限制结果数量
         """
 
-        exact_match_fields = ('knol_id', 'knol_path', 'ls_status')
+        exact_match_fields = ('knol_id', 'knol_path', 'ls_status','kno_id')
         partial_match_fields = ('knol_name', 'knol_describe')
         allowed_fileds = exact_match_fields + partial_match_fields
         query, params = self.gen_select_query('ai_local_knowledge_list', order_by=order_by, limit=limit,
