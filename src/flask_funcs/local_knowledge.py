@@ -328,21 +328,21 @@ def local_knowledge_bind():
 def get_local_knowledge_bindings(kno_id):
     """获取特定本地知识库的绑定状态"""
     try:
-        with LocalKnowledgeCrud() as crud:
+        with LocalKnowledgeCrud() as crud, Environment_Crud() as env_crud:
             # 获取绑定状态信息
             bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
             if not bindings:
                 return jsonify([]), 200
             # 构建返回数据，包含知识库名称
-        binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
-        knowledge_id = binding_dict['knowledge_id']
-        # 获取知识库名称，需要使用EnvironmentCrud
-        with Environment_Crud() as env_crud:
+            binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
+            knowledge_id = binding_dict['knowledge_id']
+            # 获取知识库名称，需要使用EnvironmentCrud
+
             knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
             if not knowledge_base:
                 return jsonify({'error': '知识库不存在'}), 404
             binding_dict['knowledge_name'] = knowledge_base[0][1]
-        return jsonify(binding_dict), 200
+            return jsonify(binding_dict), 200
     except Exception as e:
         logger.error(f"获取绑定状态时发生错误: {str(e)}")
         return jsonify({'error': '获取绑定状态失败'}), 500
@@ -363,21 +363,17 @@ def local_knowledge_sync():
         local_kno_id = data['local_kno_id']
         knowledge_id = data['knowledge_id']
         
-        # 这里实现同步逻辑
+        # TODO
+        # 1. 获取本地知识库文件列表 local_knowledge_file_list
+        with LocalKnowledgeCrud() as l_crud,Environment_Crud() as e_curd:
+            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id,ls_status=1)
+            knowledge_base_info = e_curd.get_knowledge_base(knowledge_id=knowledge_id)
+            # 2. 获取知识库，查询文件夹列表，获取有没有对应名称的文件夹，如果没有则创建，返回文件夹id
 
-        # 伪代码示例：
-        # 1. 获取本地知识库文件列表
-        # 2. 将文件上传到对应的知识库
-        # 3. 更新同步状态
-        
-        # 模拟同步过程
-        import time
-        time.sleep(1)  # 模拟同步过程
-        
-        # 实际实现时，需要：
-        # 1. 从ai_local_knowledge_list表获取本地知识库文件
-        # 2. 调用知识库API上传文件
-        # 3. 更新同步状态
+        # 3. 将local_knowledge_file_list中的文件上传到对应文件夹id 中，使用知识库的配置
+        # 4. 更新本地知识库状态为同步中
+        # 5. 新建一个查询进程定时查询知识库中文件的状态，如果同步成功则更新本地知识库状态为同步成功，否则更新为同步失败
+
         
         with LocalKnowledgeCrud() as crud:
             # 获取本地知识库文件
