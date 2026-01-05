@@ -50,7 +50,7 @@
             <div class="list-header">
                 <h2>知识库列表</h2>
                 <div class="list-controls">
-                    <button class="create-btn" onclick="createKnowledgeBase()">创建知识库</button>
+                    <button class="create-btn">创建知识库</button>
                     <select class="search-field">
                         <option value="knowledge_name">名称</option>
                         <option value="knowledge_id">ID</option>
@@ -63,12 +63,43 @@
                     <button class="search-btn" onclick="searchKnowledgeBases()">搜索</button>
                 </div>
             </div>
-            
-            <div class="knowledge-base-items" id="knowledgeBaseTable">
-                <!-- 初始内容将通过JavaScript加载 -->
-                <div class="loading-state">
-                    <p>正在加载...</p>
-                </div>
+
+            <div class="knowledge-base-items">
+                {% if knowledge_bases %}
+                    <!-- 知识库表格头部 -->
+                    <div class="knowledge-base-table-header">
+                        <div class="table-header-cell">名称/ID</div>
+                        <div class="table-header-cell">根ID</div>
+                        <div class="table-header-cell">分块大小</div>
+                        <div class="table-header-cell">分块重叠</div>
+                        <div class="table-header-cell">可见范围</div>
+                        <div class="table-header-cell">创建时间</div>
+                        <div class="table-header-cell">编辑时间</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
+                    {% for kb in knowledge_bases %}
+                    <div class="knowledge-base-table-row">
+                        <div class="table-cell" data-label="名称/ID">
+                            <div class="knowledge-name">{{ kb.knowledge_name }}</div>
+                            <div class="knowledge-id">{{ kb.knowledge_id }}</div>
+                        </div>
+                        <div class="table-cell" data-label="根ID">{{ kb.kno_root_id or 'N/A' }}</div>
+                        <div class="table-cell" data-label="分块大小">{{ kb.chunk_size }}</div>
+                        <div class="table-cell" data-label="分块重叠">{{ kb.chunk_overlap }}</div>
+                        <div class="table-cell" data-label="可见范围">{{ kb.visiblerange }}</div>
+                        <div class="table-cell" data-label="创建时间">{{ kb.created_at if kb.created_at else 'N/A' }}</div>
+                        <div class="table-cell" data-label="编辑时间">{{ kb.updated_at if kb.updated_at else 'N/A' }}</div>
+                        <div class="table-cell actions-cell" data-label="操作">
+                            <button class="action-btn edit-btn" onclick="editKnowledgeBase('{{ kb.knowledge_id }}')">编辑</button>
+                            <button class="action-btn delete-btn" onclick="deleteKnowledgeBase('{{ kb.knowledge_id }}')">删除</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>暂无知识库</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
