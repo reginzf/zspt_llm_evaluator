@@ -3,6 +3,14 @@
 
 // 初始化图表
 document.addEventListener('DOMContentLoaded', function() {
+    // 确保Chart.js库已加载
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library not loaded');
+        // 等待Chart.js加载后再尝试渲染
+        waitForChartJs();
+        return;
+    }
+
     // 确保数据已定义
     if (typeof metricsData !== 'undefined' && typeof correlationMatrix !== 'undefined') {
         renderCharts();
@@ -16,25 +24,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function showErrorMessage(message) {
-    // 在所有canvas元素中显示错误消息
-    const canvasIds = ['precisionChart', 'recallChart', 'f1DistributionChart', 'rankingMetricsChart'];
-    canvasIds.forEach(canvasId => {
-        const canvas = document.getElementById(canvasId);
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#f8d7da';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#721c24';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+function waitForChartJs() {
+    // 检查Chart.js是否加载，最多等待10秒
+    let attempts = 0;
+    const maxAttempts = 20; // 20次 * 500ms = 10秒
+
+    const checkChart = setInterval(() => {
+        if (typeof Chart !== 'undefined') {
+            clearInterval(checkChart);
+            console.log('Chart.js loaded, rendering charts...');
+            if (typeof metricsData !== 'undefined' && typeof correlationMatrix !== 'undefined') {
+                renderCharts();
+            } else {
+                showErrorMessage('数据加载失败，无法渲染图表');
+            }
+        } else {
+            attempts++;
+            if (attempts >= maxAttempts) {
+                clearInterval(checkChart);
+                console.error('Chart.js failed to load after 10 seconds');
+                showErrorMessage('图表库加载失败，请刷新页面重试');
+            }
         }
-    });
+    }, 500);
 }
 
+// ... existing code for showErrorMessage function ...
+
 function renderCharts() {
+    // 确保Chart.js已定义
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not available');
+        showErrorMessage('图表库未加载，无法渲染图表');
+        return;
+    }
+
     // 1. Top K准确率图表
     const precisionCtx = document.getElementById('precisionChart');
     if (precisionCtx && 
@@ -74,6 +98,10 @@ function renderCharts() {
                                 return `准确率@${context.label}: ${(context.raw * 100).toFixed(2)}%`;
                             }
                         }
+                    },
+                    // 添加数据标签插件配置
+                    datalabels: {
+                        display: false // 默认不显示，可根据需要启用
                     }
                 },
                 scales: {
@@ -147,6 +175,10 @@ function renderCharts() {
                                 return `召回率@${context.label}: ${(context.raw * 100).toFixed(2)}%`;
                             }
                         }
+                    },
+                    // 添加数据标签插件配置
+                    datalabels: {
+                        display: false // 默认不显示，可根据需要启用
                     }
                 },
                 scales: {
@@ -291,6 +323,10 @@ function renderCharts() {
                     title: {
                         display: true,
                         text: '排序质量指标雷达图'
+                    },
+                    // 添加数据标签插件配置
+                    datalabels: {
+                        display: false // 默认不显示，可根据需要启用
                     }
                 },
                 scales: {
@@ -325,6 +361,8 @@ function renderCharts() {
 
 }
 
+// ... existing code for toggleDetails and window resize ...
+
 function toggleDetails() {
     const detailsSection = document.getElementById('detailsSection');
     detailsSection.classList.toggle('active');
@@ -333,4 +371,14 @@ function toggleDetails() {
 // 添加窗口调整大小时重新渲染图表
 window.addEventListener('resize', function() {
     // 这里可以添加图表重新渲染的逻辑
+    if (typeof Chart !== 'undefined' && typeof metricsData !== 'undefined') {
+        // 重新渲染图表，可能需要先销毁现有图表
+        // 目前我们简单地重新调用renderCharts
+        setTimeout(() => {
+            // 清除现有图表实例
+            Chart.helpers ? Object.values(Chart.instances || {}).forEach(chart => chart.destroy()) : null;
+            // 重新渲染图表
+            renderCharts();
+        }, 300);
+    }
 });
