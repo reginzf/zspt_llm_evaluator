@@ -80,14 +80,18 @@ def local_knowledge_detail(kno_id, kno_name):
             from flask import render_template
             import os
             css_path = f"/static/css/local_knowledge.css?version={os.urandom(4).hex()}"
+            detail_css_path = f"/static/css/local_knowledge_detail.css?version={os.urandom(4).hex()}"
             js_url = f"/static/js/local_knowledge.js?version={os.urandom(4).hex()}"
+            detail_js_url = f"/static/js/local_knowledge_detail.js?version={os.urandom(4).hex()}"
 
             return render_template('local_knowledge_detail.html',
                                    knowledge_detail=knowledge_detail_dict,
                                    title=f'{knowledge_detail_dict["kno_name"]} - 本地知识库详情',
                                    heading=f'{knowledge_detail_dict["kno_name"]} 详情',
                                    css_path=css_path,
-                                   js_url=js_url)
+                                   detail_css_path=detail_css_path,
+                                   js_url=js_url,
+                                   detail_js_url=detail_js_url)
 
     except Exception as e:
         logger.error(f"获取本地知识详情时发生错误: {str(e)}")
@@ -342,31 +346,73 @@ def local_knowledge_bind():
         logger.error(f"绑定知识库时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'绑定知识库时发生错误: {str(e)}'}), 500
 
+def _get_binding_info(kno_id):
+    """获取绑定信息的辅助函数"""
+    with LocalKnowledgeCrud() as crud, Environment_Crud() as env_crud:
+        # 获取绑定状态信息
+        bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
+        if not bindings:
+            return None
+        
+        # 构建返回数据，包含知识库名称
+        binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
+        knowledge_id = binding_dict['knowledge_id']
+        
+        # 获取知识库名称
+        knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
+        if not knowledge_base:
+            return None
+        
+        binding_dict['knowledge_name'] = knowledge_base[0][1]
+        return binding_dict
 
-@local_knowledge_bp.route('/local_knowledge/bindings', methods=['POST'])
-def get_local_knowledge_bindings():
-    """获取特定本地知识库的绑定状态"""
-    data = request.get_json()
-    kno_id = data.get('kno_id', None)
+
+@local_knowledge_bp.route('/local_knowledge/bindings/<kno_id>', methods=['GET'])
+def get_local_knowledge_bindings_by_id(kno_id):
+    """获取特定本地知识库的绑定状态 - 通过URL参数"""
     try:
-        with LocalKnowledgeCrud() as crud, Environment_Crud() as env_crud:
-            # 获取绑定状态信息
-            bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
-            if not bindings:
-                return jsonify([]), 200
-            # 构建返回数据，包含知识库名称
-            binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
-            knowledge_id = binding_dict['knowledge_id']
-            # 获取知识库名称，需要使用EnvironmentCrud
-
-            knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
-            if not knowledge_base:
-                return jsonify({'error': '知识库不存在'}), 404
-            binding_dict['knowledge_name'] = knowledge_base[0][1]
-            return jsonify(binding_dict), 200
+        binding_info = _get_binding_info(kno_id)
+        if binding_info is None:
+            return jsonify([]), 200
+        return jsonify(binding_info), 200
     except Exception as e:
         logger.error(f"获取绑定状态时发生错误: {str(e)}")
         return jsonify({'error': '获取绑定状态失败'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/bindings', methods=['POST'])
+def get_local_knowledge_bindings():
+    """获取特定本地知识库的绑定状态 - 通过POST请求体"""
+    data = request.get_json()
+    kno_id = data.get('kno_id', None)
+    try:
+        data = request.get_json()
+        kno_id = data.get('kno_id', None)
+        binding_info = _get_binding_info(kno_id)
+        if binding_info is None:
+            return jsonify([]), 200
+        return jsonify(binding_info), 200
+    except Exception as e:
+        logger.error(f"获取绑定状态时发生错误: {str(e)}")
+        return jsonify({'error': '获取绑定状态失败'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/bindings/<kno_id>', methods=['POST'])
+def get_local_knowledge_bindings_count(kno_id):
+    """获取特定本地知识库的绑定数量"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取绑定状态信息
+            bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
+            if not bindings:
+                return jsonify({'count': 0}), 200
+            
+            # 计算绑定数量
+            count = len(bindings) if isinstance(bindings, list) else 1
+            return jsonify({'count': count}), 200
+    except Exception as e:
+        logger.error(f"获取绑定数量时发生错误: {str(e)}")
+        return jsonify({'error': '获取绑定数量失败'}), 500
 
 
 @local_knowledge_bp.route('/local_knowledge/sync', methods=['POST'])
@@ -413,3 +459,69 @@ def local_knowledge_sync():
     except Exception as e:
         logger.error(f"同步知识库时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/update', methods=['PUT'])
+def update_local_knowledge():
+    """更新本地知识库信息"""
+    try:
+        data = request.get_json()
+        kno_id = data.get('kno_id')
+        kno_name = data.get('kno_name')
+        kno_describe = data.get('kno_describe')
+
+        if not kno_id:
+            return jsonify({'success': False, 'message': '缺少知识库ID'}), 400
+
+        with LocalKnowledgeCrud() as crud:
+            # 更新知识库描述
+            success = crud.local_knowledge_update(
+                kno_id=kno_id,
+                kno_name=kno_name,
+                kno_describe=kno_describe
+            )
+            
+            if success:
+                return jsonify({'success': True, 'message': '知识库更新成功'})
+            else:
+                return jsonify({'success': False, 'message': '知识库更新失败'}), 500
+    except Exception as e:
+        logger.error(f"更新知识库时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'更新知识库时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_bp.route('/local_knowledge/delete_main/<kno_id>', methods=['DELETE'])
+def delete_main_local_knowledge(kno_id):
+    """删除主要的本地知识库记录"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 先删除关联的文件记录
+            # 获取该知识库下的所有文件
+            local_files = crud.get_local_knowledge_list(kno_id=kno_id)
+            for file_record in local_files:
+                # 删除本地文件
+                file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / file_record[4]  # knol_path 是第5列 (索引4)
+                if file_path.exists():
+                    file_path.unlink()
+                
+                # 删除数据库记录
+                crud.local_knowledge_list_delete(knol_id=file_record[1])  # knol_id 是第2列 (索引1)
+
+            # 删除知识库绑定记录
+            bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
+            for binding in bindings:
+                # 删除绑定记录
+                query = "DELETE FROM ai_knowledge_bind WHERE kno_id = %s AND knowledge_id = %s"
+                params = (kno_id, binding[2])  # knowledge_id 是第3列 (索引2)
+                crud.execute_query(query, params)
+
+            # 删除主要知识库记录
+            success = crud.local_knowledge_delete(kno_id=kno_id)
+
+            if success:
+                return jsonify({'success': True, 'message': '知识库删除成功'})
+            else:
+                return jsonify({'success': False, 'message': '知识库删除失败'}), 500
+    except Exception as e:
+        logger.error(f"删除知识库时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除知识库时发生错误: {str(e)}'}), 500

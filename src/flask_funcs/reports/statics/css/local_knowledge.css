@@ -130,6 +130,10 @@ h1 {
     transition: background-color 0.3s;
 }
 
+.action-btn {
+    color: #333; /* 深色字体 */
+}
+
 .upload-btn {
     background-color: #667eea;
     color: white;
@@ -147,6 +151,8 @@ h1 {
 .action-btn:hover {
     background-color: #5a6167;
 }
+
+
 
 .delete-btn {
     background-color: #dc3545;
@@ -400,7 +406,7 @@ h1 {
 
 .bind-status-unbound {
     background-color: #f8d7da;
-    color: #721c24;
+    color: #333; /* 深色字体 */
     border: 1px solid #f5c6cb;
 }
 
@@ -430,7 +436,7 @@ h1 {
 
 .bind-status-unknown {
     background-color: #f8f9fa;
-    color: #6c757d;
+    color: #333; /* 深色字体 */
     border: 1px solid #ced4da;
 }
 

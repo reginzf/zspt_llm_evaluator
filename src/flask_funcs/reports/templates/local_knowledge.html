@@ -42,7 +42,6 @@
                     <td class="binding-count" data-kno-id="{{ item.kno_id }}">加载中...</td>
                     <td>
                         <button class="action-btn detail-btn" onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">详情</button>
-                        <button class="action-btn upload-btn" onclick="uploadFile('{{ item.kno_id }}')">上传文件</button>
                         <button class="action-btn edit-btn" onclick="editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
                         <button class="action-btn delete-btn" onclick="deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
                     </td>
@@ -72,7 +71,10 @@
                 .then(response => response.json())
                 .then(data => {
                     let count = 0;
-                    if (data && !Array.isArray(data)) {
+                    if (data && data.count !== undefined) {
+                        // 如果返回包含count的对象
+                        count = data.count;
+                    } else if (data && !Array.isArray(data)) {
                         // 如果返回单个对象，计为1
                         count = 1;
                     } else if (Array.isArray(data)) {

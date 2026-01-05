@@ -5,85 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or '本地知识库详情' }}</title>
     <link rel="stylesheet" href="{{ css_path }}">
-    <style>
-        .detail-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .knowledge-detail-header {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .detail-row {
-            display: flex;
-            margin-bottom: 15px;
-        }
-        
-        .detail-label {
-            width: 150px;
-            font-weight: bold;
-            color: #555;
-        }
-        
-        .detail-value {
-            flex: 1;
-            color: #333;
-        }
-        
-        .tabs {
-            margin-top: 20px;
-        }
-        
-        .tab-buttons {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .tab-button {
-            padding: 10px 20px;
-            cursor: pointer;
-            background-color: #f1f1f1;
-            border: 1px solid #ddd;
-            border-bottom: none;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-        
-        .tab-button.active {
-            background-color: #fff;
-            border-bottom: 1px solid #fff;
-            margin-bottom: -1px;
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .file-list, .binding-list {
-            list-style-type: none;
-            padding: 0;
-        }
-        
-        .file-item, .binding-item {
-            padding: 10px;
-            border: 1px solid #eee;
-            margin-bottom: 10px;
-            border-radius: 4px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ detail_css_path }}">
 </head>
 <body>
 <div class="detail-container">
@@ -143,6 +65,9 @@
         <!-- 知识库文件页 -->
         <div id="files" class="tab-content active">
             <h3>知识库文件列表</h3>
+            <div class="file-actions">
+                <button class="action-btn upload-btn" onclick="uploadFileForKnowledge('{{ knowledge_detail.kno_id }}')">上传文件</button>
+            </div>
             <ul class="file-list" id="file-list">
                 <li class="loading">正在加载文件列表...</li>
             </ul>
@@ -151,10 +76,12 @@
         <!-- 知识库绑定状态页 -->
         <div id="bindings" class="tab-content">
             <h3>知识库绑定状态</h3>
+            <div class="binding-actions">
+                <button class="action-btn bind-btn" onclick="showBindDialog()">绑定知识库</button>
+            </div>
             <ul class="binding-list" id="binding-list">
                 <li class="loading">正在加载绑定状态...</li>
             </ul>
-            <button class="action-btn bind-btn" onclick="showBindDialog()">绑定知识库</button>
         </div>
         
         <!-- 标注进度页 -->
@@ -172,162 +99,7 @@
 </div>
 
 <script src="{{ js_url }}"></script>
-<script>
-    // 标签页切换功能
-    function switchTab(tabName) {
-        // 隐藏所有标签内容
-        const tabContents = document.querySelectorAll('.tab-content');
-        tabContents.forEach(content => {
-            content.classList.remove('active');
-        });
-        
-        // 移除所有标签按钮的active类
-        const tabButtons = document.querySelectorAll('.tab-button');
-        tabButtons.forEach(button => {
-            button.classList.remove('active');
-        });
-        
-        // 显示选中的标签内容
-        document.getElementById(tabName).classList.add('active');
-        
-        // 为选中的标签按钮添加active类
-        event.target.classList.add('active');
-        
-        // 根据标签加载相应内容
-        if (tabName === 'files') {
-            loadFileList();
-        } else if (tabName === 'bindings') {
-            loadBindingStatus();
-        }
-    }
-    
-    // 加载文件列表
-    function loadFileList() {
-        const fileListContainer = document.getElementById('file-list');
-        // 从页面元素获取kno_id和kno_name
-        const knoId = document.getElementById('knowledge-id').textContent.trim();
-        const knoName = document.getElementById('knowledge-name').textContent.trim();
-        
-        fetch(`/api/local_knowledge_detail/${knoId}/${knoName}`)
-            .then(response => response.json())
-            .then(data => {
-                fileListContainer.innerHTML = '';
-                if (data && data.length > 0) {
-                    data.forEach(file => {
-                        const fileItem = document.createElement('li');
-                        fileItem.className = 'file-item';
-                        fileItem.innerHTML = `
-                            <div class="file-info">
-                                <strong>文件名:</strong> ${file.kno_name}<br>
-                                <strong>描述:</strong> ${file.kno_describe || '暂无描述'}<br>
-                                <strong>状态:</strong> 
-                                <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : 'in-progress'}">
-                                    ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : '进行中'}
-                                </span><br>
-                                <strong>路径:</strong> ${file.knol_path || 'N/A'}<br>
-                                <strong>创建时间:</strong> ${file.created_at || 'N/A'}
-                                <div class="file-actions">
-                                    <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id}', '${file.kno_name}')">删除</button>
-                                    <button class="action-btn edit-btn" onclick="editFile('${file.knol_id}', '${file.kno_name}')">编辑</button>
-                                </div>
-                            </div>
-                        `;
-                        fileListContainer.appendChild(fileItem);
-                    });
-                } else {
-                    fileListContainer.innerHTML = '<li class="no-data">暂无文件</li>';
-                }
-            })
-            .catch(error => {
-                console.error('加载文件列表时出错:', error);
-                fileListContainer.innerHTML = '<li class="error">加载文件列表失败</li>';
-            });
-    }
-    
-    // 加载绑定状态
-    function loadBindingStatus() {
-        const bindingListContainer = document.getElementById('binding-list');
-        const knoId = document.getElementById('knowledge-id').textContent.trim();
-        
-        fetch(`/local_knowledge/bindings/${knoId}`)
-            .then(response => response.json())
-            .then(data => {
-                bindingListContainer.innerHTML = '';
-                
-                if (data && !Array.isArray(data)) {
-                    // 单个绑定对象
-                    const bindingItem = createBindingItem(data, knoId);
-                    bindingListContainer.appendChild(bindingItem);
-                } else if (Array.isArray(data) && data.length > 0) {
-                    // 多个绑定对象
-                    data.forEach(binding => {
-                        const bindingItem = createBindingItem(binding, knoId);
-                        bindingListContainer.appendChild(bindingItem);
-                    });
-                } else {
-                    bindingListContainer.innerHTML = '<li class="no-data">暂无绑定</li>';
-                }
-            })
-            .catch(error => {
-                console.error('加载绑定状态时出错:', error);
-                bindingListContainer.innerHTML = '<li class="error">加载绑定状态失败</li>';
-            });
-    }
-    
-    // 创建绑定项
-    function createBindingItem(data, knoId) {
-        const bindingItem = document.createElement('li');
-        bindingItem.className = 'binding-item';
-        
-        let statusText = '';
-        let statusClass = '';
-        switch (data.bind_status) {
-            case 0:
-                statusText = '未绑定';
-                statusClass = 'bind-status-unbound';
-                break;
-            case 1:
-                statusText = '绑定中';
-                statusClass = 'bind-status-binding';
-                break;
-            case 2:
-                statusText = '已绑定';
-                statusClass = 'bind-status-bound';
-                break;
-            case 3:
-                statusText = '解绑中';
-                statusClass = 'bind-status-unbinding';
-                break;
-            case 4:
-                statusText = '已解绑';
-                statusClass = 'bind-status-unbounded';
-                break;
-            default:
-                statusText = '未知';
-                statusClass = 'bind-status-unknown';
-        }
-        
-        bindingItem.innerHTML = `
-            <div class="binding-info">
-                <strong>知识库:</strong> ${data.knowledge_name || data.knowledge_id}<br>
-                <strong>ID:</strong> ${data.knowledge_id}<br>
-                <strong>状态:</strong> <span class="binding-status ${statusClass}">${statusText}</span>
-            </div>
-            <div class="binding-actions">
-                ${data.bind_status === 2 ? `<button class="action-btn sync-btn" onclick="syncKnowledge('${knoId}', '${data.knowledge_id}')">同步知识库</button>` : ''}
-                <button class="action-btn unbind-btn" onclick="unbindKnowledge('${knoId}', '${data.knowledge_id}')">解绑</button>
-            </div>
-        `;
-        
-        return bindingItem;
-    }
-    
-    // 页面加载完成后加载文件列表
-    document.addEventListener('DOMContentLoaded', function() {
-        // 默认加载文件列表
-        loadFileList();
-    });
-</script>
+<script src="{{ detail_js_url }}"></script>
 
 <!-- 绑定对话框 -->
 <div id="bindDialog" class="modal">
@@ -353,6 +125,26 @@
         <div class="modal-footer">
             <button class="btn btn-primary" onclick="bindKnowledge()">绑定</button>
             <button class="btn btn-secondary" onclick="closeBindDialog()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 上传文件对话框 -->
+<div id="uploadDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>上传文件</h3>
+            <span class="close" onclick="closeUploadDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="fileInput">选择文件:</label>
+                <input type="file" id="fileInput" class="form-control" multiple>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="uploadFile()">上传</button>
+            <button class="btn btn-secondary" onclick="closeUploadDialog()">取消</button>
         </div>
     </div>
 </div>
