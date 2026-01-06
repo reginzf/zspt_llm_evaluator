@@ -226,7 +226,7 @@ class Environment_Crud(PostgreSQLManager):
             "visiblerange": visiblerange,
             "deptidlist": deptidlist or [],
             "managedeptidlist": managedeptidlist or [],
-            "zlpt_base_id": zlpt_base_id
+            "zlpt_id": zlpt_base_id
         })
 
     def knowledge_base_update(self, knowledge_id: str, knowledge_name: str = None, kno_root_id: str = None,
