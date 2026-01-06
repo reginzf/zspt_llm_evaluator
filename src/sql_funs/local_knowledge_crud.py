@@ -14,7 +14,7 @@ BIND_STATUS_MAP = {
 
 class LocalKnowledgeCrud(PostgreSQLManager):
     def local_knowledge_insert(self, kno_id: str, kno_name: str, kno_describe: str, kno_path: str,
-                               knol_id: str, ls_status: int = 1):
+                                ls_status: int = 1):
         """
         插入本地知识库信息
         """
@@ -23,7 +23,6 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             "kno_name": kno_name,
             "kno_describe": kno_describe,
             "kno_path": kno_path,
-            "knol_id": knol_id,
             "ls_status": ls_status
         })
 

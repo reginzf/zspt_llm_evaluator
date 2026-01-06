@@ -177,7 +177,7 @@ function showUploadDialog(knoId) {
 
 function deleteFile(knolId, knolName) {
     if (confirm(`确定要删除文件 "${knolName}" 吗？`)) {
-        fetch(`/local_knowledge/delete/${knolId}`, {
+        fetch(`/local_knowledge_doc/delete/${knolId}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
@@ -202,7 +202,7 @@ function editFile(knolId, knolName, currentDescribe) {
         const formData = new FormData();
         formData.append('knol_describe', newDescribe);
 
-        fetch(`/local_knowledge/edit/${knolId}`, {
+        fetch(`/local_knowledge_doc/edit/${knolId}`, {
             method: 'PUT',
             body: formData
         })
