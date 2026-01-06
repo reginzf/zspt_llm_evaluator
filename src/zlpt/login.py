@@ -105,6 +105,40 @@ class LoginManager:
         if auth_token:
             self.auth_token = auth_token
         self.session.headers.update({'X-Auth-Token': auth_token})
+        self.session.cookies.update({"token": auth_token})
+        self.session.cookies.update({"f.token": auth_token})
+
+    def login_unsafe(self, username=None, password=None):
+        url = f"{self.base_url}/api/sys/auth/v1/tokens"
+        payload = {"auth": {
+            "identity": {"methods": ["password"], "password": {"user": {"name": username}, "password": password}}}}
+        try:  # 发送POST请求
+            logger.info(f"发送请求 - URL: {url}, Payload: {payload}")
+            if username:
+                response = self.session.post(
+                    url,
+                    json=payload,
+                    verify=False,
+                    timeout=30
+                )
+            else:
+                response = self.session.post(
+                    url,
+                    verify=False,
+                    timeout=30)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"请求异常: {e}")
+            return None
+        logger.info(f"原始响应: {response.text}\nHEADERS:{response.headers}")
+        # 处理headers:
+        # self.session.headers.update({'X-Auth-Token': response.headers["X-Subject-Token"]})
+        # self.session.cookies.update({"token": response.headers["X-Subject-Token"]})
+        # self.session.cookies.update({"f.token": response.headers["X-Subject-Token"]})
+        # 处理project
+        res_dict = response.json()
+        user_id = res_dict["token"]["user"]["id"]
+        project_id = res_dict["token"]["project"]["id"]
+        return user_id, project_id
 
 
 # 使用示例
@@ -117,6 +151,6 @@ if __name__ == "__main__":
     domain = "default"
 
     # 执行登录
-    response = login_manager.login(username, password, domain)
+    response = login_manager.login_unsafe(username, password)
     # 获取auth_token
-    response = login_manager.get_auth_key()
+    print(response)
