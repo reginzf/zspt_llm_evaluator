@@ -163,44 +163,117 @@ function deleteKnowledgeBase(knowledgeId) {
     }
 }
 
-// 创建知识库
+// 创建知识库 - 显示模态框
 function createKnowledgeBase() {
-    const knowledgeName = prompt('请输入知识库名称:', '');
-    if (knowledgeName !== null && knowledgeName.trim() !== '') {
-        // 从URL参数中获取zlpt_base_id
-        const urlParams = new URLSearchParams(window.location.search);
-        const zlpt_base_id = urlParams.get('zlpt_base_id');
-
-        if (!zlpt_base_id) {
-            alert('无法获取环境ID，请返回环境列表页面重新进入');
-            return;
+    // 创建模态框HTML
+    const modal = document.createElement('div');
+    modal.id = 'createKnowledgeBaseModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建知识库</h3>
+                <span class="close" onclick="closeCreateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="knowledgeName">知识库名称:</label>
+                    <input type="text" id="knowledgeName" class="form-control" placeholder="请输入知识库名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="chunkSize">分块大小:</label>
+                    <input type="number" id="chunkSize" class="form-control" placeholder="请输入分块大小" value="400" required>
+                </div>
+                <div class="form-group">
+                    <label for="chunkOverlap">分块重叠:</label>
+                    <input type="number" id="chunkOverlap" class="form-control" placeholder="请输入分块重叠" value="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="sliceIdentifier">分隔符:</label>
+                    <input type="text" id="sliceIdentifier" class="form-control" placeholder="请输入分隔符，用逗号分隔" value="。,！,!,？,?,，,:,：,." required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="submitCreateKnowledgeBase()">创建</button>
+                <button class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 显示模态框
+    modal.style.display = 'block';
+    
+    // 添加关闭事件
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            closeCreateModal();
         }
-
-        // 发送创建请求到后端
-        fetch('/knowledge_base/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                knowledge_name: knowledgeName,
-                zlpt_base_id: zlpt_base_id
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('知识库创建成功');
-                location.reload(); // 刷新页面以显示新创建的知识库
-            } else {
-                alert('创建失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('创建知识库时出错:', error);
-            alert('创建知识库时发生错误');
-        });
     }
+}
+
+// 关闭创建模态框
+function closeCreateModal() {
+    const modal = document.getElementById('createKnowledgeBaseModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 提交创建知识库
+function submitCreateKnowledgeBase() {
+    const knowledgeName = document.getElementById('knowledgeName').value;
+    const chunkSize = document.getElementById('chunkSize').value;
+    const chunkOverlap = document.getElementById('chunkOverlap').value;
+    const sliceIdentifierInput = document.getElementById('sliceIdentifier').value;
+    
+    // 将分隔符字符串转换为数组
+    const sliceIdentifier = sliceIdentifierInput.split(',').map(item => item.trim()).filter(item => item !== '');
+    
+    // 从URL参数中获取zlpt_base_id
+    const urlParams = new URLSearchParams(window.location.search);
+    const zlpt_base_id = urlParams.get('zlpt_base_id');
+
+    if (!zlpt_base_id) {
+        alert('无法获取环境ID，请返回环境列表页面重新进入');
+        closeCreateModal();
+        return;
+    }
+
+    if (!knowledgeName || !chunkSize || !chunkOverlap || !sliceIdentifier) {
+        alert('请填写所有必填字段');
+        return;
+    }
+
+    // 发送创建请求到后端
+    fetch('/knowledge_base/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            knowledge_name: knowledgeName,
+            zlpt_base_id: zlpt_base_id,
+            chunk_size: parseInt(chunkSize),
+            chunk_overlap: parseInt(chunkOverlap),
+            sliceidentifier: sliceIdentifier
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('知识库创建成功');
+            closeCreateModal();
+            location.reload(); // 刷新页面以显示新创建的知识库
+        } else {
+            alert('创建失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('创建知识库时出错:', error);
+        alert('创建知识库时发生错误');
+    });
 }
 
 // 为创建按钮添加事件监听器
