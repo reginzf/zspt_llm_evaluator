@@ -237,16 +237,18 @@ def get_knowledge_base_binding_info(kno_id, local_crud_class, env_crud_class):
             return None
 
         # 构建返回数据，包含知识库名称
-        binding_dict = crud._local_knowledge_bind_to_json(bindings[0])
-        knowledge_id = binding_dict['knowledge_id']
 
-        # 获取知识库名称
-        knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
-        if not knowledge_base:
-            return None
-
-        binding_dict['knowledge_name'] = knowledge_base[0][1]
-        return binding_dict
+        binding_list = [crud._local_knowledge_bind_to_json(binding) for binding in bindings]
+        res = []
+        for binding_dict in binding_list:
+            knowledge_id = binding_dict['knowledge_id']
+            # 获取知识库名称
+            knowledge_base = env_crud.get_knowledge_base(knowledge_id=knowledge_id)
+            if not knowledge_base:
+                return None
+            binding_dict['knowledge_name'] = knowledge_base[0][1]
+            res.append(binding_dict)
+        return res
 
 
 def safe_execute_with_rollback(operation_func, rollback_func=None, logger=None):
