@@ -21,56 +21,6 @@ def save_xml_file(xml_content: str, file_path: str):
         f.write(xml_content)
 
 
-def get_test_paths(relative_path) -> Dict[str, str]:
-    """
-    获取OSPF测试相关目录和文件的绝对路径
-
-    Args:
-        relative_path: 相对于项目根目录的路径，默认为"tests\\ospf"
-
-    Returns:
-        包含以下键的字典：
-        - "project_root": 项目根目录绝对路径
-        - "target_dir": OSPF测试目录绝对路径
-        - "docs_dir": docs目录绝对路径
-        - "questions_json": questions.json文件绝对路径
-        - "ls_labeled_chunks_dir": ls_labeled_chunks目录绝对路径
-        - "lzpt_chunks_dir": lzpt_chunks目录绝对路径
-    """
-    # 获取当前文件的绝对路径
-    current_file_path = Path(__file__).resolve()
-    project_root = None
-    for parent in current_file_path.parents:
-        if (parent / "main.py").exists():
-            project_root = parent
-            break
-
-    # 构建完整路径
-    target_dir = project_root / 'tests' /relative_path    # 固定放在tests目录下
-    # 验证路径是否存在
-    if not target_dir.exists():
-        raise FileNotFoundError(f"测试目录不存在: {target_dir}")
-    # 构建各个子路径
-    paths = {
-        "project_root": str(project_root),
-        "target_dir": str(target_dir),
-        "docs_dir": str(target_dir / "docs"),
-        "questions": str(target_dir / "questions"),
-        "ls_labeled_chunks_dir": str(target_dir / "ls_labeled_chunks"),
-        "lzpt_chunks_dir": str(target_dir / "lzpt_chunks"),
-    }
-
-    # 验证各个子路径是否存在
-    for key, path_str in paths.items():
-        path = Path(path_str)
-        if key not in ["project_root"] and not path.exists():
-            print(f"警告: {key} 路径不存在: {path_str}")
-            path.mkdir()
-
-    return paths
-
-
-
 def load_metric_data(filepath: str, report_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
     """
     加载metric数据
