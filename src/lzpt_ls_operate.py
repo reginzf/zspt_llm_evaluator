@@ -2,24 +2,24 @@ import os.path
 import jsonpath
 from utils.logger import logger
 
-from env_config_init import settings, QUESTION_JSON, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR, KNOWLEDGE_PATH, \
+from env_config_init import settings, ZLPT_CHUNKS_DIR, LS_LABELED_CHUNKS_DIR, DOC_DIR, KNOWLEDGE_PATH, \
     REPORT_PATH
-from zlpt.login import LoginManager
-from zlpt.api.knowledge_base import Retrieve
-from zlpt.api.knowledge_base import KnowledgeBase
+from src.zlpt.login import LoginManager
+from src.zlpt.api.knowledge_base import Retrieve
+from src.zlpt.api.knowledge_base import KnowledgeBase
 
-from label_studio_api import create_tasks
-from label_studio_api import label_studio_client
-from label_studio_api import LabelStudioXMLGenerator
-from label_studio_api.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
-from label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
+from src.label_studio_api import create_tasks
+from src.label_studio_api import label_studio_client
+from src.label_studio_api import LabelStudioXMLGenerator
+from src.label_studio_api.annotator import Annotator, AnnotationGenerator, AnnotateToCreate
+from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.questions import get_question_type_and_label
 from utils.decorators import check
 from utils.pub_funs import save_json_file, load_json_file
 from typing import List, Dict, Any, Optional, Callable
-from label_studio_api.task import get_tasks_with_specific_choice
+from src.label_studio_api.task import get_tasks_with_specific_choice
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 
 annotation_generator = AnnotationGenerator()
@@ -197,7 +197,7 @@ ls_user = login_label_studio()
 prediction_c = LabelStudioPredictionCreator(ls_user)
 
 
-def ls_create_project(title, description=''):
+def ls_create_project(title,QUESTION_JSON, description=''):
     """
     在Label Studio中创建项目并设置标签配置
     Args:
@@ -242,7 +242,7 @@ def ls_create_tasks(project, chunk_all):
     return res  # [task_id1,task_id2...]
 
 
-def ls_save_data(project_id):
+def ls_save_data(project_id,QUESTION_JSON):
     project = _get_project('', project_id)
     logger.info("导出任务数据")
     project_raw_data = project.export_tasks(export_type='JSON')
@@ -250,7 +250,7 @@ def ls_save_data(project_id):
     save_json_file(project_raw_data, file_path)
 
 
-def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', prediction=False):
+def label_chunks_by_chunk_id(annotator, question, chunks,QUESTION_JSON, to_name='text', prediction=False):
     """
        根据切片ID对返回的切片进行标注
 
@@ -298,7 +298,7 @@ def label_chunks_by_chunk_id(annotator, question, chunks, to_name='text', predic
     logger.info(f"标注完成 - 成功: {success_count}, 失败: {failed_count}")
 
 
-def zlpt_create_project():
+def zlpt_create_project(QUESTION_JSON):
     logger.info("===step 1: 紫鸾知识库创建和文件上传 ===")
     try:
         logger.info(f"配置参数 - CHUNK_SIZE: {chunk_size}, CHUNK_OVERLAP: {chunk_overlap}")
@@ -344,7 +344,7 @@ def ls_create_project_and_tasks():
 
 
 # 开始标注
-def label_by_retrieve(kno_id, project_id, search_type, prediction=False):
+def label_by_retrieve(kno_id, project_id, search_type,QUESTION_JSON, prediction=False):
     """
     通过 召回 进行标记或预测
     :param kno_id: 知识库ID
@@ -427,7 +427,7 @@ def _get_project(project_name: str, project_id: Optional[str]):
     return projects[0]
 
 
-def _extract_questions() -> List[str]:
+def _extract_questions(QUESTION_JSON) -> List[str]:
     """从全局 QUESTION_JSON 中提取所有问题"""
     questions = []
     for qs in jsonpath.jsonpath(QUESTION_JSON, '$..datas..questions') or []:
@@ -465,7 +465,7 @@ def _process_question_chunk_data(
         return {"error": str(e)}
 
 
-def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type: str,
+def cal_metric_by_chunk_id_fullmatch(project_name: str, kno_id: str, search_type: str,QUESTION_JSON,
                                      project_id=None):
     """
     获取指定search_type的召回和label studio下已标注的数据，计算metric
