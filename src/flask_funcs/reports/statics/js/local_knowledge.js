@@ -1,5 +1,3 @@
-// 上传文件功能 - 用于列表页面
-
 // 用于详细页面的上传文件功能
 function showUploadDialogFromJS(knoId) {
     // 保存当前知识库ID
@@ -65,7 +63,7 @@ function editKnowledge(event, knoId, knoName, currentDescribe) {
     const newDescribe = prompt('请输入新的描述:', currentDescribe);
     if (newDescribe !== null) {
         // 发送更新请求
-        fetch('/local_knowledge/update', {
+        fetch('/local_knowledge/edit', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -96,7 +94,7 @@ function editKnowledge(event, knoId, knoName, currentDescribe) {
 function deleteKnowledge(event, knoId) {
     event.stopPropagation(); // 防止事件冒泡
     if (confirm('确定要删除此知识库吗？')) {
-        fetch(`/local_knowledge/delete_main/${knoId}`, {
+        fetch(`/local_knowledge/delete/${knoId}`, {
             method: 'DELETE'
         })
             .then(response => response.json())
@@ -113,6 +111,57 @@ function deleteKnowledge(event, knoId) {
                 alert('删除过程中发生错误: ' + error.message);
             });
     }
+}
+
+// 创建知识库功能
+function createKnowledge() {
+    // 显示创建知识库对话框
+    document.getElementById('createKnowledgeDialog').style.display = 'block';
+}
+
+// 关闭创建知识库对话框
+function closeCreateKnowledgeDialog() {
+    document.getElementById('createKnowledgeDialog').style.display = 'none';
+    // 清空输入框
+    document.getElementById('knowledgeName').value = '';
+    document.getElementById('knowledgeDescription').value = '';
+}
+
+// 提交创建知识库
+function submitCreateKnowledge() {
+    const name = document.getElementById('knowledgeName').value;
+    const description = document.getElementById('knowledgeDescription').value;
+    
+    if (!name || name.trim() === '') {
+        alert('知识库名称不能为空');
+        return;
+    }
+
+    // 发送创建请求
+    fetch('/local_knowledge/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            kno_name: name.trim(),
+            kno_describe: description ? description.trim() : null
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('知识库创建成功');
+                closeCreateKnowledgeDialog();
+                location.reload();
+            } else {
+                alert('知识库创建失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('创建知识库时出错:', error);
+            alert('创建过程中发生错误: ' + error.message);
+        });
 }
 
 // 显示绑定对话框 - 用于详细页面
@@ -251,33 +300,6 @@ function closeBindDialog() {
     document.getElementById('knowledgeBaseSelect').innerHTML = '<option value="">请先选择环境</option>';
 }
 
-// 同步知识库
-function syncKnowledge(knoId, knowledgeId) {
-    if (confirm(`确定要同步知识库 ${knowledgeId} 吗？`)) {
-        fetch('/local_knowledge/sync', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                local_kno_id: knoId,
-                knowledge_id: knowledgeId
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('知识库同步成功');
-                } else {
-                    alert('知识库同步失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('同步知识库时出错:', error);
-                alert('同步过程中发生错误: ' + error.message);
-            });
-    }
-}
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function () {

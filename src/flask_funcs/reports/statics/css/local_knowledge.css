@@ -30,8 +30,186 @@ h1 {
     border-bottom: 2px solid #f0f0f0;
 }
 
+.knowledge-list-header {
+    margin-bottom: 20px;
+}
+
+.create-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.create-btn:hover {
+    background-color: #218838;
+}
+
 .knowledge-list {
+    margin-top: 0;
+}
+
+.knowledge-table {
+    margin-top: 0;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s;
+    color: #333;
+    background-color: #6c757d;
+    color: white;
+}
+
+.action-btn:hover {
+    background-color: #5a6167;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+
+.edit-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.edit-btn:hover {
+    background-color: #e0a800;
+}
+
+.detail-btn {
+    background-color: #667eea;
+    color: white;
+}
+
+.detail-btn:hover {
+    background-color: #5a67d8;
+}
+
+.binding-count {
+    /* 用于显示绑定数量的元素 */
+}
+
+/* 创建知识库对话框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #667eea;
+}
+
+.close {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #aaa;
+}
+
+.close:hover {
+    color: #000;
+}
+
+.modal-body {
+    margin: 15px 0;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
     margin-top: 20px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
 }
 
 .knowledge-item {
@@ -152,7 +330,21 @@ h1 {
     background-color: #5a6167;
 }
 
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s;
+    color: #333;
+    background-color: #6c757d;
+    color: white;
+}
 
+.action-btn:hover {
+    background-color: #5a6167;
+}
 
 .delete-btn {
     background-color: #dc3545;
@@ -160,14 +352,6 @@ h1 {
 
 .delete-btn:hover {
     background-color: #c82333;
-}
-
-.upload-online-btn {
-    background-color: #28a745;
-}
-
-.upload-online-btn:hover {
-    background-color: #218838;
 }
 
 .edit-btn {
@@ -179,13 +363,17 @@ h1 {
     background-color: #e0a800;
 }
 
-.bind-btn {
-    background-color: #17a2b8;
+.detail-btn {
+    background-color: #667eea;
     color: white;
 }
 
-.bind-btn:hover {
-    background-color: #138496;
+.detail-btn:hover {
+    background-color: #5a67d8;
+}
+
+.binding-count {
+    /* 用于显示绑定数量的元素 */
 }
 
 .knowledge-details {

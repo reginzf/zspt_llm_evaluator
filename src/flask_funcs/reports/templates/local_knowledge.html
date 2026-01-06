@@ -9,6 +9,9 @@
 <body>
 <div class="container">
     <h1>{{ heading or '本地知识库' }}</h1>
+    <div class="knowledge-list-header">
+        <button class="action-btn create-btn" onclick="createKnowledge()">创建知识库</button>
+    </div>
     <div class="knowledge-list">
         {% if knowledge_data %}
         <table class="knowledge-table">
@@ -52,6 +55,30 @@
         {% else %}
         <p>暂无本地知识库数据</p>
         {% endif %}
+    </div>
+    
+    <!-- 创建知识库对话框 -->
+    <div id="createKnowledgeDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建知识库</h3>
+                <span class="close" onclick="closeCreateKnowledgeDialog()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="knowledgeName">知识库名称 *</label>
+                    <input type="text" id="knowledgeName" class="form-control" placeholder="请输入知识库名称">
+                </div>
+                <div class="form-group">
+                    <label for="knowledgeDescription">知识库描述</label>
+                    <textarea id="knowledgeDescription" class="form-control" placeholder="请输入知识库描述" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="submitCreateKnowledge()">创建</button>
+                <button class="btn btn-secondary" onclick="closeCreateKnowledgeDialog()">取消</button>
+            </div>
+        </div>
     </div>
 </div>
 <script src="{{ js_url }}"></script>
