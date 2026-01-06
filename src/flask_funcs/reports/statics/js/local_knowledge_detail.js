@@ -95,11 +95,7 @@ function loadBindingStatus() {
     .then(data => {
         bindingListContainer.innerHTML = '';
 
-        if (data && !Array.isArray(data)) {
-            // 单个绑定对象
-            const bindingItem = createBindingItem(data, knoId);
-            bindingListContainer.appendChild(bindingItem);
-        } else if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
             // 多个绑定对象
             data.forEach(binding => {
                 const bindingItem = createBindingItem(binding, knoId);
