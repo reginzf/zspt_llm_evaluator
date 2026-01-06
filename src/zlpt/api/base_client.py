@@ -5,6 +5,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 __all__ = ['BaseClient', 'ApiBase']
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def data_pretreat(data):
     date_type = type(data)
@@ -99,6 +103,7 @@ class BaseClient(ApiBase):
                Returns:
                    响应结果字典
                """
+
         method = method.lower()
         # 处理parse
         if kwargs:
@@ -106,13 +111,19 @@ class BaseClient(ApiBase):
                 ["{key}={value}".format(key=key, value=value) for key, value in kwargs.items()]))
         else:
             uri = "/{api}".format(api=api)
+
+        logger.info(f"发送请求 - API: {uri}, Method: {method}, Data: {data},Headers:{self.sess.headers}")
+
         try:
             res = self.call_request(uri, method, data, headers, _name, auth)
         except Exception as e:
+            logger.error(f"调用接口失败 - URI: {uri}, Data: {data}, Error: {str(e)}")
             return {'msg': '调用接口失败', 'uri': uri, 'data': data, 'e': str(e)}
         try:
-            res = json.loads(res.content.decode("utf-8"))
+            res_data = json.loads(res.content.decode("utf-8"))
         except Exception as e:
+            logger.error(f"响应解析失败 - Content: {res.content}, Error: {str(e)}")
             return {'msg': '响应解析失败', 'content': res.content, 'e': str(e)}
 
-        return res
+        logger.info(f"请求成功 - API: {uri}, Method: {method}, Response: {res_data}")
+        return res_data
