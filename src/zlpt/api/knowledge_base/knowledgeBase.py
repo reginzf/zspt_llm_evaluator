@@ -63,6 +63,37 @@ class KnowledgeBase(BaseClient):
         res = self.send_request(api, method, data, knowledgeId=knowledgeId, name=name)
         return res
 
+    def generate_content_tree(self, content_data):
+        """
+        将API返回的内容数据转换为树形结构
+        :param content_data: API返回的数据，格式如:
+        [
+            {
+                "id": "8050",
+                "knowledgeId": "KLB_869cb0ded2c64362a2b5ce722d2e91cf",
+                "contentCode": "5348b1ffa40949d3a955f8f60d64aac6",
+                "contentName": "ospf_chunk_600",
+                "children": [],
+                "psort": 1,
+                "plevel": 0,
+                "pcontentCode": null
+            },
+            ...
+        ]
+        :return: 树形结构的目录数据
+        """
+        if not content_data:
+            return []
+        tree = []
+        def build_tree(item):
+            if item['children']:
+                item['children'] = [build_tree(child) for child in item['children']]
+            return item
+        for ele in tree:
+            if ele['pcontentCode'] is None:
+                tree.append(build_tree(ele))
+        return tree
+
     def doc_addOrUpdate(
             self,
             knowledgeId,

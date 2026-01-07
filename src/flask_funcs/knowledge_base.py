@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields
-
+from src.zlpt.zlpt_temp import zlpt_create_knowledge_base, know_client
 # 创建logger
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def knowledge_base_list():
 
 @knowledge_base_bp.route('/knowledge_base/create', methods=['POST'])
 def knowledge_base_create():
-    from src.zlpt.zlpt_temp import zlpt_create_knowledge_base, know_client
+
     """创建知识库"""
     try:
         data = request.get_json()
