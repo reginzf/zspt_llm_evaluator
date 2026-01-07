@@ -14,7 +14,7 @@ BIND_STATUS_MAP = {
 
 class LocalKnowledgeCrud(PostgreSQLManager):
     def local_knowledge_insert(self, kno_id: str, kno_name: str, kno_describe: str, kno_path: str,
-                                ls_status: int = 1):
+                               ls_status: int = 1):
         """
         插入本地知识库信息
         """
@@ -153,7 +153,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         if bind_info:
             # 如果记录存在，检查当前状态
             current_status = bind_info[0][3]  # bind_status是第4列
-            if current_status in [0,  4]:  # 未绑定、绑定中、已解绑状态
+            if current_status in [0, 4]:  # 未绑定、绑定中、已解绑状态
                 return True
             elif current_status in [1, 2]:  # 绑定中、已绑定状态，更新为解绑中(3)
                 return self._local_knowledge_bind_update(kno_id, knowledge_id, target_status=3)
@@ -193,6 +193,20 @@ class LocalKnowledgeCrud(PostgreSQLManager):
                                               allowed_fileds=allowed_fileds, **kwargs)
         logger.info(f"执行查询: {query}")
         return self.execute_query(query, params)
+
+    def _local_knowledge_to_json(self, kno_info: Tuple):
+        if kno_info is not None:
+            return {
+                "id": kno_info[0],
+                "kno_id": kno_info[1],
+                "kno_name": kno_info[2],
+                "kno_describe": kno_info[3],
+                "kno_path": kno_info[4],
+                "ls_status": kno_info[5],
+                "created_at": kno_info[6].isoformat() if kno_info[6] else None,
+                "updated_at": kno_info[7].isoformat() if kno_info[7] else None
+            }
+        return None
 
     # 为 ai_local_knowledge_list 表添加 CRUD 方法
     def local_knowledge_list_insert(self, knol_id: str, knol_name: str, knol_describe: str = None,
@@ -264,7 +278,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         支持排序和限制结果数量
         """
 
-        exact_match_fields = ('knol_id', 'knol_path', 'ls_status','kno_id')
+        exact_match_fields = ('knol_id', 'knol_path', 'ls_status', 'kno_id')
         partial_match_fields = ('knol_name', 'knol_describe')
         allowed_fileds = exact_match_fields + partial_match_fields
         query, params = self.gen_select_query('ai_local_knowledge_list', order_by=order_by, limit=limit,
