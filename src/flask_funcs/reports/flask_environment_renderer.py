@@ -65,17 +65,6 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
             </html>
             """
 
-    def _prepare_environment_data(self, environment_data: List) -> List[Dict[str, Any]]:
-        """
-        准备环境列表数据
-
-        Args:
-            environment_data: 环境数据列表
-
-        Returns:
-            环境字典列表
-        """
-        return environment_data
 
     def _prepare_current_environment(self, environment_data: List, current_environment_id: str) -> Dict[str, Any]:
         """
