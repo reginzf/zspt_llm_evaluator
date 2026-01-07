@@ -77,10 +77,8 @@ class CreateTables(PostgreSQLManager):
             "label_studio_id": "VARCHAR(100) PRIMARY KEY",
             "label_studio_url": "VARCHAR(500) NOT NULL",
             "label_studio_api_key": "VARCHAR(200) NOT NULL",
-            "zlpt_base_id": "VARCHAR(100)",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "FOREIGN KEY (zlpt_base_id)": "REFERENCES ai_environment_info(zlpt_base_id) ON DELETE SET NULL"
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         }
 
         return self.create_table("ai_label_studio_info", columns)
