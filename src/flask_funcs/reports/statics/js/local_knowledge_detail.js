@@ -262,7 +262,7 @@ function unbindKnowledge(localKnoId, knowledgeId) {
 }
 
 function syncKnowledge(localKnoId, knowledgeId) {
-    fetch('/local_knowledge/sync', {
+    fetch('/local_knowledge_detail/sync', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

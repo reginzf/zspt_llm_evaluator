@@ -94,7 +94,9 @@
         const bindingCountElements = document.querySelectorAll('.binding-count');
         bindingCountElements.forEach(element => {
             const knoId = element.getAttribute('data-kno-id');
-            fetch(`/local_knowledge/bindings/${knoId}`)
+            fetch(`/local_knowledge/bindings/${knoId}`, {
+                method: 'GET'
+            })
                 .then(response => response.json())
                 .then(data => {
                     let count = 0;
