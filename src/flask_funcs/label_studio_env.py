@@ -43,7 +43,7 @@ def label_studio_env():
             environment_data = [env_crud._label_studio_to_json(env) for env in environment_data]
             logger.info(f"成功获取Label Studio环境列表数据，共{len(environment_data)}条记录\n{environment_data}")
     except Exception as e:
-        environment_data = []    
+        environment_data = []
         logger.error(f"获取Label Studio环境列表数据时发生错误: {str(e)}")
 
     # 创建HTML渲染器
@@ -71,9 +71,10 @@ def label_studio_env_create():
     # 自动生成label_studio_id
     data['label_studio_id'] = 'ls_' + str(uuid.uuid4())[:8]
 
-    def operation_func(env_crud):
-        return env_crud.label_studio_create(**data)
-    
+    def operation_func():
+        with LabelStudioCrud() as env_crud:
+            return env_crud.label_studio_create(**data)
+
     return execute_with_crud_operation(
         operation_func,
         'Label Studio环境创建成功',
@@ -109,9 +110,10 @@ def label_studio_env_update():
         return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
     label_studio_id = data.pop('label_studio_id')
 
-    def operation_func(env_crud):
-        return env_crud.label_studio_update(label_studio_id, **data)
-    
+    def operation_func():
+        with LabelStudioCrud() as env_crud:
+            return env_crud.label_studio_update(label_studio_id, **data)
+
     return execute_with_crud_operation(
         operation_func,
         'Label Studio环境更新成功',
@@ -127,9 +129,10 @@ def label_studio_env_delete():
     if not data or 'label_studio_id' not in data:
         return jsonify({'success': False, 'message': '缺少必要字段: label_studio_id'}), 400
 
-    def operation_func(env_crud):
-        return env_crud.label_studio_delete(label_studio_id=data['label_studio_id'])
-    
+    def operation_func():
+        with LabelStudioCrud() as env_crud:
+            return env_crud.label_studio_delete(label_studio_id=data['label_studio_id'])
+
     return execute_with_crud_operation(
         operation_func,
         'Label Studio环境删除成功',

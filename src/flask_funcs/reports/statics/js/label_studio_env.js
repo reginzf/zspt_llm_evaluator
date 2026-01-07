@@ -61,61 +61,73 @@ function confirmDelete() {
         });
 }
 
-document.getElementById('environmentForm').addEventListener('submit', function (e) {
-    e.preventDefault();
+// 确保DOM加载完成后再绑定事件监听器
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        bindFormSubmitHandler();
+    });
+} else {
+    // DOM已经加载完成
+    bindFormSubmitHandler();
+}
 
-    const formData = {
-        label_studio_url: document.getElementById('label_studio_url').value,
-        label_studio_api_key: document.getElementById('label_studio_api_key').value
-    };
+function bindFormSubmitHandler() {
+    document.getElementById('environmentForm').addEventListener('submit', function (e) {
+        e.preventDefault();
 
-    if (currentAction === 'edit') {
-        formData.label_studio_id = currentEnvironmentId;
-        // 发送PUT请求更新环境
-        fetch('/label_studio_env/update/', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('更新成功');
-                    location.reload();
-                } else {
-                    alert('更新失败: ' + data.message);
-                }
+        const formData = {
+            label_studio_url: document.getElementById('label_studio_url').value,
+            label_studio_api_key: document.getElementById('label_studio_api_key').value
+        };
+
+        if (currentAction === 'edit') {
+            formData.label_studio_id = currentEnvironmentId;
+            // 发送PUT请求更新环境
+            fetch('/label_studio_env/update/', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('更新过程中发生错误');
-            });
-    } else {
-        // 发送POST请求创建环境
-        fetch('/label_studio_env/create/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('创建成功');
-                    location.reload();
-                } else {
-                    alert('创建失败: ' + data.message);
-                }
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('更新成功');
+                        location.reload();
+                    } else {
+                        alert('更新失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('更新过程中发生错误');
+                });
+        } else {
+            // 发送POST请求创建环境
+            fetch('/label_studio_env/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('创建过程中发生错误');
-            });
-    }
-})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('创建成功');
+                        location.reload();
+                    } else {
+                        alert('创建失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('创建过程中发生错误');
+                });
+        }
+    });
+}
 
 function togglePasswordVisibility(element, fullText) {
     const passwordSpan = element.previousElementSibling;
