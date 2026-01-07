@@ -1,23 +1,21 @@
 from pathlib import Path
 
-from flask import Blueprint, request, jsonify, render_template_string
+import jsonpath
+from flask import Blueprint, request, jsonify
 import os
 import logging
-import uuid
 from env_config_init import settings
-from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
-from src.sql_funs.environment_crud import Environment_Crud
-from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud
+
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
+from src.zlpt.zlpt_temp import know_client, zlpt_upload_files
 
 # 创建logger
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_detail_bp = Blueprint('local_knowledge_detail', __name__)
-
-
 
 
 @local_knowledge_detail_bp.route('/local_knowledge_detail/<kno_id>/<kno_name>')
@@ -121,14 +119,9 @@ def api_local_knowledge_detail():
                             }
                             filtered_knowledge_list.append(filtered_record)
 
-            # 获取本地目录指定文件夹的文件名称
-            folder_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / kno_name
-            local_files = []
-            if os.path.exists(folder_path) and os.path.isdir(folder_path):
-                for item in os.listdir(folder_path):
-                    local_file = os.path.join(folder_path, item)
-                    local_files.append(local_file)
-                logger.info(f"获取本地目录下文件: {local_files}")
+
+
+
     except Exception as e:
         logger.error(f"获取本地知识详情时发生错误: {str(e)}")
         return jsonify({"error": "页面加载错误"}), 500
@@ -233,7 +226,6 @@ def get_local_knowledge_bindings_by_id(kno_id):
 def get_local_knowledge_bindings():
     """获取特定本地知识库的绑定状态 - 通过POST请求体"""
     data = request.get_json()
-    kno_id = data.get('kno_id', None)
     try:
         data = request.get_json()
         kno_id = data.get('kno_id', None)
@@ -246,24 +238,7 @@ def get_local_knowledge_bindings():
         return jsonify({'error': '获取绑定状态失败'}), 500
 
 
-@local_knowledge_detail_bp.route('/local_knowledge/bindings/<kno_id>', methods=['POST'])
-def get_local_knowledge_bindings_count(kno_id):
-    """获取特定本地知识库的绑定数量"""
-    try:
-        with LocalKnowledgeCrud() as crud:
-            # 获取绑定状态信息
-            bindings = crud.get_local_knowledge_bind(kno_id=kno_id)
-            if not bindings:
-                return jsonify({'count': 0}), 200
-
-            # 计算绑定数量
-            count = len(bindings) if isinstance(bindings, list) else 1
-            return jsonify({'count': count}), 200
-    except Exception as e:
-        logger.error(f"获取绑定数量时发生错误: {str(e)}")
-        return jsonify({'error': '获取绑定数量失败'}), 500
-
-@local_knowledge_detail_bp.route('/local_knowledge/sync', methods=['POST'])
+@local_knowledge_detail_bp.route('/local_knowledge_detail/sync', methods=['POST'])
 def local_knowledge_sync():
     """同步本地知识库到知识库"""
     try:
@@ -278,26 +253,124 @@ def local_knowledge_sync():
         local_kno_id = data['local_kno_id']
         knowledge_id = data['knowledge_id']
 
-        # TODO
-        # 1. 获取本地知识库文件列表 local_knowledge_file_list
-        with LocalKnowledgeCrud() as l_crud, Environment_Crud() as e_curd:
-            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id, ls_status=1)
-            knowledge_base_info = e_curd.get_knowledge_base(knowledge_id=knowledge_id)
-            # 2. 获取知识库，查询文件夹列表，获取有没有对应名称的文件夹，如果没有则创建，返回文件夹id
+        logger.info(f"开始同步本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
-        # 3. 将local_knowledge_file_list中的文件上传到对应文件夹id 中，使用知识库的配置
-        # 4. 更新本地知识库状态为同步中
-        # 5. 新建一个查询进程定时查询知识库中文件的状态，如果同步成功则更新本地知识库状态为同步成功，否则更新为同步失败
+        with LocalKnowledgeCrud() as l_crud, Environment_Crud() as e_crud, KnowledgePathCrud() as kp_crud:
+            # 1、获取本地知识库的信息
+            logger.info(f"获取本地知识库信息: {local_kno_id}")
+            local_knowledge_list = l_crud.get_local_knowledge(kno_id=local_kno_id)
+            if not local_knowledge_list:
+                return jsonify({'success': False, 'message': f'未找到本地知识库: {local_kno_id}'}), 404
 
-        with LocalKnowledgeCrud() as crud:
-            # 获取本地知识库文件
-            local_files = crud.get_local_knowledge_list(kno_id=local_kno_id)
+            local_knowledge_info = l_crud._local_knowledge_to_json(local_knowledge_list[0])
+            logger.info(f"获取到本地知识库信息: {local_knowledge_info}")
 
-            if not local_files:
-                return jsonify({'success': False, 'message': '本地知识库中没有文件'}), 400
+            # 2、获取知识库的tree
+            logger.info(f"获取知识库目录树: {knowledge_id}")
+            knowledge_path_tree = kp_crud.generate_knowledge_path_tree(knowledge_id)
+            logger.info(f"获取到知识库目录树，节点数量: {len(knowledge_path_tree)}")
 
-        # 这里应该有实际的同步逻辑
-        # 例如，调用知识库API或执行其他同步操作
+            # 3、检查并创建目录（如果根目录中不存在对应目录）
+            existing_names = [ele['kno_path_name'] for ele in knowledge_path_tree]
+            logger.info(f"现有目录名称: {existing_names}")
+
+            if local_knowledge_info['kno_path'] not in existing_names:
+                logger.info(f"目录 {local_knowledge_info['kno_path']} 不存在，创建中...")
+                create_dir_result = know_client.knowledge_content_add_or_update(
+                    knowledgeId=knowledge_id,
+                    contentName=local_knowledge_info['kno_path'],
+                    parentContentCode=None  # 创建在根目录
+                )
+
+                if not create_dir_result or create_dir_result.get('code') != 200:
+                    logger.error(f"创建目录失败: {create_dir_result}")
+                    return jsonify({'success': False, 'message': '创建知识库目录失败'}), 500
+                logger.info(f"目录 {local_knowledge_info['kno_path']} 创建成功")
+            else:
+                logger.info(f"目录 {local_knowledge_info['kno_path']} 已存在")
+
+            # 获取目录的content_code
+            logger.info(f"获取目录 {local_knowledge_info['kno_path']} 的content_code")
+            res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
+            if not res or res.get('code') != 200:
+                logger.error(f"获取知识库目录树失败: {res}")
+                return jsonify({'success': False, 'message': '获取知识库目录树失败'}), 500
+
+            content_code_result = jsonpath.jsonpath(
+                res,
+                f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]'''
+            )
+
+            if not content_code_result:
+                logger.error(f"未找到目录 {local_knowledge_info['kno_path']} 的content_code")
+                return jsonify({'success': False, 'message': '未找到目录的content_code'}), 500
+
+            content_code = content_code_result[0]['contentCode']
+            logger.info(f"获取到content_code: {content_code}")
+            # 4、获取本地知识库的文件列表
+            logger.info(f"获取本地知识库 {local_kno_id} 的文件列表")
+            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id)
+            logger.info(f"获取到 {len(local_files)} 个本地文件")
+
+            # 构建文件路径列表
+            file_path_all = []
+            for file in local_files:
+                # file格式: (id, knol_id, knol_name, knol_describe, knol_path, ls_status, created_at, updated_at, kno_id)
+                file_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, local_knowledge_info['kno_path'], file[2])
+                file_path_all.append(file_path)
+            logger.info(f"构建文件路径列表: {file_path_all}")
+
+            # 5、获取知识库配置信息
+            logger.info(f"获取知识库 {knowledge_id} 的配置信息")
+            knowledge_base_list = e_crud.get_knowledge_base(knowledge_id=knowledge_id)
+            if not knowledge_base_list:
+                return jsonify({'success': False, 'message': f'未找到知识库: {knowledge_id}'}), 404
+
+            knowledge_base_info = e_crud._knowledge_base_to_json(knowledge_base_list[0])
+            logger.info(
+                f"获取到知识库配置信息: chunk_size={knowledge_base_info['chunk_size']}, chunk_overlap={knowledge_base_info['chunk_overlap']}")
+
+            # 6、上传文件到知识库
+            logger.info(f"开始上传文件到知识库，文件数量: {len(file_path_all)}")
+            upload_result = zlpt_upload_files(
+                know_client,
+                file_path_all,
+                knowledge_id,
+                content_code,
+                knowledge_base_info['chunk_size'],
+                knowledge_base_info['chunk_overlap']
+            )
+
+            if not upload_result:
+                logger.error("文件上传失败")
+                return jsonify({'success': False, 'message': '文件上传失败'}), 500
+            logger.info("文件上传完成")
+
+            # 7、更新本地文件状态
+            logger.info("开始更新本地文件状态")
+            for file in local_files:
+                update_result = l_crud.local_knowledge_list_update(file[1], ls_status=2)  # 状态2表示已完成
+                if not update_result:
+                    logger.warning(f"更新文件 {file[1]} 状态失败")
+                else:
+                    logger.info(f"成功更新文件 {file[1]} 状态为 2")
+            
+            # 8、将同步信息插入知识库路径表
+            logger.info("将同步信息插入知识库路径表")
+            file_sync_info = {file[1]: {'name': file[2], 'path': file[4], 'status': file[5]} for file in local_files}
+            insert_result = kp_crud.knowledge_path_insert(
+                kno_path_id=content_code,
+                kno_path_name=local_knowledge_info['kno_path'],
+                knowledge_id=knowledge_id,
+                parent=None,
+                doc_map=file_sync_info
+            )
+            if not insert_result:
+                logger.warning("插入知识库路径信息失败")
+            else:
+                logger.info("成功插入知识库路径信息")
+                
+            logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
         return jsonify({
             'success': True,
@@ -305,6 +378,5 @@ def local_knowledge_sync():
         })
 
     except Exception as e:
-        logger.error(f"同步知识库时发生错误: {str(e)}")
+        logger.error(f"同步知识库时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
-
