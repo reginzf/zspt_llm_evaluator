@@ -208,6 +208,22 @@ class KnowledgeBase(BaseClient):
         )
         return res
 
+    def knowledge_content_add_or_update(self, knowledgeId, contentName, parentContentCode):
+        """
+        创建目录
+        :param knowledgeId:知识库id
+        :param contentName:目录名称
+        :param parentContentCode: 上级目录id，如果不带则在根目录更新
+        :return:{"code":200,"msg":null,"data":null,"ok":true}
+        """
+        api = f'api/zspt/zsgl/knowledgeBaseContent/addOrUpdate'
+        method = 'POST'
+        data = {"contentName": contentName, "knowledgeId": knowledgeId}
+        if parentContentCode:
+            data.update({"parentContentCode": parentContentCode})
+        res = self.send_request(api, method, data)
+        return res
+
     def doc_detail(self, docId):
         """
         获取指定doc的属性
