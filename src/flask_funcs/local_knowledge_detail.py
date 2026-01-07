@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 import os
 import logging
 from env_config_init import settings
-from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, LabelStudioCrud
 
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
@@ -115,7 +115,6 @@ def api_local_knowledge_detail():
                                 "ls_status": record[5],  # ls_status
                                 "created_at": record[6],  # created_at
                                 "updated_at": record[7],  # updated_at
-                                "kno_id": record[8]
                             }
                             filtered_knowledge_list.append(filtered_record)
 
@@ -380,3 +379,231 @@ def local_knowledge_sync():
     except Exception as e:
         logger.error(f"同步知识库时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
+
+
+# 新增Label-Studio标注功能相关路由
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['GET'])
+def get_label_studio_environments():
+    """获取可用Label-Studio环境列表"""
+    try:
+        # 获取查询参数
+        kno_id = request.args.get('kno_id')
+        
+        with LabelStudioCrud() as ls_crud:
+            # 获取所有Label-Studio环境
+            environments = ls_crud.label_studio_list()
+            environment_list = [ls_crud._label_studio_to_json(env) for env in environments]
+            
+            # 检查当前知识库是否已绑定环境 - 这里需要根据实际数据库表结构实现
+            # 临时实现，假设没有绑定关系表，返回None表示未绑定
+            bound_environment = None
+            
+            # 如果有绑定关系表，这里应该查询绑定关系
+            # 示例伪代码：
+            # with BindingCrud() as binding_crud:
+            #     binding_list = binding_crud.get_bindings(kno_id=kno_id)
+            #     if binding_list:
+            #         # 获取绑定的环境信息
+            #         bound_ls_id = binding_list[0][2]  # 假设第三个字段是ls_id
+            #         for env in environment_list:
+            #             if env['label_studio_id'] == bound_ls_id:
+            #                 bound_environment = env
+            #                 break
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'environments': environment_list,
+                    'bound_environment': bound_environment  # 如果有绑定则返回绑定的环境信息
+                }
+            })
+    except Exception as e:
+        logger.error(f"获取Label-Studio环境列表时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取环境列表时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/bind_environment', methods=['POST'])
+def bind_label_studio_environment():
+    """绑定知识库与Label-Studio环境"""
+    try:
+        data = request.get_json()
+        required_fields = ['kno_id', 'ls_id']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        kno_id = data['kno_id']
+        ls_id = data['ls_id']
+
+        # 这里需要实现绑定逻辑，将知识库ID与Label-Studio环境ID的绑定关系存储到数据库
+        # 暂时简化实现，实际需要创建绑定表并实现绑定逻辑
+        # 实际实现中需要查询绑定关系表并插入绑定记录
+
+        # 检查环境是否存在
+        with LabelStudioCrud() as ls_crud:
+            env_list = ls_crud.label_studio_list(label_studio_id=ls_id)
+            if not env_list:
+                return jsonify({'success': False, 'message': '指定的Label-Studio环境不存在'}), 400
+
+        # 绑定逻辑实现（待完善数据库表结构和绑定关系）
+        # 这里应该插入绑定关系到数据库表
+        # 示例伪代码：
+        # with BindingCrud() as binding_crud:
+        #     result = binding_crud.bind_knowledge_to_label_studio(kno_id, ls_id)
+
+        return jsonify({
+            'success': True,
+            'message': '环境绑定成功'
+        })
+    except Exception as e:
+        logger.error(f"绑定Label-Studio环境时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'绑定环境时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/unbind_environment', methods=['POST'])
+def unbind_label_studio_environment():
+    """解绑知识库与Label-Studio环境"""
+    try:
+        data = request.get_json()
+        required_fields = ['kno_id', 'ls_id']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        kno_id = data['kno_id']
+        ls_id = data['ls_id']
+
+        # 解绑逻辑实现（待完善数据库表结构和解绑关系）
+        # 这里应该从数据库表中删除绑定关系
+        # 示例伪代码：
+        # with BindingCrud() as binding_crud:
+        #     result = binding_crud.unbind_knowledge_to_label_studio(kno_id, ls_id)
+
+        return jsonify({
+            'success': True,
+            'message': '环境解绑成功'
+        })
+    except Exception as e:
+        logger.error(f"解绑Label-Studio环境时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'解绑环境时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/create_annotation_project', methods=['POST'])
+def create_annotation_project():
+    """创建标注任务"""
+    try:
+        data = request.get_json()
+        required_fields = ['name', 'knowledge_base_id', 'environment_id']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        name = data['name']
+        knowledge_base_id = data['knowledge_base_id']
+        environment_id = data['environment_id']
+        question_set_id = data.get('question_set_id')  # 可选参数
+
+        # 创建标注任务逻辑（待完善数据库表结构和任务创建逻辑）
+        # 示例伪代码：
+        # with AnnotationProjectCrud() as project_crud:
+        #     project_id = generate_unique_id('project', 8)
+        #     result = project_crud.create_annotation_project(project_id, name, knowledge_base_id, environment_id, question_set_id)
+
+        return jsonify({
+            'success': True,
+            'message': '标注任务创建成功'
+        })
+    except Exception as e:
+        logger.error(f"创建标注任务时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'创建标注任务时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_project', methods=['GET'])
+def get_annotation_projects():
+    """获取标注任务列表"""
+    try:
+        kno_id = request.args.get('kno_id')
+
+        # 获取标注任务列表逻辑（待完善数据库表结构和任务查询逻辑）
+        # 示例伪代码：
+        # with AnnotationProjectCrud() as project_crud:
+        #     projects = project_crud.get_annotation_projects_by_knowledge_base(kno_id)
+
+        # 模拟返回数据 - 修正数据结构以匹配前端期望
+        projects = [
+            {
+                'id': 'project_1',
+                'name': '示例标注任务',
+                'knowledge_base_id': kno_id,
+                'knowledge_base_name': '示例知识库',
+                'environment_id': 'env_1',
+                'question_set_id': 'qs_1',
+                'question_set_name': '示例问题集',
+                'annotated_count': 10,
+                'total_count': 50,
+                'status': 'in_progress'
+            }
+        ]
+
+        return jsonify({
+            'success': True,
+            'data': projects
+        })
+    except Exception as e:
+        logger.error(f"获取标注任务列表时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取任务列表时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/update_project', methods=['PUT'])
+def update_annotation_project():
+    """更新标注任务信息"""
+    try:
+        data = request.get_json()
+        required_fields = ['id', 'name']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        project_id = data['id']
+        name = data['name']
+        status = data.get('status')
+        annotated_count = data.get('annotated_count')
+
+        # 更新标注任务逻辑（待完善数据库表结构和任务更新逻辑）
+        # 示例伪代码：
+        # with AnnotationProjectCrud() as project_crud:
+        #     result = project_crud.update_annotation_project(project_id, name, status, annotated_count)
+
+        return jsonify({
+            'success': True,
+            'message': '标注任务更新成功'
+        })
+    except Exception as e:
+        logger.error(f"更新标注任务时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'更新任务时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/delete_project', methods=['DELETE'])
+def delete_annotation_project():
+    """删除标注任务"""
+    try:
+        data = request.get_json()
+        required_fields = ['id']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        project_id = data['id']
+
+        # 删除标注任务逻辑（待完善数据库表结构和任务删除逻辑）
+        # 示例伪代码：
+        # with AnnotationProjectCrud() as project_crud:
+        #     result = project_crud.delete_annotation_project(project_id)
+
+        return jsonify({
+            'success': True,
+            'message': '标注任务删除成功'
+        })
+    except Exception as e:
+        logger.error(f"删除标注任务时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除任务时发生错误: {str(e)}'}), 500

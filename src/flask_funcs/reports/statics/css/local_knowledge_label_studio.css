@@ -1,0 +1,327 @@
+/* 标注页签样式 */
+.tab-content#annotations {
+    padding: 20px;
+    display: none; /* 默认隐藏，通过active类控制显示 */
+}
+
+.tab-content#annotations.active {
+    display: block; /* 激活时显示 */
+}
+
+.annotation-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.annotation-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.environment-binding {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.environment-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+}
+
+.environment-status.bound {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.environment-status.unbound {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.environment-info {
+    flex: 1;
+}
+
+.environment-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.bind-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.bind-btn:hover {
+    background-color: #5a67d8;
+}
+
+.action-btn.bind-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.action-btn.bind-btn:hover {
+    background-color: #5a67d8;
+}
+
+.unbind-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.unbind-btn:hover {
+    background-color: #c82333;
+}
+
+.task-management {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.create-task-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.create-task-btn:hover {
+    background-color: #218838;
+}
+
+.create-task-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 环境选择模态框样式 */
+.environment-modal, .task-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.environment-modal-content, .task-modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 50%;
+    max-width: 500px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group select,
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-actions {
+    text-align: right;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.form-actions button {
+    padding: 8px 15px;
+    margin-left: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-confirm {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-cancel {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-confirm-delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* 任务列表表格样式 */
+.task-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.task-table th,
+.task-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.task-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #667eea;
+}
+
+.task-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.task-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.task-action-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.edit-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.status-label {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-not-started {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-in-progress {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.status-completed {
+    background-color: #28a745;
+    color: white;
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #667eea;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .environment-modal-content, .task-modal-content {
+        width: 90%;
+        margin: 15% auto;
+    }
+    
+    .task-table {
+        font-size: 0.9rem;
+    }
+    
+    .task-table th,
+    .task-table td {
+        padding: 8px;
+    }
+}

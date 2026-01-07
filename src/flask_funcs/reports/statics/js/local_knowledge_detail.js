@@ -23,6 +23,12 @@ function switchTab(tabName) {
         loadFileList();
     } else if (tabName === 'bindings') {
         loadBindingStatus();
+    } else if (tabName === 'annotations') {
+        // 初始化标注页签
+        const knoId = document.getElementById('knowledge-id').textContent.trim();
+        if (typeof initAnnotationTab !== 'undefined') {
+            initAnnotationTab(knoId);
+        }
     }
 }
 

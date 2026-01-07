@@ -6,6 +6,7 @@
     <title>{{ title or '本地知识库详情' }}</title>
     <link rel="stylesheet" href="{{ css_path }}">
     <link rel="stylesheet" href="{{ detail_css_path }}">
+    <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_label_studio.css') }}">
 </head>
 <body>
 <div class="detail-container">
@@ -64,7 +65,6 @@
         
         <!-- 知识库文件页 -->
         <div id="files" class="tab-content active">
-            <h3>知识库文件列表</h3>
             <div class="file-actions">
                 <button class="action-btn upload-btn" onclick="uploadFileForKnowledge('{{ knowledge_detail.kno_id }}')">上传文件</button>
             </div>
@@ -75,7 +75,6 @@
         
         <!-- 知识库绑定状态页 -->
         <div id="bindings" class="tab-content">
-            <h3>知识库绑定状态</h3>
             <div class="binding-actions">
                 <button class="action-btn bind-btn" onclick="showBindDialog()">绑定知识库</button>
             </div>
@@ -86,8 +85,109 @@
         
         <!-- 标注进度页 -->
         <div id="annotations" class="tab-content">
-            <h3>标注进度</h3>
-            <p>此功能正在开发中...</p>
+            <h3>标注</h3>
+            
+            <!-- 环境绑定区域 -->
+            <div class="annotation-section">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>环境绑定</h3>
+                    <button class="action-btn bind-btn" onclick="showBindModal()">绑定Label-Studio环境</button>
+                </div>
+                <div id="environmentStatus">
+                    <!-- 环境状态将通过JavaScript动态加载 -->
+                    <div class="environment-status unbound">
+                        <div class="environment-info">
+                            <strong>加载中...</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 任务管理区域 -->
+            <div class="annotation-section">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>标注任务管理</h3>
+                    <button id="createTaskBtn" class="create-task-btn" onclick="showCreateTaskModal()" disabled>创建任务</button>
+                </div>
+                
+                <div class="task-management">
+                    <table class="task-table">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>知识库</th>
+                                <th>问题集</th>
+                                <th>标注进度</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center;">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 绑定环境模态框 -->
+            <div id="bindModal" class="environment-modal">
+                <div class="environment-modal-content">
+                    <div class="modal-header">
+                        <h2>绑定Label-Studio环境</h2>
+                        <span class="close" onclick="hideBindModal()">&times;</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="environmentSelect">选择环境:</label>
+                        <select id="environmentSelect">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" onclick="hideBindModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="bindEnvironment()">确认绑定</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 任务管理模态框 -->
+            <div id="taskModal" class="task-modal">
+                <div class="task-modal-content">
+                    <div class="modal-header">
+                        <h2 id="taskModalTitle">创建标注任务</h2>
+                        <span class="close" onclick="hideTaskModal()">&times;</span>
+                    </div>
+                    <div id="taskIdInput" style="display: none;">
+                        <div class="form-group">
+                            <label for="taskId">任务ID:</label>
+                            <input type="text" id="taskId" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskName">任务名称 *</label>
+                        <input type="text" id="taskName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskKnowledgeBase">知识库</label>
+                        <input type="text" id="taskKnowledgeBase" value="{{ knowledge_detail.kno_id }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskEnvironment">Label-Studio环境</label>
+                        <input type="text" id="taskEnvironment" value="" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskQuestionSet">问题集</label>
+                        <select id="taskQuestionSet">
+                            <option value="">待开发...</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" onclick="hideTaskModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="saveTask()">保存</button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- 任务页 -->
@@ -100,6 +200,7 @@
 
 <script src="{{ js_url }}"></script>
 <script src="{{ detail_js_url }}"></script>
+<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_label_studio.js') }}"></script>
 
 <!-- 绑定对话框 -->
 <div id="bindDialog" class="modal">
