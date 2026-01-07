@@ -9,4 +9,5 @@ from .knowledge_doc import knowledge_doc_bp
 from .local_knowledge import local_knowledge_bp
 from .knowledge_base import knowledge_base_bp
 from .local_knowledge_detail import local_knowledge_detail_bp
+from .label_studio_env import label_studio_env_bp
 from .common_utils import *
