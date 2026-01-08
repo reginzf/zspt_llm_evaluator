@@ -115,7 +115,7 @@ class PostgreSQLManager:
             where_clause = " AND ".join(conditions)
             query = f"{query} WHERE {where_clause}"
         if order_by:
-            query = f"{query} ORDER BY {sql.SQL(order_by)}"
+            query = f"{query} ORDER BY {order_by}"  # 修复：移除sql.SQL包装，因为它可能导致问题
         if limit:
             query = f"{query} LIMIT {limit}"
         logger.info(f"查询语句: {query} 条件参数:{values}")
@@ -246,6 +246,80 @@ class PostgreSQLManager:
             self.connection.rollback()
             logger.error(f"插入数据失败: {e}")
             raise e
+
+    def update(self, table_name: str, data: Dict[str, Any], **where_conditions) -> bool:
+        """
+        更新数据
+        """
+        try:
+            # 处理 JSON 数据
+            processed_data = {}
+            for key, value in data.items():
+                if isinstance(value, (list, dict)):
+                    processed_data[key] = json.dumps(value, ensure_ascii=False)
+                else:
+                    processed_data[key] = value
+
+            # 构建 SET 子句
+            set_parts = []
+            set_values = []
+            for key, value in processed_data.items():
+                set_parts.append(f"{key} = %s")
+                set_values.append(value)
+
+            # 构建 WHERE 子句
+            where_parts = []
+            where_values = []
+            for key, value in where_conditions.items():
+                where_parts.append(f"{key} = %s")
+                where_values.append(value)
+
+            set_clause = ", ".join(set_parts)
+            where_clause = " AND ".join(where_parts)
+
+            query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+
+            # 合并参数
+            all_values = set_values + where_values
+
+            self.cursor.execute(query, all_values)
+            self.connection.commit()
+
+            # 检查是否有行被更新
+            rows_affected = self.cursor.rowcount
+            logger.info(f"成功更新表 {table_name} 中的 {rows_affected} 行数据")
+            return rows_affected > 0
+        except Exception as e:
+            self.connection.rollback()
+            logger.error(f"更新数据失败: {e}")
+            return False
+
+    def delete(self, table_name: str, **where_conditions) -> bool:
+        """
+        删除数据
+        """
+        try:
+            # 构建 WHERE 子句
+            where_parts = []
+            where_values = []
+            for key, value in where_conditions.items():
+                where_parts.append(f"{key} = %s")
+                where_values.append(value)
+
+            where_clause = " AND ".join(where_parts)
+            query = f"DELETE FROM {table_name} WHERE {where_clause}"
+
+            self.cursor.execute(query, where_values)
+            self.connection.commit()
+
+            # 检查是否有行被删除
+            rows_affected = self.cursor.rowcount
+            logger.info(f"成功从表 {table_name} 中删除 {rows_affected} 行数据")
+            return rows_affected > 0
+        except Exception as e:
+            self.connection.rollback()
+            logger.error(f"删除数据失败: {e}")
+            return False
 
     def __enter__(self):
         """上下文管理器入口"""
