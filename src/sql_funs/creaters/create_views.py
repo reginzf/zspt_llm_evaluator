@@ -76,7 +76,7 @@ class CreateViews(PostgreSQLManager):
                                         DISTINCT jsonb_build_object(
                         'table', 'basic',
                         'type', bq.question_type,
-                        'count', jsonb_array_length(bq.question_list)
+                        'content', bq.question_content
                     )
                 ) FILTER(WHERE bq.id IS NOT NULL), \
                                     '[]' ::jsonb \
@@ -86,7 +86,7 @@ class CreateViews(PostgreSQLManager):
                                         DISTINCT jsonb_build_object(
                         'table', 'detailed',
                         'type', dq.question_type,
-                        'count', jsonb_array_length(dq.question_list)
+                        'content', dq.question_content
                     )
                 ) FILTER(WHERE dq.id IS NOT NULL), \
                                     '[]' ::jsonb \
@@ -96,7 +96,7 @@ class CreateViews(PostgreSQLManager):
                                         DISTINCT jsonb_build_object(
                         'table', 'mechanism',
                         'type', mq.question_type,
-                        'count', jsonb_array_length(mq.question_list)
+                        'content', mq.question_content
                     )
                 ) FILTER(WHERE mq.id IS NOT NULL), \
                                     '[]' ::jsonb \
@@ -106,7 +106,7 @@ class CreateViews(PostgreSQLManager):
                                         DISTINCT jsonb_build_object(
                         'table', 'thematic',
                         'type', tq.question_type,
-                        'count', jsonb_array_length(tq.question_list)
+                        'content', tq.question_content
                     )
                 ) FILTER(WHERE tq.id IS NOT NULL), \
                                     '[]' ::jsonb \
