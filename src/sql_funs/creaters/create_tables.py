@@ -107,6 +107,7 @@ class CreateTables(PostgreSQLManager):
             "question_id": "VARCHAR(100) PRIMARY KEY",
             "question_name": "VARCHAR(200) NOT NULL",
             "knowledge_id": "VARCHAR(100)",
+            "question_set_type": "VARCHAR(50) NOT NULL CHECK (question_set_type IN ('basic', 'detailed', 'mechanism', 'thematic'))",
             "question_count": "INTEGER DEFAULT 0",  # 问题数量统计
             "last_updated": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",  # 最后更新时间
             "FOREIGN KEY (knowledge_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE"
