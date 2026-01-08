@@ -173,6 +173,20 @@ class CreateTables(PostgreSQLManager):
         }
         return self._create_table_with_common_fields("ai_knowledge_bind", columns)
 
+    def create_label_studio_bind_table(self):
+        """创建本地知识库与Label Studio绑定关系表"""
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "kno_id": "VARCHAR(100) NOT NULL",  # ai_local_knowledge表的kno_id
+            "label_studio_id": "VARCHAR(100) NOT NULL",  # ai_label_studio_info表的label_studio_id
+            "bind_status": "INTEGER DEFAULT 0 CHECK (bind_status IN (0, 1, 2, 3, 4))",
+            # 绑定状态: 0-未绑定, 1-绑定中, 2-已绑定, 3-解绑中, 4-已解绑
+            "UNIQUE (kno_id, label_studio_id)": "",  # 确保每对kno_id和label_studio_id的组合唯一
+            "FOREIGN KEY (kno_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
+            "FOREIGN KEY (label_studio_id)": "REFERENCES ai_label_studio_info(label_studio_id) ON DELETE CASCADE"
+        }
+        return self._create_table_with_common_fields("ai_label_studio_bind", columns)
+
     def create_all_tables(self):
         """创建所有表"""
         self.create_environment_table()
@@ -188,6 +202,7 @@ class CreateTables(PostgreSQLManager):
         self.create_local_knowledge()
         self.create_local_knowledge_list()
         self.create_knowledge_bind_table()  # 新增绑定关系表
+        self.create_label_studio_bind_table()  # 新增localknowledge和labelstudio的绑定关系表
 
 
 if __name__ == '__main__':

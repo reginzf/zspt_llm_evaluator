@@ -12,7 +12,7 @@
 <body>
 <div class="detail-container">
     <h1>{{ heading or '本地知识库详情' }}</h1>
-    
+
     <!-- 本地知识库详细信息 -->
     <div class="knowledge-detail-header">
         <div class="detail-row">
@@ -54,7 +54,7 @@
             <div class="detail-value">{{ knowledge_detail.updated_at }}</div>
         </div>
     </div>
-    
+
     <!-- 标签页 -->
     <div class="tabs">
         <div class="tab-buttons">
@@ -64,7 +64,7 @@
             <div class="tab-button" onclick="switchTab('annotations')">标注</div>
             <div class="tab-button" onclick="switchTab('tasks')">任务</div>
         </div>
-        
+
         <!-- 知识库文件页 -->
         <div id="files" class="tab-content active">
             <div class="file-actions">
@@ -74,7 +74,7 @@
                 <li class="loading">正在加载文件列表...</li>
             </ul>
         </div>
-        
+
         <!-- 知识库绑定状态页 -->
         <div id="bindings" class="tab-content">
             <div class="binding-actions">
@@ -84,7 +84,7 @@
                 <li class="loading">正在加载绑定状态...</li>
             </ul>
         </div>
-        
+
         <!-- 问题集管理页 -->
         <div id="questions" class="tab-content">
             <div class="question-actions">
@@ -93,7 +93,7 @@
             <div class="question-set-list" id="questionSetList">
                 <div class="loading">正在加载问题集...</div>
             </div>
-            
+
             <!-- 创建问题集模态框 -->
             <div id="createQuestionSetModal" class="question-modal">
                 <div class="question-modal-content">
@@ -120,7 +120,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 问题集详情模态框 -->
             <div id="questionSetDetailModal" class="question-modal">
                 <div class="question-modal-content large">
@@ -144,7 +144,7 @@
                                 <span class="detail-value" id="detailSetCreatedAt"></span>
                             </div>
                         </div>
-                        
+
                         <div class="question-list-section">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <h3>问题列表</h3>
@@ -157,7 +157,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 创建问题模态框 -->
             <div id="createQuestionModal" class="question-modal">
                 <div class="question-modal-content">
@@ -190,11 +190,11 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 标注进度页 -->
         <div id="annotations" class="tab-content">
             <h3>标注</h3>
-            
+
             <!-- 环境绑定区域 -->
             <div class="annotation-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -210,14 +210,14 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 任务管理区域 -->
             <div class="annotation-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h3>标注任务管理</h3>
                     <button id="createTaskBtn" class="create-task-btn" onclick="showCreateTaskModal()" disabled>创建任务</button>
                 </div>
-                
+
                 <div class="task-management">
                     <table class="task-table">
                         <thead>
@@ -238,7 +238,7 @@
                     </table>
                 </div>
             </div>
-            
+
             <!-- 绑定环境模态框 -->
             <div id="bindModal" class="environment-modal">
                 <div class="environment-modal-content">
@@ -258,7 +258,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 任务管理模态框 -->
             <div id="taskModal" class="task-modal">
                 <div class="task-modal-content">
@@ -297,7 +297,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 任务页 -->
         <div id="tasks" class="tab-content">
             <h3>任务</h3>

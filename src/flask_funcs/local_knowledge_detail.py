@@ -353,7 +353,7 @@ def local_knowledge_sync():
                     logger.warning(f"更新文件 {file[1]} 状态失败")
                 else:
                     logger.info(f"成功更新文件 {file[1]} 状态为 2")
-            
+
             # 8、将同步信息插入知识库路径表
             logger.info("将同步信息插入知识库路径表")
             file_sync_info = {file[1]: {'name': file[2], 'path': file[4], 'status': file[5]} for file in local_files}
@@ -368,7 +368,7 @@ def local_knowledge_sync():
                 logger.warning("插入知识库路径信息失败")
             else:
                 logger.info("成功插入知识库路径信息")
-                
+
             logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
         return jsonify({
@@ -381,34 +381,35 @@ def local_knowledge_sync():
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
 
 
-# 新增Label-Studio标注功能相关路由
-@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['GET'])
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['POST'])
 def get_label_studio_environments():
-    """获取可用Label-Studio环境列表"""
+    """获取可用Label-Studio环境列表 (新版本，使用JSON格式)"""
     try:
-        # 获取查询参数
-        kno_id = request.args.get('kno_id')
+        # 从请求体获取JSON数据
+        data = request.get_json()
+        kno_id = data.get('kno_id')
         
         with LabelStudioCrud() as ls_crud:
             # 获取所有Label-Studio环境
             environments = ls_crud.label_studio_list()
             environment_list = [ls_crud._label_studio_to_json(env) for env in environments]
             
-            # 检查当前知识库是否已绑定环境 - 这里需要根据实际数据库表结构实现
-            # 临时实现，假设没有绑定关系表，返回None表示未绑定
-            bound_environment = None
+            # 检查当前知识库是否已绑定环境
+            bound_environments = None
+            res = ls_crud.label_studio_bind_get(kno_id)
+            if res:
+                bound_environments = [ls_crud._label_studio_bind_to_json(ele) for ele in res]
             
-            # 如果有绑定关系表，这里应该查询绑定关系
-            # 示例伪代码：
-            # with BindingCrud() as binding_crud:
-            #     binding_list = binding_crud.get_bindings(kno_id=kno_id)
-            #     if binding_list:
-            #         # 获取绑定的环境信息
-            #         bound_ls_id = binding_list[0][2]  # 假设第三个字段是ls_id
-            #         for env in environment_list:
-            #             if env['label_studio_id'] == bound_ls_id:
-            #                 bound_environment = env
-            #                 break
+            # 查找当前绑定的环境信息
+            bound_environment = None
+            if bound_environments:
+                # 获取第一个绑定的环境信息
+                first_bound = bound_environments[0]
+                # 根据label_studio_id查找完整的环境信息
+                for env in environment_list:
+                    if env['label_studio_id'] == first_bound['label_studio_id']:
+                        bound_environment = env
+                        break
 
             return jsonify({
                 'success': True,
@@ -435,21 +436,10 @@ def bind_label_studio_environment():
         kno_id = data['kno_id']
         ls_id = data['ls_id']
 
-        # 这里需要实现绑定逻辑，将知识库ID与Label-Studio环境ID的绑定关系存储到数据库
-        # 暂时简化实现，实际需要创建绑定表并实现绑定逻辑
-        # 实际实现中需要查询绑定关系表并插入绑定记录
-
-        # 检查环境是否存在
         with LabelStudioCrud() as ls_crud:
-            env_list = ls_crud.label_studio_list(label_studio_id=ls_id)
-            if not env_list:
-                return jsonify({'success': False, 'message': '指定的Label-Studio环境不存在'}), 400
-
-        # 绑定逻辑实现（待完善数据库表结构和绑定关系）
-        # 这里应该插入绑定关系到数据库表
-        # 示例伪代码：
-        # with BindingCrud() as binding_crud:
-        #     result = binding_crud.bind_knowledge_to_label_studio(kno_id, ls_id)
+            result = ls_crud.label_studio_bind_insert(kno_id=kno_id,label_studio_id=ls_id, bind_status=2)
+            if not result:
+                return jsonify({'success': False, 'message': '环境绑定失败'}), 400
 
         return jsonify({
             'success': True,
@@ -472,13 +462,10 @@ def unbind_label_studio_environment():
 
         kno_id = data['kno_id']
         ls_id = data['ls_id']
-
-        # 解绑逻辑实现（待完善数据库表结构和解绑关系）
-        # 这里应该从数据库表中删除绑定关系
-        # 示例伪代码：
-        # with BindingCrud() as binding_crud:
-        #     result = binding_crud.unbind_knowledge_to_label_studio(kno_id, ls_id)
-
+        with LabelStudioCrud() as ls_crud:
+            result = ls_crud.label_studio_bind_delete(kno_id=kno_id,label_studio_id=ls_id)
+            if not result:
+                return jsonify({'success': False, 'message': '环境解绑失败'}), 400
         return jsonify({
             'success': True,
             'message': '环境解绑成功'
@@ -519,10 +506,47 @@ def create_annotation_project():
 
 
 @local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_project', methods=['GET'])
-def get_annotation_projects():
-    """获取标注任务列表"""
+def get_annotation_projects_old():
+    """获取标注任务列表 (旧版，保持向后兼容)"""
     try:
         kno_id = request.args.get('kno_id')
+
+        # 获取标注任务列表逻辑（待完善数据库表结构和任务查询逻辑）
+        # 示例伪代码：
+        # with AnnotationProjectCrud() as project_crud:
+        #     projects = project_crud.get_annotation_projects_by_knowledge_base(kno_id)
+
+        # 模拟返回数据 - 修正数据结构以匹配前端期望
+        projects = [
+            {
+                'id': 'project_1',
+                'name': '示例标注任务',
+                'knowledge_base_id': kno_id,
+                'knowledge_base_name': '示例知识库',
+                'environment_id': 'env_1',
+                'question_set_id': 'qs_1',
+                'question_set_name': '示例问题集',
+                'annotated_count': 10,
+                'total_count': 50,
+                'status': 'in_progress'
+            }
+        ]
+
+        return jsonify({
+            'success': True,
+            'data': projects
+        })
+    except Exception as e:
+        logger.error(f"获取标注任务列表时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取任务列表时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_detail/label_studio/get_project', methods=['POST'])
+def get_annotation_projects():
+    """获取标注任务列表 (新版本，使用JSON格式)"""
+    try:
+        data = request.get_json()
+        kno_id = data.get('kno_id')
 
         # 获取标注任务列表逻辑（待完善数据库表结构和任务查询逻辑）
         # 示例伪代码：

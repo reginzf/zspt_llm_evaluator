@@ -5,18 +5,26 @@ let currentEnvironment = null;
 
 // 加载环境绑定状态
 function loadEnvironmentStatus() {
-    fetch(`/local_knowledge_detail/label_studio/get_environments?kno_id=${currentKnoId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                updateEnvironmentDisplay(data.data);
-            } else {
-                console.error('获取环境状态失败:', data.message);
-            }
+    fetch('/local_knowledge_detail/label_studio/get_environments', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            kno_id: currentKnoId
         })
-        .catch(error => {
-            console.error('请求环境状态时出错:', error);
-        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateEnvironmentDisplay(data.data);  // data.data 现在包含 environments 和 bound_environment
+        } else {
+            console.error('获取环境状态失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求环境状态时出错:', error);
+    });
 }
 
 // 更新环境显示
@@ -24,7 +32,7 @@ function updateEnvironmentDisplay(data) {
     const environmentStatusDiv = document.getElementById('environmentStatus');
     const createTaskBtn = document.getElementById('createTaskBtn');
     
-    if (data.bound_environment) {
+    if (data && data.bound_environment) {
         // 已绑定环境
         currentEnvironment = data.bound_environment;
         environmentStatusDiv.innerHTML = `
@@ -58,27 +66,35 @@ function updateEnvironmentDisplay(data) {
 
 // 显示绑定环境模态框
 function showBindModal() {
-    fetch(`/local_knowledge_detail/label_studio/get_environments?kno_id=${currentKnoId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const environments = data.data.environments || [];
-                let options = '<option value="">请选择Label-Studio环境</option>';
-                
-                environments.forEach(env => {
-                    options += `<option value="${env.label_studio_id}">${env.label_studio_url}</option>`;
-                });
-                
-                document.getElementById('lsEnvironmentSelect').innerHTML = options;
-                document.getElementById('bindModal').style.display = 'block';
-            } else {
-                alert('获取环境列表失败: ' + data.message);
-            }
+    fetch('/local_knowledge_detail/label_studio/get_environments', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            kno_id: currentKnoId
         })
-        .catch(error => {
-            console.error('获取环境列表时出错:', error);
-            alert('获取环境列表失败');
-        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const environments = data.data.environments || [];  // 从 data.data.environments 获取环境列表
+            let options = '<option value="">请选择Label-Studio环境</option>';
+            
+            environments.forEach(env => {
+                options += `<option value="${env.label_studio_id}">${env.label_studio_id} - ${env.label_studio_url}</option>`;
+            });
+            
+            document.getElementById('lsEnvironmentSelect').innerHTML = options;
+            document.getElementById('bindModal').style.display = 'block';
+        } else {
+            alert('获取环境列表失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('获取环境列表时出错:', error);
+        alert('获取环境列表失败');
+    });
 }
 
 // 隐藏绑定环境模态框
@@ -88,7 +104,7 @@ function hideBindModal() {
 
 // 绑定环境
 function bindEnvironment() {
-    const environmentId = document.getElementById('environmentSelect').value;
+    const environmentId = document.getElementById('lsEnvironmentSelect').value;  // 修复：使用正确的元素ID
     if (!environmentId) {
         alert('请选择要绑定的环境');
         return;
@@ -262,18 +278,26 @@ function deleteTask(taskId) {
 
 // 加载标注任务列表
 function loadAnnotationProjects() {
-    fetch(`/local_knowledge_detail/label_studio/get_project?kno_id=${currentKnoId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderTaskTable(data.data);
-            } else {
-                console.error('获取任务列表失败:', data.message);
-            }
+    fetch('/local_knowledge_detail/label_studio/get_project', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            kno_id: currentKnoId
         })
-        .catch(error => {
-            console.error('请求任务列表时出错:', error);
-        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderTaskTable(data.data);
+        } else {
+            console.error('获取任务列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求任务列表时出错:', error);
+    });
 }
 
 // 渲染任务表格

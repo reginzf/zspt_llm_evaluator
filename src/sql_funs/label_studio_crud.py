@@ -115,3 +115,68 @@ class LabelStudioCrud(PostgreSQLManager):
         except Exception as e:
             logger.error(f"获取Label Studio项目数量时发生错误: {str(e)}")
             return 0
+
+    # 新增ai_label_studio_bind表的CRUD操作方法
+    def label_studio_bind_insert(self, kno_id: str, label_studio_id: str, bind_status: int = 0):
+        """
+        创建本地知识库与Label Studio的绑定关系
+        """
+        return self.insert("ai_label_studio_bind", data={
+            "kno_id": kno_id,
+            "label_studio_id": label_studio_id,
+            "bind_status": bind_status
+        })
+
+    def label_studio_bind_update(self, kno_id: str, label_studio_id: str, bind_status: int = None):
+        """
+        更新本地知识库与Label Studio的绑定状态
+        """
+        if bind_status is None:
+            return False
+
+        data = {"bind_status": bind_status}
+        return self.update("ai_label_studio_bind", data, kno_id=kno_id, label_studio_id=label_studio_id)
+
+    def label_studio_bind_delete(self, kno_id: str, label_studio_id: str):
+        """
+        删除本地知识库与Label Studio的绑定关系
+        """
+        return self.delete("ai_label_studio_bind", kno_id=kno_id, label_studio_id=label_studio_id)
+
+    def label_studio_bind_get(self, kno_id: str = None, label_studio_id: str = None, bind_status: int = None) -> Optional[List[Tuple]]:
+        """
+        获取本地知识库与Label Studio的绑定关系列表
+        支持按kno_id、label_studio_id、bind_status查询
+        """
+        data = {}
+        if kno_id is not None:
+            data['kno_id'] = kno_id
+        if label_studio_id is not None:
+            data['label_studio_id'] = label_studio_id
+        if bind_status is not None:
+            data['bind_status'] = bind_status
+
+        exact_match_fields = ['kno_id', 'label_studio_id', 'bind_status']
+        allowed_fileds = exact_match_fields
+        
+        query, params = self.gen_select_query('ai_label_studio_bind', 
+                                              exact_match_fields=exact_match_fields,
+                                              allowed_fileds=allowed_fileds, **data)
+        return self.execute_query(query, params)
+
+
+
+    def _label_studio_bind_to_json(self, bind_tuple):
+        """
+        将绑定关系元组转换为JSON格式
+        """
+        if bind_tuple:
+            return {
+                "id": bind_tuple[0],
+                "kno_id": bind_tuple[1],
+                "label_studio_id": bind_tuple[2],
+                "bind_status": bind_tuple[3],
+                "created_at": bind_tuple[4].isoformat() if len(bind_tuple) > 4 and bind_tuple[4] else None,
+                "updated_at": bind_tuple[5].isoformat() if len(bind_tuple) > 5 and bind_tuple[5] else None
+            }
+        return None
