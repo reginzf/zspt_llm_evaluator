@@ -3,7 +3,6 @@ import logging
 from flask import Blueprint, request, jsonify
 
 from src.flask_funcs.reports.flask_label_studio_env_renderer import LabelStudioEnvRendererFlask
-from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
 from src.sql_funs.label_studio_crud import LabelStudioCrud
 from src.flask_funcs.common_utils import validate_required_fields, execute_with_crud_operation
 

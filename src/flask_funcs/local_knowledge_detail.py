@@ -86,7 +86,7 @@ def api_local_knowledge_detail():
                         filtered_record = {
                             "knol_id": record[1],  # knol_id
                             "kno_name": record[2],  # knol_name
-                            "kno_describe": record[3],  # knol_describe
+                            "kno_describe": record[3],  # kno_describe
                             "knol_path": record[4],  # knol_path
                             "ls_status": record[5],  # ls_status
                             "created_at": record[6],  # created_at
@@ -110,7 +110,7 @@ def api_local_knowledge_detail():
                             filtered_record = {
                                 "knol_id": record[1],  # knol_id
                                 "kno_name": record[2],  # knol_name
-                                "kno_describe": record[3],  # knol_describe
+                                "kno_describe": record[3],  # kno_describe
                                 "knol_path": record[4],  # knol_path
                                 "ls_status": record[5],  # ls_status
                                 "created_at": record[6],  # created_at
