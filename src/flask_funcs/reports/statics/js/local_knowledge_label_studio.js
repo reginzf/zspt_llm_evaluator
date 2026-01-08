@@ -69,7 +69,7 @@ function showBindModal() {
                     options += `<option value="${env.label_studio_id}">${env.label_studio_url}</option>`;
                 });
                 
-                document.getElementById('environmentSelect').innerHTML = options;
+                document.getElementById('lsEnvironmentSelect').innerHTML = options;
                 document.getElementById('bindModal').style.display = 'block';
             } else {
                 alert('获取环境列表失败: ' + data.message);

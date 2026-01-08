@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ css_path }}">
     <link rel="stylesheet" href="{{ detail_css_path }}">
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_label_studio.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_question.css') }}">
 </head>
 <body>
 <div class="detail-container">
@@ -59,6 +60,7 @@
         <div class="tab-buttons">
             <div class="tab-button active" onclick="switchTab('files')">知识库文件</div>
             <div class="tab-button" onclick="switchTab('bindings')">知识库</div>
+            <div class="tab-button" onclick="switchTab('questions')">问题集</div>
             <div class="tab-button" onclick="switchTab('annotations')">标注</div>
             <div class="tab-button" onclick="switchTab('tasks')">任务</div>
         </div>
@@ -81,6 +83,112 @@
             <ul class="binding-list" id="binding-list">
                 <li class="loading">正在加载绑定状态...</li>
             </ul>
+        </div>
+        
+        <!-- 问题集管理页 -->
+        <div id="questions" class="tab-content">
+            <div class="question-actions">
+                <button class="action-btn create-question-set-btn" onclick="showCreateQuestionSetModal()">创建问题集</button>
+            </div>
+            <div class="question-set-list" id="questionSetList">
+                <div class="loading">正在加载问题集...</div>
+            </div>
+            
+            <!-- 创建问题集模态框 -->
+            <div id="createQuestionSetModal" class="question-modal">
+                <div class="question-modal-content">
+                    <div class="modal-header">
+                        <h2>创建问题集</h2>
+                        <span class="close" onclick="hideCreateQuestionSetModal()">&times;</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="questionSetName">问题集名称 *</label>
+                        <input type="text" id="questionSetName" placeholder="请输入问题集名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="questionSetType">问题集类型 *</label>
+                        <select id="questionSetType">
+                            <option value="basic">基础问题</option>
+                            <option value="detailed">详细问题</option>
+                            <option value="mechanism">机制问题</option>
+                            <option value="thematic">主题问题</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" onclick="hideCreateQuestionSetModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="createQuestionSet()">创建</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 问题集详情模态框 -->
+            <div id="questionSetDetailModal" class="question-modal">
+                <div class="question-modal-content large">
+                    <div class="modal-header">
+                        <h2 id="questionSetDetailTitle">问题集详情</h2>
+                        <span class="close" onclick="hideQuestionSetDetailModal()">&times;</span>
+                    </div>
+                    <div class="question-set-detail-content">
+                        <div class="question-set-info">
+                            <h3>问题集信息</h3>
+                            <div class="detail-row">
+                                <span class="detail-label">名称:</span>
+                                <span class="detail-value" id="detailSetName"></span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">类型:</span>
+                                <span class="detail-value" id="detailSetType"></span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">创建时间:</span>
+                                <span class="detail-value" id="detailSetCreatedAt"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="question-list-section">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3>问题列表</h3>
+                                <button class="action-btn create-question-btn" onclick="showCreateQuestionModal()">创建问题</button>
+                            </div>
+                            <div class="question-list" id="questionList">
+                                <div class="loading">正在加载问题...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 创建问题模态框 -->
+            <div id="createQuestionModal" class="question-modal">
+                <div class="question-modal-content">
+                    <div class="modal-header">
+                        <h2>创建问题</h2>
+                        <span class="close" onclick="hideCreateQuestionModal()">&times;</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="questionType">问题类型</label>
+                        <select id="questionType">
+                            <option value="factual">事实型</option>
+                            <option value="contextual">上下文型</option>
+                            <option value="conceptual">概念型</option>
+                            <option value="reasoning">推理型</option>
+                            <option value="application">应用型</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="questionContent">问题内容</label>
+                        <textarea id="questionContent" placeholder="请输入问题内容"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="chunkIds">关联切片ID（用逗号分隔）</label>
+                        <input type="text" id="chunkIds" placeholder="请输入切片ID，用逗号分隔">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" onclick="hideCreateQuestionModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="createQuestion()">创建</button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- 标注进度页 -->
@@ -140,7 +248,7 @@
                     </div>
                     <div class="form-group">
                         <label for="environmentSelect">选择环境:</label>
-                        <select id="environmentSelect">
+                        <select id="lsEnvironmentSelect">
                             <option value="">加载中...</option>
                         </select>
                     </div>
@@ -201,6 +309,7 @@
 <script src="{{ js_url }}"></script>
 <script src="{{ detail_js_url }}"></script>
 <script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_label_studio.js') }}"></script>
+<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_question.js') }}"></script>
 
 <!-- 绑定对话框 -->
 <div id="bindDialog" class="modal">

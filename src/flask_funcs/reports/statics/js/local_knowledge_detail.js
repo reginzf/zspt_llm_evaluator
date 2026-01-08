@@ -29,6 +29,12 @@ function switchTab(tabName) {
         if (typeof initAnnotationTab !== 'undefined') {
             initAnnotationTab(knoId);
         }
+    } else if (tabName === 'questions') {
+        // 初始化问题集页签
+        const knoId = document.getElementById('knowledge-id').textContent.trim();
+        if (typeof initQuestionTab !== 'undefined') {
+            initQuestionTab(knoId);
+        }
     }
 }
 
