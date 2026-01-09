@@ -39,7 +39,7 @@ function updateEnvironmentDisplay(data) {
         
         data.environments.forEach(env => {
             // 检查当前环境是否被绑定
-            const isBound = data.bound_environment && data.bound_environment.label_studio_id === env.label_studio_id;
+            const isBound = data.bound_environments && data.bound_environments.some(bound => bound.label_studio_id === env.label_studio_id);
             
             // 获取该环境下的任务数量
             const taskCount = env.task_count || 0;  // 假设后端会返回每个环境的任务数量
@@ -268,11 +268,15 @@ function showCreateTaskModalWithEnv(envId) {
 
 // 加载已绑定的知识库列表
 function loadBoundKnowledgeBases(envId) {
-    fetch(`/local_knowledge_detail/label_studio/knowledge/bound_list?env_id=${envId}`, {
-        method: 'GET',
+    fetch('/local_knowledge_detail/label_studio/knowledge/bound_list', {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+            env_id: envId,
+            local_knowledge_id: currentKnoId
+        })
     })
     .then(response => response.json())
     .then(data => {
@@ -297,17 +301,21 @@ function loadBoundKnowledgeBases(envId) {
 
 // 当选择知识库时，加载问题集列表
 function loadQuestionSetsForKnowledgeBase() {
-    const knowledgeId = document.getElementById('taskKnowledgeBaseSelect').value;
-    if (!knowledgeId) {
+    // 使用本地知识库ID而不是下拉框选中的值
+    const localKnowledgeId = currentKnoId;
+    if (!localKnowledgeId) {
         document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
         return;
     }
     
-    fetch(`/local_knowledge_detail/label_studio/questionset/available?knowledge_id=${knowledgeId}`, {
-        method: 'GET',
+    fetch('/local_knowledge_detail/label_studio/questionset/available', {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+            knowledge_id: localKnowledgeId
+        })
     })
     .then(response => response.json())
     .then(data => {
@@ -336,7 +344,8 @@ function showCreateTaskModal() {
     document.getElementById('taskIdInput').style.display = 'none';
     document.getElementById('taskId').value = '';
     document.getElementById('taskName').value = '';
-    document.getElementById('taskKnowledgeBase').value = currentKnoId;
+    // 注释掉不存在的元素，使用taskKnowledgeBaseSelect代替
+    // document.getElementById('taskKnowledgeBase').value = currentKnoId;
     document.getElementById('taskEnvironment').value = currentEnvironment ? currentEnvironment.label_studio_id : '';
     
     // 重置选择框
@@ -352,7 +361,8 @@ function showEditTaskModal(task) {
     document.getElementById('taskIdInput').style.display = 'block';
     document.getElementById('taskId').value = task.id;
     document.getElementById('taskName').value = task.name;
-    document.getElementById('taskKnowledgeBase').value = task.knowledge_base_id;
+    // 注释掉不存在的元素，使用taskKnowledgeBaseSelect代替
+    // document.getElementById('taskKnowledgeBase').value = task.knowledge_base_id;
     document.getElementById('taskEnvironment').value = task.environment_id;
     
     document.getElementById('taskModal').style.display = 'block';
@@ -367,7 +377,7 @@ function hideTaskModal() {
 function saveTask() {
     const taskId = document.getElementById('taskId').value;
     const taskName = document.getElementById('taskName').value;
-    const knowledgeBaseId = document.getElementById('taskKnowledgeBase').value;
+    const knowledgeBaseId = document.getElementById('taskKnowledgeBaseSelect').value;
     const environmentId = document.getElementById('taskEnvironment').value;
     const questionSetId = document.getElementById('taskQuestionSet').value; // 新增问题集ID
     
@@ -386,14 +396,17 @@ function saveTask() {
     const url = isEdit ? '/local_knowledge_detail/label_studio/update_project' : '/local_knowledge_detail/label_studio/create_annotation_project';
     
     const requestData = {
-        name: taskName,
-        knowledge_base_id: knowledgeBaseId,
-        environment_id: environmentId,
-        question_set_id: questionSetId  // 添加问题集ID
+        name: taskName
     };
     
     if (isEdit) {
+        // 更新模式：只需要任务ID和基本信息
         requestData.id = taskId;
+    } else {
+        // 创建模式：需要所有参数
+        requestData.knowledge_base_id = currentKnoId;  // 使用本地知识库ID
+        requestData.label_studio_id = environmentId;  // 改名为label_studio_id
+        requestData.question_set_id = questionSetId;  // 添加问题集ID
     }
     
     fetch(url, {
@@ -564,11 +577,7 @@ function handleEditTaskClick(taskJsonString) {
     }
 }
 
-// 确保DOM加载完成后初始化
-// document.addEventListener('DOMContentLoaded', function() {
-//     // 这里需要从页面获取kno_id，通常在页面加载时通过模板变量传入
-//     // initAnnotationTab(knoId); // 需要在页面中调用并传入实际的kno_id
-// });
+
 
 // 添加初始化函数，供页面调用
 function initAnnotationTab(knoId) {

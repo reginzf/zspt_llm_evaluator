@@ -196,8 +196,7 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def annotation_task_update(self, task_id, task_name=None, task_status=None,
-                               total_chunks=None, annotated_chunks=None,
-                               label_studio_project_id=None):
+                               total_chunks=None, annotated_chunks=None):
         """更新标注任务"""
         try:
             updates = {}
@@ -210,8 +209,6 @@ class LabelStudioCrud(PostgreSQLManager):
                 updates['total_chunks'] = total_chunks
             if annotated_chunks is not None:
                 updates['annotated_chunks'] = annotated_chunks
-            if label_studio_project_id is not None:
-                updates['label_studio_project_id'] = label_studio_project_id
 
             if not updates:
                 return False

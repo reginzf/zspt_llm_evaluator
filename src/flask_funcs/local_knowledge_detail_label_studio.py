@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
-from src.sql_funs.label_studio_crud import LabelStudioCrud
+from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -17,38 +17,26 @@ def get_label_studio_environments():
         # 从请求体获取JSON数据
         data = request.get_json()
         kno_id = data.get('kno_id')
-        
+
         with LabelStudioCrud() as ls_crud:
             # 获取所有Label-Studio环境
             environments = ls_crud.label_studio_list()
             environment_list = [ls_crud._label_studio_to_json(env) for env in environments]
-            
+            logger.info(f"获取环境列表: {environment_list}")
             # 检查当前知识库是否已绑定环境
             bound_environments = None
             res = ls_crud.label_studio_bind_get(kno_id)
             if res:
                 bound_environments = [ls_crud._label_studio_bind_to_json(ele) for ele in res]
-            
-            # 查找当前绑定的环境信息
-            bound_environment = None
-            if bound_environments:
-                # 获取第一个绑定的环境信息
-                first_bound = bound_environments[0]
-                # 根据label_studio_id查找完整的环境信息
-                for env in environment_list:
-                    if env['label_studio_id'] == first_bound['label_studio_id']:
-                        bound_environment = env
-                        break
-
+            logger.info(f"获取已绑定环境列表: {bound_environments}")
             # 为每个环境计算任务数量
             for env in environment_list:
                 env['task_count'] = ls_crud.annotation_task_count_by_env(env['label_studio_id'])
-
             return jsonify({
                 'success': True,
                 'data': {
                     'environments': environment_list,
-                    'bound_environment': bound_environment  # 如果有绑定则返回绑定的环境信息
+                    'bound_environments': bound_environments  # 如果有绑定则返回绑定的环境信息
                 }
             })
     except Exception as e:
@@ -95,12 +83,12 @@ def unbind_label_studio_environment():
 
         kno_id = data['kno_id']
         ls_id = data['ls_id']
-        
+
         with LabelStudioCrud() as ls_crud:
             result = ls_crud.label_studio_bind_delete(kno_id=kno_id, label_studio_id=ls_id)
             if not result:
                 return jsonify({'success': False, 'message': '环境解绑失败'}), 400
-                
+
         return jsonify({
             'success': True,
             'message': '环境解绑成功'
@@ -110,20 +98,27 @@ def unbind_label_studio_environment():
         return jsonify({'success': False, 'message': f'解绑环境时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/create_annotation_project', methods=['POST'])
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/create_annotation_project',
+                                       methods=['POST'])
 def create_annotation_project():
     """创建标注任务"""
     try:
         data = request.get_json()
-        required_fields = ['name', 'knowledge_base_id', 'environment_id', 'question_set_id']
+        required_fields = ['name', 'knowledge_base_id', 'label_studio_id', 'question_set_id']
         missing_field = validate_required_fields(data, required_fields)
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
 
         task_name = data['name']
         local_knowledge_id = data['knowledge_base_id']
-        label_studio_env_id = data['environment_id']
+        label_studio_env_id = data['label_studio_id']
         question_set_id = data['question_set_id']
+        
+        # 验证本地知识库ID是否一致，如果提供的话
+        if 'local_knowledge_id' in data:
+            provided_local_knowledge_id = data['local_knowledge_id']
+            if provided_local_knowledge_id != local_knowledge_id:
+                logger.warning(f"参数不一致: local_knowledge_id={provided_local_knowledge_id}, knowledge_base_id={local_knowledge_id}")
 
         # 生成任务ID
         task_id = generate_unique_id('task', 8)
@@ -167,16 +162,16 @@ def get_annotation_projects():
         # 获取标注任务列表逻辑（从数据库查询）
         with LabelStudioCrud() as ls_crud:
             tasks = ls_crud.annotation_task_list(local_knowledge_id=kno_id)
-            
+
             # 转换为前端期望的格式
             projects = []
             for task in tasks:
                 task_data = ls_crud._annotation_task_to_json(task)
-                
+
                 # 获取知识库和问题集的名称
                 kb_name = get_knowledge_base_name(task_data['local_knowledge_id'])
                 qs_name = get_question_set_name(task_data['question_set_id'])
-                
+
                 projects.append({
                     'task_id': task_data['task_id'],
                     'name': task_data['task_name'],
@@ -269,40 +264,38 @@ def delete_annotation_project():
         return jsonify({'success': False, 'message': f'删除任务时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/knowledge/bound_list', methods=['GET'])
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/knowledge/bound_list', methods=['POST'])
 def get_bound_knowledge_list():
     """获取环境已绑定的知识库列表"""
     try:
-        env_id = request.args.get('env_id')
-        
+        data = request.get_json()
+        env_id = data.get('env_id')
+        local_knowledge_id = data.get('local_knowledge_id')
+
         if not env_id:
             return jsonify({'success': False, 'message': '缺少env_id参数'}), 400
 
-        # 从绑定表查询已绑定的知识库
-        with LabelStudioCrud() as ls_crud:
-            # 查询绑定关系
-            binds = ls_crud.label_studio_bind_get(label_studio_id=env_id)
-            if not binds:
-                return jsonify({'success': True, 'data': []})
+        if not local_knowledge_id:
+            return jsonify({'success': False, 'message': '缺少local_knowledge_id参数'}), 400
 
+        # 从绑定表查询已绑定的知识库
+        with LocalKnowledgeCrud() as lk_crud, Environment_Crud() as e_crud:
+            # 查询绑定关系
+            result = lk_crud.get_local_knowledge_bind(kno_id=local_knowledge_id)
+            if result:
+                binds = [lk_crud._local_knowledge_bind_to_json(ele) for ele in result if ele[3] == 2]
+            else:
+                binds = []
             # 获取相关的知识库信息
             knowledge_list = []
             for bind in binds:
-                bind_info = ls_crud._label_studio_bind_to_json(bind)
-                
-                # 查询本地知识库信息
-                # 由于我们现在在LabelStudioCrud类中，我们需要创建一个新的PostgreSQLManager实例来查询本地知识库
-                from src.sql_funs.sql_base import PostgreSQLManager
-                with PostgreSQLManager() as db:
-                    query = "SELECT kno_name FROM ai_local_knowledge WHERE kno_id = %s"
-                    result = db.fetch_one(query, (bind_info['kno_id'],))
-                    
-                    if result:
-                        knowledge_list.append({
-                            'knowledge_id': bind_info['kno_id'],
-                            'knowledge_name': result[0],
-                            'status': bind_info['bind_status']
-                        })
+                bind_info = e_crud.get_knowledge_base(knowledge_id=bind['knowledge_id'])
+                if bind_info:
+                    knowledge_list.append({
+                        'knowledge_id': bind_info[0][0],
+                        'knowledge_name': bind_info[0][1],
+                        'status': 2
+                    })
 
         return jsonify({
             'success': True,
@@ -313,68 +306,64 @@ def get_bound_knowledge_list():
         return jsonify({'success': False, 'message': f'获取绑定知识库列表时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/questionset/available', methods=['GET'])
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/questionset/available', methods=['POST'])
 def get_available_questionsets():
     """获取可用的问题集列表"""
     try:
-        knowledge_id = request.args.get('knowledge_id')
-        
+        data = request.get_json()
+        knowledge_id = data.get('knowledge_id')
+
         if not knowledge_id:
             return jsonify({'success': False, 'message': '缺少knowledge_id参数'}), 400
 
         # 从问题集表查询对应知识库的问题集
-        from src.sql_funs.sql_base import PostgreSQLManager
-        with PostgreSQLManager() as db:
-            query = """
-                SELECT question_id, question_name, question_set_type, question_count
-                FROM ai_question_config
-                WHERE knowledge_id = %s
-            """
-            questionsets_db = db.fetch_all(query, (knowledge_id,))
-            
-            # 转换为前端期望的格式
-            questionsets = []
-            for qs in questionsets_db:
-                questionsets.append({
-                    'question_id': qs[0],
-                    'question_name': qs[1],
-                    'question_set_type': qs[2],
-                    'question_count': qs[3]
-                })
+        from src.sql_funs import QuestionsCRUD
+        with QuestionsCRUD() as crud:
+            result = crud.question_config_list(knowledge_id=knowledge_id)
 
+            if result:
+                question_sets = []
+                for qs in result:
+                    question_sets.append({
+                        'question_id': qs[0],
+                        'question_name': qs[1],
+                        'question_set_type': qs[5],
+                        'question_count': qs[6]
+                    })
         return jsonify({
             'success': True,
-            'data': questionsets
+            'data': question_sets
         })
     except Exception as e:
         logger.error(f"获取可用问题集列表时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'获取可用问题集列表时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_tasks_by_environment', methods=['POST'])
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_tasks_by_environment',
+                                       methods=['POST'])
 def get_tasks_by_environment():
     """获取特定环境下的标注任务列表"""
     try:
         data = request.get_json()
         env_id = data.get('env_id')
         kno_id = data.get('kno_id')
-        
+
         if not env_id or not kno_id:
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
 
         # 查询特定环境和知识库下的标注任务
         with LabelStudioCrud() as ls_crud:
-            tasks = ls_crud.annotation_task_get_by_env_and_knowledge(env_id, kno_id)
-            
+            tasks = ls_crud.annotation_task_list(local_knowledge_id=kno_id, label_studio_env_id=env_id)
+
             # 转换为前端期望的格式
             projects = []
             for task in tasks:
                 task_data = ls_crud._annotation_task_to_json(task)
-                
+
                 # 获取知识库和问题集的名称
                 kb_name = get_knowledge_base_name(task_data['local_knowledge_id'])
                 qs_name = get_question_set_name(task_data['question_set_id'])
-                
+
                 projects.append({
                     'task_id': task_data['task_id'],
                     'name': task_data['task_name'],

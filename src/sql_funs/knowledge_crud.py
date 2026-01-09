@@ -34,38 +34,11 @@ class KnowledgeCrud(PostgreSQLManager):
             "knowledge_id": knowledge_id
         })
 
-    def get_knowledge_detail(self, knowledge_id: str = None) -> Optional[List[Tuple]]:
-        """
-        获取知识库详细信息
-        """
-        query = "SELECT * FROM ai_knowledge_detail_view"
-        params = None
-
-        if knowledge_id:
-            query += " WHERE knowledge_id = %s"
-            params = (knowledge_id,)
-
-        return self.execute_query(query, params)
-
-    def get_knowledge_structure(self, knowledge_id: str = None) -> Optional[List[Tuple]]:
-        """
-        获取知识结构信息
-        """
-        query = "SELECT * FROM ai_knowledge_structure_view"
-        params = None
-
-        if knowledge_id:
-            query += " WHERE knowledge_id = %s"
-            params = (knowledge_id,)
-
-        query += " ORDER BY display_order"
-
-        return self.execute_query(query, params)
 
 
 if __name__ == '__main__':
     kno = KnowledgeCrud('10.210.2.223', 5432, 'label_studio', 'labelstudio', 'Labelstudio123')
     kno.connect()
     kno.insert()
-    print(kno.get_knowledge_structure())
+
     kno.disconnect()
