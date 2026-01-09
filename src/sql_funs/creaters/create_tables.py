@@ -187,6 +187,24 @@ class CreateTables(PostgreSQLManager):
         }
         return self._create_table_with_common_fields("ai_label_studio_bind", columns)
 
+    def create_annotation_tasks_table(self):
+        """创建标注任务表"""
+        columns = {
+            "task_id": "VARCHAR(100) PRIMARY KEY",
+            "task_name": "VARCHAR(200) NOT NULL",
+            "local_knowledge_id": "VARCHAR(100) NOT NULL",
+            "question_set_id": "VARCHAR(100) NOT NULL",
+            "label_studio_env_id": "VARCHAR(100) NOT NULL",
+            "label_studio_project_id": "VARCHAR(100)",  # Label-Studio中创建的project ID
+            "total_chunks": "INTEGER DEFAULT 0",  # 需要标注的切片总数
+            "annotated_chunks": "INTEGER DEFAULT 0",  # 已标注切片数量
+            "task_status": "VARCHAR(20) DEFAULT '未开始' CHECK (task_status IN ('未开始', '进行中', '已完成'))",
+            "FOREIGN KEY (local_knowledge_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
+            "FOREIGN KEY (question_set_id)": "REFERENCES ai_question_config(question_id) ON DELETE CASCADE",
+            "FOREIGN KEY (label_studio_env_id)": "REFERENCES ai_label_studio_info(label_studio_id) ON DELETE CASCADE"
+        }
+        return self._create_table_with_common_fields("ai_annotation_tasks", columns)
+
     def create_all_tables(self):
         """创建所有表"""
         self.create_environment_table()
@@ -203,6 +221,7 @@ class CreateTables(PostgreSQLManager):
         self.create_local_knowledge_list()
         self.create_knowledge_bind_table()  # 新增绑定关系表
         self.create_label_studio_bind_table()  # 新增localknowledge和labelstudio的绑定关系表
+        self.create_annotation_tasks_table()  # 新增标注任务表
 
 
 if __name__ == '__main__':
