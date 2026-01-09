@@ -1,6 +1,7 @@
 // 标注功能相关的JavaScript代码
 let currentKnoId = null;
 let currentEnvironment = null;
+let expandedEnvironmentId = null;  // 记录当前展开的环境ID
 
 
 // 加载环境绑定状态
@@ -29,36 +30,52 @@ function loadEnvironmentStatus() {
 
 // 更新环境显示
 function updateEnvironmentDisplay(data) {
-    const environmentStatusDiv = document.getElementById('environmentStatus');
+    const environmentTableBody = document.getElementById('environmentTableBody');
     const createTaskBtn = document.getElementById('createTaskBtn');
     
-    if (data && data.bound_environment) {
-        // 已绑定环境
-        currentEnvironment = data.bound_environment;
-        environmentStatusDiv.innerHTML = `
-            <div class="environment-status bound">
-                <div class="environment-info">
-                    <strong>已绑定环境:</strong> ${data.bound_environment.label_studio_url}
-                    <br>
-                    <small>ID: ${data.bound_environment.label_studio_id}</small>
-                </div>
-                <div class="environment-actions">
-                    <button class="unbind-btn" onclick="showUnbindModal()">解绑</button>
-                </div>
-            </div>
-        `;
-        createTaskBtn.disabled = false;
+    if (data && data.environments && data.environments.length > 0) {
+        // 显示所有环境
+        let rows = '';
+        
+        data.environments.forEach(env => {
+            // 检查当前环境是否被绑定
+            const isBound = data.bound_environment && data.bound_environment.label_studio_id === env.label_studio_id;
+            
+            // 获取该环境下的任务数量
+            const taskCount = env.task_count || 0;  // 假设后端会返回每个环境的任务数量
+            
+            // 设置当前环境
+            if (isBound) {
+                currentEnvironment = env;
+                createTaskBtn.disabled = false;
+            }
+            
+            // 环境行
+            rows += `
+                <tr>
+                    <td>${env.label_studio_id}</td>
+                    <td><a href="${env.label_studio_url}" target="_blank">${env.label_studio_url}</a></td>
+                    <td>${taskCount}</td>
+                    <td>
+                        <div class="environment-actions">
+                            <button class="environment-action-btn expand-btn" onclick="toggleEnvironmentTasks('${env.label_studio_id}')">展开</button>
+                            <button class="environment-action-btn create-task-env-btn" onclick="showCreateTaskModalWithEnv('${env.label_studio_id}')">创建任务</button>
+                            ${isBound ? `<button class="environment-action-btn unbind-env-btn" onclick="showUnbindModal('${env.label_studio_id}')">解绑</button>` : 
+                              `<button class="environment-action-btn" onclick="bindEnvironmentToId('${env.label_studio_id}')" ${currentEnvironment ? 'disabled' : ''}>绑定</button>`}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        environmentTableBody.innerHTML = rows;
     } else {
         // 未绑定环境
         currentEnvironment = null;
-        environmentStatusDiv.innerHTML = `
-            <div class="environment-status unbound">
-                <div class="environment-info">
-                    <strong>未绑定Label-Studio环境</strong>
-                    <br>
-                    <small>请先绑定环境以启用标注功能</small>
-                </div>
-            </div>
+        environmentTableBody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center;">暂无Label-Studio环境，请先添加环境</td>
+            </tr>
         `;
         createTaskBtn.disabled = true;
     }
@@ -136,15 +153,42 @@ function bindEnvironment() {
     });
 }
 
+// 绑定特定环境ID
+function bindEnvironmentToId(envId) {
+    fetch('/local_knowledge_detail/label_studio/bind_environment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            kno_id: currentKnoId,
+            ls_id: envId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('环境绑定成功');
+            loadEnvironmentStatus();
+        } else {
+            alert('绑定失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('绑定环境时出错:', error);
+        alert('绑定环境时发生错误');
+    });
+}
+
 // 显示解绑环境模态框
-function showUnbindModal() {
+function showUnbindModal(envId) {
     if (confirm('确定要解绑当前Label-Studio环境吗？')) {
-        unbindEnvironment();
+        unbindEnvironment(envId);
     }
 }
 
 // 解绑环境
-function unbindEnvironment() {
+function unbindEnvironment(envId) {
     fetch('/local_knowledge_detail/label_studio/unbind_environment', {
         method: 'POST',
         headers: {
@@ -152,7 +196,7 @@ function unbindEnvironment() {
         },
         body: JSON.stringify({
             kno_id: currentKnoId,
-            ls_id: currentEnvironment.label_studio_id
+            ls_id: envId || (currentEnvironment ? currentEnvironment.label_studio_id : '')
         })
     })
     .then(response => response.json())
@@ -170,6 +214,122 @@ function unbindEnvironment() {
     });
 }
 
+// 展开/收起环境下的任务列表
+function toggleEnvironmentTasks(envId) {
+    // 如果点击的是当前展开的环境，则收起它
+    if (expandedEnvironmentId === envId) {
+        expandedEnvironmentId = null;
+        // 这里可以隐藏任务列表（如果实现任务列表展示功能）
+        return;
+    }
+    
+    expandedEnvironmentId = envId;
+    // 加载并显示该环境下的任务列表
+    loadTasksForEnvironment(envId);
+}
+
+// 加载特定环境的任务列表
+function loadTasksForEnvironment(envId) {
+    fetch('/local_knowledge_detail/label_studio/get_tasks_by_environment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            env_id: envId,
+            kno_id: currentKnoId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 在这里展示环境下的任务列表
+            // 可以在表格下方添加一个子表格来展示任务
+            console.log('获取环境任务列表:', data.data);
+        } else {
+            console.error('获取环境任务列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求环境任务列表时出错:', error);
+    });
+}
+
+// 显示创建任务模态框（带环境ID）
+function showCreateTaskModalWithEnv(envId) {
+    // 预先设置环境ID
+    document.getElementById('taskEnvironment').value = envId;
+    
+    // 加载知识库列表
+    loadBoundKnowledgeBases(envId);
+    
+    showCreateTaskModal();
+}
+
+// 加载已绑定的知识库列表
+function loadBoundKnowledgeBases(envId) {
+    fetch(`/local_knowledge_detail/label_studio/knowledge/bound_list?env_id=${envId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('taskKnowledgeBaseSelect');
+            select.innerHTML = '<option value="">请选择知识库</option>';
+            
+            data.data.forEach(kb => {
+                const option = document.createElement('option');
+                option.value = kb.knowledge_id;
+                option.textContent = `${kb.knowledge_name}(${kb.knowledge_id})`;
+                select.appendChild(option);
+            });
+        } else {
+            console.error('获取知识库列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求知识库列表时出错:', error);
+    });
+}
+
+// 当选择知识库时，加载问题集列表
+function loadQuestionSetsForKnowledgeBase() {
+    const knowledgeId = document.getElementById('taskKnowledgeBaseSelect').value;
+    if (!knowledgeId) {
+        document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
+        return;
+    }
+    
+    fetch(`/local_knowledge_detail/label_studio/questionset/available?knowledge_id=${knowledgeId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('taskQuestionSet');
+            select.innerHTML = '<option value="">请选择问题集</option>';
+            
+            data.data.forEach(qs => {
+                const option = document.createElement('option');
+                option.value = qs.question_id;
+                option.textContent = `${qs.question_name}(${qs.question_id})`;
+                select.appendChild(option);
+            });
+        } else {
+            console.error('获取问题集列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求问题集列表时出错:', error);
+    });
+}
+
 // 显示创建任务模态框
 function showCreateTaskModal() {
     document.getElementById('taskModalTitle').textContent = '创建标注任务';
@@ -178,6 +338,10 @@ function showCreateTaskModal() {
     document.getElementById('taskName').value = '';
     document.getElementById('taskKnowledgeBase').value = currentKnoId;
     document.getElementById('taskEnvironment').value = currentEnvironment ? currentEnvironment.label_studio_id : '';
+    
+    // 重置选择框
+    document.getElementById('taskKnowledgeBaseSelect').innerHTML = '<option value="">加载中...</option>';
+    document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
     
     document.getElementById('taskModal').style.display = 'block';
 }
@@ -205,9 +369,15 @@ function saveTask() {
     const taskName = document.getElementById('taskName').value;
     const knowledgeBaseId = document.getElementById('taskKnowledgeBase').value;
     const environmentId = document.getElementById('taskEnvironment').value;
+    const questionSetId = document.getElementById('taskQuestionSet').value; // 新增问题集ID
     
     if (!taskName) {
         alert('请输入任务名称');
+        return;
+    }
+    
+    if (!questionSetId) {
+        alert('请选择问题集');
         return;
     }
     
@@ -218,7 +388,8 @@ function saveTask() {
     const requestData = {
         name: taskName,
         knowledge_base_id: knowledgeBaseId,
-        environment_id: environmentId
+        environment_id: environmentId,
+        question_set_id: questionSetId  // 添加问题集ID
     };
     
     if (isEdit) {
@@ -238,6 +409,7 @@ function saveTask() {
             alert(isEdit ? '任务更新成功' : '任务创建成功');
             hideTaskModal();
             loadAnnotationProjects();
+            loadEnvironmentStatus();  // 重新加载环境状态以更新任务计数
         } else {
             alert(isEdit ? '更新失败: ' : '创建失败: ' + data.message);
         }
@@ -265,6 +437,7 @@ function deleteTask(taskId) {
             if (data.success) {
                 alert('任务删除成功');
                 loadAnnotationProjects();
+                loadEnvironmentStatus();  // 重新加载环境状态以更新任务计数
             } else {
                 alert('删除失败: ' + data.message);
             }
@@ -307,12 +480,24 @@ function renderTaskTable(tasks) {
     
     if (tasks && tasks.length > 0) {
         tasks.forEach(task => {
-            const progressText = task.annotated_count ? `${task.annotated_count}/${task.total_count}` : '0/0';
-            const progressPercent = task.total_count ? (task.annotated_count / task.total_count * 100) : 0;
+            const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
+            const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
             
             let statusClass = '';
             let statusText = '';
-            switch(task.status) {
+            switch(task.task_status || task.status) {
+                case '未开始':
+                    statusClass = 'status-not-started';
+                    statusText = '未开始';
+                    break;
+                case '进行中':
+                    statusClass = 'status-in-progress';
+                    statusText = '进行中';
+                    break;
+                case '已完成':
+                    statusClass = 'status-completed';
+                    statusText = '已完成';
+                    break;
                 case 'not_started':
                     statusClass = 'status-not-started';
                     statusText = '未开始';
@@ -327,7 +512,7 @@ function renderTaskTable(tasks) {
                     break;
                 default:
                     statusClass = 'status-not-started';
-                    statusText = task.status;
+                    statusText = task.task_status || task.status;
             }
             
             // 创建一个安全的onclick事件处理器
@@ -335,7 +520,7 @@ function renderTaskTable(tasks) {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${task.name}</td>
-                <td>${task.knowledge_base_name}(${task.knowledge_base_id})</td>
+                <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
                 <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
                 <td>
                     <div class="progress-container">
@@ -349,7 +534,8 @@ function renderTaskTable(tasks) {
                 <td>
                     <div class="task-actions">
                         <button class="task-action-btn edit-btn" onclick="handleEditTaskClick(decodeURIComponent('${taskJson}'))">编辑</button>
-                        <button class="task-action-btn delete-btn" onclick="deleteTask('${task.id}')">删除</button>
+                        <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}')">同步</button>
+                        <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}')">删除</button>
                     </div>
                 </td>
             `;
@@ -360,6 +546,11 @@ function renderTaskTable(tasks) {
         row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
         tableBody.appendChild(row);
     }
+}
+
+// 同步任务（预留功能）
+function syncTask(taskId) {
+    alert('同步功能正在开发中...');
 }
 
 // 处理编辑任务点击事件

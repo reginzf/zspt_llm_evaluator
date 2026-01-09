@@ -151,7 +151,6 @@ function renderQuestionList(questions, containerElement, questionSetType) {  // 
     
     let html = `
         <div class="question-list-section">
-            <h4>问题列表</h4>
             <div class="question-table-container">
                 <table class="question-table">
                     <thead>
