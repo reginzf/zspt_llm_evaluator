@@ -147,7 +147,6 @@
 
                         <div class="question-list-section">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <h3>问题列表</h3>
                                 <button class="action-btn create-question-btn" onclick="showCreateQuestionModal()">创建问题</button>
                             </div>
                             <div class="question-list" id="questionList">
@@ -193,24 +192,32 @@
 
         <!-- 标注进度页 -->
         <div id="annotations" class="tab-content">
-            <h3>标注</h3>
-
             <!-- 环境绑定区域 -->
             <div class="annotation-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>环境绑定</h3>
+
                     <button class="action-btn bind-btn" onclick="showBindModal()">绑定Label-Studio环境</button>
                 </div>
                 <div id="environmentStatus">
                     <!-- 环境状态将通过JavaScript动态加载 -->
-                    <div class="environment-status unbound">
-                        <div class="environment-info">
-                            <strong>加载中...</strong>
-                        </div>
-                    </div>
+                    <table class="environment-table">
+                        <thead>
+                            <tr>
+                                <th>环境ID</th>
+                                <th>URL</th>
+                                <th>标注任务数量</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="environmentTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center;">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
+            
             <!-- 任务管理区域 -->
             <div class="annotation-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -277,17 +284,19 @@
                         <input type="text" id="taskName" required>
                     </div>
                     <div class="form-group">
-                        <label for="taskKnowledgeBase">知识库</label>
-                        <input type="text" id="taskKnowledgeBase" value="{{ knowledge_detail.kno_id }}" readonly>
-                    </div>
-                    <div class="form-group">
                         <label for="taskEnvironment">Label-Studio环境</label>
-                        <input type="text" id="taskEnvironment" value="" readonly>
+                        <input type="text" id="taskEnvironment" readonly>
                     </div>
                     <div class="form-group">
-                        <label for="taskQuestionSet">问题集</label>
+                        <label for="taskKnowledgeBaseSelect">知识库 *</label>
+                        <select id="taskKnowledgeBaseSelect" onchange="loadQuestionSetsForKnowledgeBase()">
+                            <option value="">请选择知识库</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskQuestionSet">问题集 *</label>
                         <select id="taskQuestionSet">
-                            <option value="">待开发...</option>
+                            <option value="">请选择知识库</option>
                         </select>
                     </div>
                     <div class="form-actions">
@@ -308,8 +317,8 @@
 
 <script src="{{ js_url }}"></script>
 <script src="{{ detail_js_url }}"></script>
-<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_label_studio.js') }}"></script>
-<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_question.js') }}"></script>
+<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_detail_label_studio.js') }}"></script>
+<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_detail_question.js') }}"></script>
 
 <!-- 绑定对话框 -->
 <div id="bindDialog" class="modal">
