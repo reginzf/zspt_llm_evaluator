@@ -1,6 +1,7 @@
 from flask import Flask
 from src.flask_funcs import home_bp, environment_bp, report_list_bp, static_bp, knowledge_doc_bp, local_knowledge_bp, \
     local_knowledge_detail_bp, label_studio_env_bp, local_knowledge_question_bp
+from src.flask_funcs.local_knowledge_detail_label_studio import local_knowledge_label_studio_bp
 from src.flask_funcs.knowledge_base import knowledge_base_bp
 import os
 
@@ -18,6 +19,7 @@ app.register_blueprint(knowledge_base_bp)
 app.register_blueprint(local_knowledge_detail_bp)
 app.register_blueprint(label_studio_env_bp)
 app.register_blueprint(local_knowledge_question_bp)
+app.register_blueprint(local_knowledge_label_studio_bp)
 # 设置静态文件和模板文件目录
 template_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'templates')
 statics_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'statics')
