@@ -6,17 +6,18 @@ logger = logging.getLogger(__name__)
 
 
 class QuestionsCRUD(PostgreSQLManager):
-    def question_config_create(self, question_id: str, question_name: str, knowledge_id: str = None):
+    def question_config_create(self, question_id: str, question_name: str, knowledge_id: str = None,question_set_type:str=None):
         """
         创建问题集配置
         """
         return self.insert("ai_question_config", data={
             "question_id": question_id,
             "question_name": question_name,
-            "knowledge_id": knowledge_id
+            "knowledge_id": knowledge_id,
+            "question_set_type" :question_set_type
         })
 
-    def question_config_update(self, question_id: str, question_name: str = None, question_count:int=None):
+    def question_config_update(self, question_id: str, question_name: str = None, question_count:int=None, question_set_type:str=None):
         """
         更新问题集配置
         """
@@ -50,18 +51,7 @@ class QuestionsCRUD(PostgreSQLManager):
                                               allowed_fileds=allowed_fileds, **kwargs)
         return self.execute_query(query, params)
 
-    def get_question_detail(self, question_id: str = None) -> Optional[List[Tuple]]:
-        """
-        获取问题详细信息
-        """
-        query = "SELECT * FROM ai_question_detail_view"
-        params = None
 
-        if question_id:
-            query += " WHERE question_id = %s"
-            params = (question_id,)
-
-        return self.execute_query(query, params)
 
     def _create_question(self, table_name: str, question_id: str, question_type: str, question_content: str, 
                         question_set_id: str = None, chunk_ids: List[str] = None):
@@ -100,18 +90,48 @@ class QuestionsCRUD(PostgreSQLManager):
         """
         return self._create_question("ai_thematic_questions", question_id, question_type, question_content, question_set_id, chunk_ids)
 
-    def get_questions_by_type(self, question_set_id: str, question_type: str) -> Optional[List[Tuple]]:
+    def get_questions_by_type(self, question_set_type: str, question_id: str = None, question_set_id: str = None, 
+                              question_type: str = None, question_content: str = None, chunk_ids: str = None) -> Optional[List[Tuple]]:
         """
         根据类型获取问题
         """
-        table_name = self._get_question_table_by_type(question_type)
+        table_name = self._get_question_table_by_type(question_set_type)
         if not table_name:
+            logger.warning(f"无法获取问题类型 '{question_set_type}' 对应的表名")
             return None
 
-        query = f"SELECT * FROM {table_name} WHERE question_set_id = %s"
-        params = (question_set_id,)
+        # 构建查询参数
+        kwargs = {}
+        if question_id is not None:
+            kwargs['question_id'] = question_id
+        if question_set_id is not None:
+            kwargs['question_set_id'] = question_set_id
+        if question_type is not None:
+            kwargs['question_type'] = question_type
 
-        return self.execute_query(query, params)
+        # 精确匹配字段
+        exact_match_fields = ['question_id', 'question_set_id', 'question_type']
+        # 模糊匹配字段
+        partial_match_fields = ['question_content', 'chunk_ids']
+
+        # 添加模糊匹配字段
+        if question_content is not None:
+            kwargs['question_content'] = question_content
+        if chunk_ids is not None:
+            kwargs['chunk_ids'] = chunk_ids
+
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        query, params = self.gen_select_query(table_name, 
+                                             exact_match_fields=exact_match_fields,
+                                             partial_match_fields=partial_match_fields,
+                                             allowed_fileds=allowed_fileds, **kwargs)
+        
+        logger.info(f"执行查询: {query} 参数: {params}")
+        result = self.execute_query(query, params)
+        logger.info(f"查询返回 {len(result) if result else 0} 条记录")
+        
+        return result
 
     def update_question_by_type(self, question_id: str, question_type: str, question_content: str = None, chunk_ids: List[str] = None):
         """
@@ -164,6 +184,8 @@ class QuestionsCRUD(PostgreSQLManager):
                 "question_id": question_config_tuple[0],
                 "question_name": question_config_tuple[1],
                 "knowledge_id": question_config_tuple[2],
+                "question_count":question_config_tuple[6],
+                "question_set_type":question_config_tuple[5],
                 "created_at": question_config_tuple[3].isoformat() if len(question_config_tuple) > 3 and question_config_tuple[3] else None,
                 "updated_at": question_config_tuple[4].isoformat() if len(question_config_tuple) > 4 and question_config_tuple[4] else None
             }

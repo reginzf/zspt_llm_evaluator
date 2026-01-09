@@ -39,15 +39,16 @@ function renderQuestionSetList(questionSets) {
     questionSets.forEach(set => {
         html += `
             <div class="question-set-item">
-                <div class="question-set-header" onclick="toggleQuestionSetDetails('${set.question_id}', this)">
+                <div class="question-set-header">
                     <div>
                         <div class="question-set-title">${set.question_name}</div>
-                        <div class="question-set-meta">ID: ${set.question_id} | 类型: ${set.question_type || 'N/A'} | 创建时间: ${set.created_at || 'N/A'}</div>
+                        <div class="question-set-meta">ID: ${set.question_id} | 类型: ${set.question_set_type || 'N/A'} | 创建时间: ${set.created_at || 'N/A'}</div>
                     </div>
                     <div class="question-set-actions">
-                        <button class="question-set-create-btn" onclick="showCreateQuestionForSet('${set.question_id}', '${set.question_set_type || 'basic'}')">创建问题</button>
-                        <button class="question-set-edit-btn" onclick="editQuestionSet('${set.question_id}')">编辑</button>
-                        <button class="question-set-delete-btn" onclick="deleteQuestionSet('${set.question_id}', '${set.question_name}')">删除</button>
+                        <button class="question-set-expand-btn" onclick="toggleQuestionSetDetails('${set.question_id}', this)">展开</button>
+                        <button class="question-set-create-btn" onclick="event.stopPropagation(); showCreateQuestionForSet('${set.question_id}', '${set.question_set_type || 'basic'}')">创建问题</button>
+                        <button class="question-set-edit-btn" onclick="event.stopPropagation(); editQuestionSet('${set.question_id}')">编辑</button>
+                        <button class="question-set-delete-btn" onclick="event.stopPropagation(); deleteQuestionSet('${set.question_id}', '${set.question_name}')">删除</button>
                     </div>
                 </div>
                 <div class="expandable-content" id="questionSetContent-${set.question_id}">
@@ -61,7 +62,7 @@ function renderQuestionSetList(questionSets) {
 }
 
 // 展开/收起问题集详情
-function toggleQuestionSetDetails(setId, headerElement) {
+function toggleQuestionSetDetails(setId, btnElement) {
     const contentElement = document.getElementById(`questionSetContent-${setId}`);
     const isExpanded = contentElement.classList.contains('expanded');
     
@@ -71,12 +72,24 @@ function toggleQuestionSetDetails(setId, headerElement) {
         content.classList.remove('expanded');
     });
     
+    // 收起所有展开按钮的文本
+    const allExpandButtons = document.querySelectorAll('.question-set-expand-btn');
+    allExpandButtons.forEach(btn => {
+        btn.textContent = '展开';
+    });
+    
     // 如果当前内容是展开的，则收起；否则展开并加载问题列表
     if (isExpanded) {
         contentElement.classList.remove('expanded');
+        if (btnElement) {
+            btnElement.textContent = '展开';
+        }
     } else {
         // 展开当前内容
         contentElement.classList.add('expanded');
+        if (btnElement) {
+            btnElement.textContent = '收起';
+        }
         
         // 加载问题列表
         loadQuestionsForSet(setId, contentElement);
@@ -96,21 +109,30 @@ function loadQuestionsForSet(setId, containerElement) {
         .then(response => response.json())
         .then(detailData => {
             if (detailData.success) {
-                const questionType = detailData.data.question_type || 'basic';
+                const questionSetType = detailData.data.question_set_type || 'basic';
                 
-                // 获取该问题集下的所有问题
-                fetch(`/local_knowledge_detail/question/list?set_id=${setId}&question_type=${questionType}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            renderQuestionList(data.data, containerElement);
-                        } else {
-                            containerElement.innerHTML = `<div class="error">加载问题失败: ${data.message}</div>`;
-                        }
+                // 获取该问题集下的所有问题 - 改为POST请求并使用JSON格式
+                fetch('/local_knowledge_detail/question/list', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        set_id: setId,
+                        question_type: questionSetType
                     })
-                    .catch(error => {
-                        containerElement.innerHTML = `<div class="error">加载问题时出错: ${error.message}</div>`;
-                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderQuestionList(data.data, containerElement, questionSetType);  // 传递问题集类型
+                    } else {
+                        containerElement.innerHTML = `<div class="error">加载问题失败: ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    containerElement.innerHTML = `<div class="error">加载问题时出错: ${error.message}</div>`;
+                });
             } else {
                 containerElement.innerHTML = `<div class="error">获取问题集详情失败: ${detailData.message}</div>`;
             }
@@ -121,7 +143,7 @@ function loadQuestionsForSet(setId, containerElement) {
 }
 
 // 渲染问题列表
-function renderQuestionList(questions, containerElement) {
+function renderQuestionList(questions, containerElement, questionSetType) {  // 添加参数
     if (!questions || questions.length === 0) {
         containerElement.innerHTML = `<div class="empty-state">暂无问题，请创建问题</div>`;
         return;
@@ -135,6 +157,7 @@ function renderQuestionList(questions, containerElement) {
                     <thead>
                         <tr>
                             <th>问题类型</th>
+                            <th>问题ID</th>
                             <th>问题正文</th>
                             <th>问题切片</th>
                             <th>操作</th>
@@ -145,6 +168,7 @@ function renderQuestionList(questions, containerElement) {
     
     questions.forEach(question => {
         const type = question.question_type || 'unknown';
+        const questionId = question.question_id || 'N/A';
         const content = question.question_content || '无内容';
         const chunks = Array.isArray(question.chunk_ids) ? question.chunk_ids.join(', ') : (question.chunk_ids || '无关联切片');
         
@@ -153,12 +177,13 @@ function renderQuestionList(questions, containerElement) {
                         <td class="question-type" data-label="问题类型">
                             <span class="question-type-tag ${type}">${getTypeDisplayName(type)}</span>
                         </td>
+                        <td class="question-id" data-label="问题ID">${questionId}</td>
                         <td class="question-content" data-label="问题正文">${content}</td>
                         <td class="question-chunks" data-label="问题切片">${chunks}</td>
                         <td class="question-actions" data-label="操作">
-                            <button class="question-detail-btn" onclick="viewQuestionDetail('${question.id || question.question_id}', '${type}')">详情</button>
-                            <button class="question-edit-btn" onclick="editQuestion('${question.id || question.question_id}', '${type}')">编辑</button>
-                            <button class="question-delete-btn" onclick="deleteQuestion('${question.id || question.question_id}', '${type}')">删除</button>
+                            <button class="question-detail-btn" onclick="viewQuestionDetail('${question.question_id}', '${questionSetType}')">详情</button>
+                            <button class="question-edit-btn" onclick="editQuestion('${question.question_id}', '${questionSetType}')">编辑</button>
+                            <button class="question-delete-btn" onclick="deleteQuestion('${question.question_id}', '${questionSetType}')">删除</button>
                         </td>
                     </tr>
         `;
@@ -198,6 +223,13 @@ function showCreateQuestionSetModal() {
         modalHeader.textContent = '创建问题集';
     }
     
+    // 重置按钮文本
+    const submitButton = document.getElementById('questionSetSubmitBtn');
+    if (submitButton) {
+        submitButton.textContent = '创建';
+        submitButton.onclick = function() { createQuestionSet(); };
+    }
+    
     document.getElementById('questionSetName').value = '';
     document.getElementById('questionSetType').value = 'basic';
     
@@ -215,6 +247,12 @@ function hideCreateQuestionSetModal() {
     const modalHeader = document.querySelector('#createQuestionSetModal .modal-header h2');
     if (modalHeader) {
         modalHeader.textContent = '创建问题集';
+    }
+    
+    // 重置按钮文本
+    const submitButton = document.getElementById('questionSetSubmitBtn');
+    if (submitButton) {
+        submitButton.textContent = '创建';
     }
     
     // 清除编辑状态
@@ -296,62 +334,6 @@ function createQuestionSet() {
     }
 }
 
-// 查看问题集详情
-function viewQuestionSet(setId) {
-    fetch(`/local_knowledge_detail/question/set/detail?set_id=${setId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const setInfo = data.data;
-                
-                document.getElementById('questionSetDetailTitle').textContent = setInfo.question_name;
-                document.getElementById('detailSetName').textContent = setInfo.question_name;
-                document.getElementById('detailSetType').textContent = getTypeDisplayName(setInfo.question_type || setInfo.set_type || 'basic');
-                document.getElementById('detailSetCreatedAt').textContent = setInfo.created_at || 'N/A';
-                
-                // 记录当前问题集ID
-                currentQuestionSetId = setId;
-                
-                // 加载问题列表
-                const container = document.getElementById('questionList');
-                loadQuestionsForSet(setId, container);
-                
-                document.getElementById('questionSetDetailModal').style.display = 'block';
-            } else {
-                alert('获取问题集详情失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('获取问题集详情时出错:', error);
-            alert('获取问题集详情时发生错误');
-        });
-}
-
-// 为特定问题集显示创建问题模态框
-function showCreateQuestionForSet(setId, setType) {
-    // 设置当前问题集ID，以便在创建问题时使用
-    currentQuestionSetId = setId;
-    currentQuestionSetType = setType; // 存储问题集类型
-    
-    // 清空表单
-    document.getElementById('questionType').value = 'factual';
-    document.getElementById('questionContent').value = '';
-    document.getElementById('chunkIds').value = '';
-    
-    // 修改模态框标题
-    const modalHeader = document.querySelector('#createQuestionModal .modal-header h2');
-    if (modalHeader) {
-        modalHeader.textContent = '为问题集创建问题';
-    }
-    
-    // 清除编辑状态
-    window.currentEditingQuestionId = null;
-    window.currentEditingQuestionType = null;
-    
-    // 显示模态框
-    document.getElementById('createQuestionModal').style.display = 'block';
-}
-
 // 编辑问题集
 function editQuestionSet(setId) {
     // 首先获取问题集当前信息
@@ -363,12 +345,18 @@ function editQuestionSet(setId) {
                 
                 // 填充表单
                 document.getElementById('questionSetName').value = setInfo.question_name;
-                document.getElementById('questionSetType').value = setInfo.question_type || 'basic';
+                document.getElementById('questionSetType').value = setInfo.question_set_type || 'basic';  // 使用正确的字段名
                 
                 // 修改模态框标题
                 const modalHeader = document.querySelector('#createQuestionSetModal .modal-header h2');
                 if (modalHeader) {
                     modalHeader.textContent = '编辑问题集';
+                }
+                
+                // 修改按钮文本
+                const submitButton = document.getElementById('questionSetSubmitBtn');
+                if (submitButton) {
+                    submitButton.textContent = '确定';
                 }
                 
                 // 存储当前问题集ID
@@ -416,6 +404,60 @@ function deleteQuestionSet(setId, setName) {
     });
 }
 
+// 查看问题集详情
+function viewQuestionSet(setId) {
+    fetch(`/local_knowledge_detail/question/set/detail?set_id=${setId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const setInfo = data.data;
+                
+                document.getElementById('questionSetDetailTitle').textContent = setInfo.question_name;
+                document.getElementById('detailSetName').textContent = setInfo.question_name;
+                document.getElementById('detailSetType').textContent = getTypeDisplayName(setInfo.question_set_type || setInfo.set_type || 'basic');
+                document.getElementById('detailSetCreatedAt').textContent = setInfo.created_at || 'N/A';
+                
+                // 记录当前问题集ID
+                currentQuestionSetId = setId;
+                
+                // 加载问题列表 - 这里也需要获取问题集类型
+                const container = document.getElementById('questionList');
+                loadQuestionsForSet(setId, container);
+            } else {
+                alert('获取问题集详情失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('获取问题集详情时出错:', error);
+            alert('获取问题集详情时发生错误');
+        });
+}
+
+// 为特定问题集显示创建问题模态框
+function showCreateQuestionForSet(setId, setType) {
+    // 设置当前问题集ID，以便在创建问题时使用
+    currentQuestionSetId = setId;
+    currentQuestionSetType = setType; // 存储问题集类型
+    
+    // 清空表单
+    document.getElementById('questionType').value = 'factual';
+    document.getElementById('questionContent').value = '';
+    document.getElementById('chunkIds').value = '';
+    
+    // 修改模态框标题
+    const modalHeader = document.querySelector('#createQuestionModal .modal-header h2');
+    if (modalHeader) {
+        modalHeader.textContent = '为问题集创建问题';
+    }
+    
+    // 清除编辑状态
+    window.currentEditingQuestionId = null;
+    window.currentEditingQuestionType = null;
+    
+    // 显示模态框
+    document.getElementById('createQuestionModal').style.display = 'block';
+}
+
 // 隐藏问题集详情模态框
 function hideQuestionSetDetailModal() {
     document.getElementById('questionSetDetailModal').style.display = 'none';
@@ -428,6 +470,19 @@ function showCreateQuestionModal() {
     document.getElementById('questionType').value = 'factual';
     document.getElementById('questionContent').value = '';
     document.getElementById('chunkIds').value = '';
+    
+    // 重置模态框标题
+    const modalHeader = document.querySelector('#createQuestionModal .modal-header h2');
+    if (modalHeader) {
+        modalHeader.textContent = '创建问题';
+    }
+    
+    // 重置按钮文本
+    const submitButton = document.getElementById('questionSubmitBtn');
+    if (submitButton) {
+        submitButton.textContent = '创建';
+    }
+    
     document.getElementById('createQuestionModal').style.display = 'block';
 }
 
@@ -439,6 +494,12 @@ function hideCreateQuestionModal() {
     const modalHeader = document.querySelector('#createQuestionModal .modal-header h2');
     if (modalHeader) {
         modalHeader.textContent = '创建问题';
+    }
+    
+    // 重置按钮文本
+    const submitButton = document.getElementById('questionSubmitBtn');
+    if (submitButton) {
+        submitButton.textContent = '创建';
     }
     
     // 清除编辑状态
@@ -489,10 +550,21 @@ function createQuestion() {
                 // 如果在问题集详情模态框中，刷新问题列表
                 if (document.getElementById('questionSetDetailModal').style.display === 'block') {
                     const container = document.getElementById('questionList');
-                    loadQuestionsForSet(currentQuestionSetId, container);
+                    if (currentQuestionSetId) {
+                        loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
+                    }
                 } else {
-                    // 如果在主页面，重新加载整个问题集
-                    loadQuestionSets();
+                    // 如果在主页面，刷新当前展开的问题集
+                    if (currentQuestionSetId) {
+                        // 重新加载该问题集的问题列表
+                        const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
+                        if (contentElement && contentElement.classList.contains('expanded')) {
+                            loadQuestionsForSet(currentQuestionSetId, contentElement);  // 刷新当前展开的问题集
+                        }
+                    } else {
+                        // 如果没有特定问题集，重新加载整个问题集
+                        loadQuestionSets();
+                    }
                 }
             } else {
                 alert('更新失败: ' + data.message);
@@ -541,10 +613,21 @@ function createQuestion() {
                 // 如果在问题集详情模态框中，刷新问题列表
                 if (document.getElementById('questionSetDetailModal').style.display === 'block') {
                     const container = document.getElementById('questionList');
-                    loadQuestionsForSet(currentQuestionSetId, container);
+                    if (currentQuestionSetId) {
+                        loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
+                    }
                 } else {
-                    // 如果在主页面，重新加载整个问题集
-                    loadQuestionSets();
+                    // 如果在主页面，刷新当前展开的问题集
+                    if (openQuestionSetId) {
+                        // 重新加载该问题集的问题列表
+                        const contentElement = document.getElementById(`questionSetContent-${openQuestionSetId}`);
+                        if (contentElement && contentElement.classList.contains('expanded')) {
+                            loadQuestionsForSet(openQuestionSetId, contentElement);  // 刷新当前展开的问题集
+                        }
+                    } else {
+                        // 如果没有特定问题集，重新加载整个问题集
+                        loadQuestionSets();
+                    }
                 }
             } else {
                 alert('创建失败: ' + data.message);
@@ -577,8 +660,17 @@ function getCurrentOpenQuestionSetId() {
 }
 
 // 查看问题详情
-function viewQuestionDetail(questionId, questionType) {
-    fetch(`/local_knowledge_detail/question/detail?question_id=${questionId}&question_type=${questionType}`)
+function viewQuestionDetail(questionId, questionSetType) {
+    fetch('/local_knowledge_detail/question/detail', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            question_id: questionId,
+            question_set_type: questionSetType
+        })
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -595,9 +687,18 @@ function viewQuestionDetail(questionId, questionType) {
 }
 
 // 编辑问题
-function editQuestion(questionId, questionType) {
+function editQuestion(questionId, questionSetType) {
     // 首先获取问题当前信息
-    fetch(`/local_knowledge_detail/question/detail?question_id=${questionId}&question_type=${questionType}`)
+    fetch('/local_knowledge_detail/question/detail', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            question_id: questionId,
+            question_set_type: questionSetType
+        })
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -614,9 +715,15 @@ function editQuestion(questionId, questionType) {
                     modalHeader.textContent = '编辑问题';
                 }
                 
+                // 修改按钮文本
+                const submitButton = document.getElementById('questionSubmitBtn');
+                if (submitButton) {
+                    submitButton.textContent = '确定';
+                }
+                
                 // 存储当前问题ID和类型
                 window.currentEditingQuestionId = questionId;
-                window.currentEditingQuestionType = questionType;
+                window.currentEditingQuestionType = questionSetType;  // 修正：保存的是questionSetType
                 
                 // 显示模态框
                 document.getElementById('createQuestionModal').style.display = 'block';
@@ -631,7 +738,7 @@ function editQuestion(questionId, questionType) {
 }
 
 // 删除问题
-function deleteQuestion(questionId, questionType) {
+function deleteQuestion(questionId, questionSetType) {
     if (!confirm('确定要删除这个问题吗？此操作不可撤销。')) {
         return;
     }
@@ -643,7 +750,7 @@ function deleteQuestion(questionId, questionType) {
         },
         body: JSON.stringify({
             question_id: questionId,
-            question_type: questionType
+            question_set_type: questionSetType
         })
     })
     .then(response => response.json())
@@ -656,11 +763,20 @@ function deleteQuestion(questionId, questionType) {
                 // 如果在详情模态框中，重新加载问题列表
                 const container = document.getElementById('questionList');
                 if (currentQuestionSetId) {
-                    loadQuestionsForSet(currentQuestionSetId, container);
+                    loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
                 }
             } else {
-                // 如果在主页面，重新加载整个问题集
-                loadQuestionSets();
+                // 如果在主页面，刷新当前展开的问题集
+                if (currentQuestionSetId) {
+                    // 重新加载该问题集的问题列表
+                    const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
+                    if (contentElement && contentElement.classList.contains('expanded')) {
+                        loadQuestionsForSet(currentQuestionSetId, contentElement);  // 刷新当前展开的问题集
+                    }
+                } else {
+                    // 如果没有特定问题集，重新加载整个问题集
+                    loadQuestionSets();
+                }
             }
         } else {
             alert('删除失败: ' + data.message);
