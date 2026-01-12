@@ -2,6 +2,8 @@ from env_config_init import settings
 from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve, SLICEIDENTIFIER
 from src.zlpt.api.project import Project
 from src.zlpt.login import LoginManager
+from src.label_studio_api import LabelStudioXMLGenerator,create_tasks
+from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 import logging
 import os
 
@@ -93,3 +95,82 @@ def zlpt_upload_files(know_client: KnowledgeBase, file_lists, kno_id, content_co
     except Exception as e:
         logger.error(f"文件上传过程中发生错误: {e}")
         raise e
+
+
+def zlpt_get_chunk_all_by_doc_id(know_client, doc_id):
+    """
+      通过文档ID获取对应文档的名称和所有切片
+
+      Args:
+          know_client: 知识库客户端实例
+          doc_id (str): 文档ID
+
+      Returns:
+          tuple: 包含文档名称和所有切片的元组
+      """
+    logger.info(f"获取文档 {doc_id} 的所有切片")
+    try:
+        doc_name, chunk_all = know_client.doc_get_chunk_all(doc_id)
+        logger.info(f"成功获取文档 {doc_name} 的切片，共 {len(chunk_all)} 个")
+        return doc_name, chunk_all
+    except Exception as e:
+        logger.error(f"获取文档切片失败: {e}")
+        raise e
+
+
+def ls_create_project(ls_user, title, QUESTION_JSON, description=''):
+    """
+    在Label Studio中创建项目并设置标签配置
+    Args:
+        title (str): 项目标题
+        description (str, optional): 项目描述，默认为空字符串
+
+    Returns:
+        Project: 创建好的Label Studio项目对象
+    """
+    logger.info(f"在Label Studio中创建项目: {title}")
+    try:
+        label_config = LabelStudioXMLGenerator().generate_from_json(QUESTION_JSON)
+        project = ls_user.create_project(
+            title=title,
+            description=description,
+            label_config=label_config,
+            show_instruction=True,
+            enable_empty_annotation=False,
+        )
+        logger.info(f"Label Studio项目创建成功: {title}")
+        return project
+    except Exception as e:
+        logger.error(f"Label Studio项目创建失败: {e}")
+        raise e
+
+
+def ls_create_tasks(project, doc_ids):
+    # 根据doc_ids获取切片
+    chunk_all = []
+    try:
+        for doc_id in doc_ids:
+            doc_name, chunks = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
+            chunk_all.append(chunks)
+        logger.info("开始创建Label Studio任务")
+        ls_create_tasks(project, chunk_all)
+        return True
+    except Exception as e:
+        logger.error(f"创建Label Studio任务失败: {e}")
+        return False
+def ls_create_tasks(project, chunk_all):
+    """
+    将切片数据转换为Label Studio任务格式并创建任务
+
+    Args:
+        project: Label Studio项目对象
+        chunk_all (list): 所有切片数据列表
+
+    Returns:
+        list: 创建的任务ID列表
+    """
+    # 转换为ls的格式
+    tasks = doc_slices_format_for_label_studio(chunk_all)
+    # 在ls上创建任务
+    res = create_tasks(project, tasks)
+    return res  # [task_id1,task_id2...]
