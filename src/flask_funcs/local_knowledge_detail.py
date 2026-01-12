@@ -73,7 +73,7 @@ def api_local_knowledge_detail():
         with LocalKnowledgeCrud() as crud:
             # 获取本地知识列表详情（从ai_local_knowledge_list表）
             # 获取所有知识列表记录
-            all_knowledge_list_records = crud.get_local_knowledge_list(kno_id=kno_id)
+            all_knowledge_list_records = crud.get_local_knowledge_file_list(kno_id=kno_id)
             logger.info(f"获取本地知识列表详情: {all_knowledge_list_records}")
 
             # 首先尝试使用kno_id过滤
@@ -308,7 +308,7 @@ def local_knowledge_sync():
             logger.info(f"获取到content_code: {content_code}")
             # 4、获取本地知识库的文件列表
             logger.info(f"获取本地知识库 {local_kno_id} 的文件列表")
-            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id, ls_status=1)  # 获取状态为1的文件列表
+            local_files = l_crud.get_local_knowledge_file_list(kno_id=local_kno_id, ls_status=1)  # 获取状态为1的文件列表
             logger.info(f"获取到 {len(local_files)} 个本地文件")
 
             # 构建文件路径列表

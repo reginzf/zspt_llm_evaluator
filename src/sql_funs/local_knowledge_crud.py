@@ -246,7 +246,7 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             self.connection.rollback()
             return False
 
-    def get_local_knowledge_list(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
+    def get_local_knowledge_file_list(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
         """
         获取本地知识库列表信息
         支持按 knol_id 精确查询，或按 knol_name 模糊查询

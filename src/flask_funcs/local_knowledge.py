@@ -134,7 +134,7 @@ def delete_local_knowledge(kno_id):
         with LocalKnowledgeCrud() as crud:
             # 先删除关联的文件记录
             # 获取该知识库下的所有文件
-            local_files = crud.get_local_knowledge_list(kno_id=kno_id)
+            local_files = crud.get_local_knowledge_file_list(kno_id=kno_id)
             for file_record in local_files:
                 # 删除本地文件
                 file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / file_record[4]  # knol_path 是第5列 (索引4)
@@ -195,7 +195,7 @@ def delete_local_knowledge_file(knol_id):
     try:
         with LocalKnowledgeCrud() as crud:
             # 获取文件记录信息
-            file_records = crud.get_local_knowledge_list(knol_id=knol_id)
+            file_records = crud.get_local_knowledge_file_list(knol_id=knol_id)
             if not file_records:
                 return jsonify({'status': 'error', 'message': '未找到对应的文件记录'}), 404
 
