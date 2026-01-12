@@ -197,3 +197,27 @@
 .error {
     color: #dc3545;
 }
+
+.expandable-header {
+    display: flex;
+    align-items: center;
+}
+
+.expand-toggle-btn {
+    margin-right: 10px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    border-radius: 3px;
+    color: #333;
+}
+
+.expand-toggle-btn:hover {
+    background-color: #e9ecef;
+    color: #000;
+}
+
+.task-management-content {
+    margin-top: 15px;
+}

@@ -1,4 +1,6 @@
-// 标注功能相关的JavaScript代码
+// 本地知识库详情页的标注功能相关的JavaScript代码
+// 与 local_knowledge_detail_label_studio.py 路由文件对应
+
 let currentKnoId = null;
 let currentEnvironment = null;
 let expandedEnvironmentId = null;  // 记录当前展开的环境ID
@@ -18,20 +20,33 @@ function loadEnvironmentStatus() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            updateEnvironmentDisplay(data.data);  // data.data 现在包含 environments 和 bound_environment
+            updateEnvironmentDisplay(data.data);  // data.data 现在包含 environments 和 bound_environments
         } else {
             console.error('获取环境状态失败:', data.message);
+            // 即使失败也更新UI显示错误信息
+            const environmentTableBody = document.getElementById('environmentTableBody');
+            environmentTableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; color: red;">获取环境信息失败: ${data.message}</td>
+                </tr>
+            `;
         }
     })
     .catch(error => {
         console.error('请求环境状态时出错:', error);
+        // 错误时也更新UI显示错误信息
+        const environmentTableBody = document.getElementById('environmentTableBody');
+        environmentTableBody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; color: red;">网络请求错误: ${error.message}</td>
+            </tr>
+        `;
     });
 }
 
 // 更新环境显示
 function updateEnvironmentDisplay(data) {
     const environmentTableBody = document.getElementById('environmentTableBody');
-    const createTaskBtn = document.getElementById('createTaskBtn');
     
     if (data && data.environments && data.environments.length > 0) {
         // 显示所有环境
@@ -39,7 +54,9 @@ function updateEnvironmentDisplay(data) {
         
         data.environments.forEach(env => {
             // 检查当前环境是否被绑定
-            const isBound = data.bound_environments && data.bound_environments.some(bound => bound.label_studio_id === env.label_studio_id);
+            const isBound = data.bound_environments && 
+                           Array.isArray(data.bound_environments) && 
+                           data.bound_environments.some(bound => bound.label_studio_id === env.label_studio_id && bound.bind_status === 2);
             
             // 获取该环境下的任务数量
             const taskCount = env.task_count || 0;  // 假设后端会返回每个环境的任务数量
@@ -47,12 +64,11 @@ function updateEnvironmentDisplay(data) {
             // 设置当前环境
             if (isBound) {
                 currentEnvironment = env;
-                createTaskBtn.disabled = false;
             }
             
             // 环境行
             rows += `
-                <tr>
+                <tr class="environment-row" data-env-id="${env.label_studio_id}">
                     <td>${env.label_studio_id}</td>
                     <td><a href="${env.label_studio_url}" target="_blank">${env.label_studio_url}</a></td>
                     <td>${taskCount}</td>
@@ -66,18 +82,46 @@ function updateEnvironmentDisplay(data) {
                     </td>
                 </tr>
             `;
+            
+            // 为每个环境添加一个隐藏的任务管理区域行
+            rows += `
+                <tr id="taskManagementRow-${env.label_studio_id}" class="task-management-row" style="display: none;">
+                    <td colspan="4">
+                        <div class="task-management-area" style="margin-top: 15px; border: 1px solid #ddd; padding: 15px; background-color: #f9f9f9;">
+                            <div class="task-management">
+                                <table class="task-table">
+                                    <thead>
+                                        <tr>
+                                            <th>任务名称</th>
+                                            <th>知识库</th>
+                                            <th>问题集</th>
+                                            <th>标注进度</th>
+                                            <th>状态</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="taskTableBody-${env.label_studio_id}">
+                                        <tr>
+                                            <td colspan="6" style="text-align: center;">加载中...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
         });
         
         environmentTableBody.innerHTML = rows;
     } else {
-        // 未绑定环境
+        // 未找到任何环境
         currentEnvironment = null;
         environmentTableBody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center;">暂无Label-Studio环境，请先添加环境</td>
             </tr>
         `;
-        createTaskBtn.disabled = true;
     }
 }
 
@@ -216,16 +260,38 @@ function unbindEnvironment(envId) {
 
 // 展开/收起环境下的任务列表
 function toggleEnvironmentTasks(envId) {
-    // 如果点击的是当前展开的环境，则收起它
-    if (expandedEnvironmentId === envId) {
-        expandedEnvironmentId = null;
-        // 这里可以隐藏任务列表（如果实现任务列表展示功能）
+    const taskRow = document.getElementById(`taskManagementRow-${envId}`);
+    const expandButton = document.querySelector(`.environment-row[data-env-id="${envId}"] .expand-btn`);
+    
+    console.log('toggleEnvironmentTasks called for envId:', envId);
+    console.log('taskRow found:', !!taskRow);
+    console.log('expandButton found:', !!expandButton);
+    if (taskRow) {
+        console.log('taskRow display style:', taskRow.style.display);
+        console.log('taskRow offsetParent:', taskRow.offsetParent); // 检查元素是否可见
+    }
+    
+    if (!taskRow || !expandButton) {
+        console.error('找不到对应的行或按钮:', envId);
         return;
     }
     
-    expandedEnvironmentId = envId;
-    // 加载并显示该环境下的任务列表
-    loadTasksForEnvironment(envId);
+    // 检查元素是否当前是隐藏的（通过检查offsetParent是否存在）
+    // offsetParent为null表示元素不可见
+    if (!taskRow.offsetParent) {
+        // 展开：显示对应环境的任务管理区域
+        console.log('Expanding task management area for envId:', envId);
+        taskRow.style.display = '';
+        expandButton.textContent = '折叠';
+        
+        // 只有在展开时才加载任务数据
+        loadTasksForEnvironment(envId);
+    } else {
+        // 折叠：隐藏对应环境的任务管理区域，不重新加载数据
+        console.log('Collapsing task management area for envId:', envId);
+        taskRow.style.display = 'none';
+        expandButton.textContent = '展开';
+    }
 }
 
 // 加载特定环境的任务列表
@@ -243,16 +309,102 @@ function loadTasksForEnvironment(envId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // 在这里展示环境下的任务列表
-            // 可以在表格下方添加一个子表格来展示任务
-            console.log('获取环境任务列表:', data.data);
+            renderTaskTableForEnvironment(envId, data.data);
         } else {
             console.error('获取环境任务列表失败:', data.message);
+            const tableBody = document.getElementById(`taskTableBody-${envId}`);
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">获取任务列表失败: ${data.message}</td></tr>`;
+            }
         }
     })
     .catch(error => {
         console.error('请求环境任务列表时出错:', error);
+        const tableBody = document.getElementById(`taskTableBody-${envId}`);
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">网络请求错误: ${error.message}</td></tr>`;
+        }
     });
+}
+
+// 为特定环境渲染任务表格
+function renderTaskTableForEnvironment(envId, tasks) {
+    const tableBody = document.getElementById(`taskTableBody-${envId}`);
+    if (!tableBody) {
+        console.error('找不到任务表格:', envId);
+        return;
+    }
+    
+    tableBody.innerHTML = '';
+    
+    if (tasks && tasks.length > 0) {
+        tasks.forEach(task => {
+            const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
+            const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
+            
+            let statusClass = '';
+            let statusText = '';
+            switch(task.task_status || task.status) {
+                case '未开始':
+                    statusClass = 'status-not-started';
+                    statusText = '未开始';
+                    break;
+                case '进行中':
+                    statusClass = 'status-in-progress';
+                    statusText = '进行中';
+                    break;
+                case '已完成':
+                    statusClass = 'status-completed';
+                    statusText = '已完成';
+                    break;
+                case 'not_started':
+                    statusClass = 'status-not-started';
+                    statusText = '未开始';
+                    break;
+                case 'in_progress':
+                    statusClass = 'status-in-progress';
+                    statusText = '进行中';
+                    break;
+                    case 'completed':
+                        statusClass = 'status-completed';
+                        statusText = '已完成';
+                        break;
+                    default:
+                        statusClass = 'status-not-started';
+                        statusText = task.task_status || task.status;
+                }
+                
+                // 创建一个安全的onclick事件处理器
+                const taskJson = encodeURIComponent(JSON.stringify(task));
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${task.name}</td>
+                    <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
+                    <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                            </div>
+                            <span class="progress-text">${progressText}</span>
+                        </div>
+                    </td>
+                    <td><span class="status-label ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <div class="task-actions">
+                            <button class="task-action-btn edit-btn" onclick="handleEditTaskClickForEnv(decodeURIComponent('${taskJson}'), '${envId}')">编辑</button>
+                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}', '${envId}')">同步</button>
+                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}', '${envId}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
+            tableBody.appendChild(row);
+        }
 }
 
 // 显示创建任务模态框（带环境ID）
@@ -263,7 +415,15 @@ function showCreateTaskModalWithEnv(envId) {
     // 加载知识库列表
     loadBoundKnowledgeBases(envId);
     
-    showCreateTaskModal();
+    // 重置选择框
+    document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
+    
+    document.getElementById('taskModalTitle').textContent = '创建标注任务';
+    document.getElementById('taskIdInput').style.display = 'none';
+    document.getElementById('taskId').value = '';
+    document.getElementById('taskName').value = '';
+    
+    document.getElementById('taskModal').style.display = 'block';
 }
 
 // 加载已绑定的知识库列表
@@ -434,7 +594,7 @@ function saveTask() {
 }
 
 // 删除任务
-function deleteTask(taskId) {
+function deleteTask(taskId, envId) {
     if (confirm('确定要删除这个标注任务吗？')) {
         fetch('/local_knowledge_detail/label_studio/delete_project', {
             method: 'DELETE',
@@ -449,6 +609,11 @@ function deleteTask(taskId) {
         .then(data => {
             if (data.success) {
                 alert('任务删除成功');
+                hideTaskModal();
+                // 如果任务管理区域是展开的，则重新加载该环境的任务列表
+                if (document.getElementById(`taskManagementRow-${envId}`).style.display !== 'none') {
+                    loadTasksForEnvironment(envId);
+                }
                 loadAnnotationProjects();
                 loadEnvironmentStatus();  // 重新加载环境状态以更新任务计数
             } else {
@@ -489,85 +654,98 @@ function loadAnnotationProjects() {
 // 渲染任务表格
 function renderTaskTable(tasks) {
     const tableBody = document.getElementById('taskTableBody');
-    tableBody.innerHTML = '';
-    
-    if (tasks && tasks.length > 0) {
-        tasks.forEach(task => {
-            const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
-            const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
-            
-            let statusClass = '';
-            let statusText = '';
-            switch(task.task_status || task.status) {
-                case '未开始':
-                    statusClass = 'status-not-started';
-                    statusText = '未开始';
-                    break;
-                case '进行中':
-                    statusClass = 'status-in-progress';
-                    statusText = '进行中';
-                    break;
-                case '已完成':
-                    statusClass = 'status-completed';
-                    statusText = '已完成';
-                    break;
-                case 'not_started':
-                    statusClass = 'status-not-started';
-                    statusText = '未开始';
-                    break;
-                case 'in_progress':
-                    statusClass = 'status-in-progress';
-                    statusText = '进行中';
-                    break;
-                case 'completed':
-                    statusClass = 'status-completed';
-                    statusText = '已完成';
-                    break;
-                default:
-                    statusClass = 'status-not-started';
-                    statusText = task.task_status || task.status;
-            }
-            
-            // 创建一个安全的onclick事件处理器
-            const taskJson = encodeURIComponent(JSON.stringify(task));
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${task.name}</td>
-                <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
-                <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
-                <td>
-                    <div class="progress-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+    if (tableBody) {
+        tableBody.innerHTML = '';
+        
+        if (tasks && tasks.length > 0) {
+            tasks.forEach(task => {
+                const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
+                const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
+                
+                let statusClass = '';
+                let statusText = '';
+                switch(task.task_status || task.status) {
+                    case '未开始':
+                        statusClass = 'status-not-started';
+                        statusText = '未开始';
+                        break;
+                    case '进行中':
+                        statusClass = 'status-in-progress';
+                        statusText = '进行中';
+                        break;
+                    case '已完成':
+                        statusClass = 'status-completed';
+                        statusText = '已完成';
+                        break;
+                    case 'not_started':
+                        statusClass = 'status-not-started';
+                        statusText = '未开始';
+                        break;
+                    case 'in_progress':
+                        statusClass = 'status-in-progress';
+                        statusText = '进行中';
+                        break;
+                    case 'completed':
+                        statusClass = 'status-completed';
+                        statusText = '已完成';
+                        break;
+                    default:
+                        statusClass = 'status-not-started';
+                        statusText = task.task_status || task.status;
+                }
+                
+                // 创建一个安全的onclick事件处理器
+                const taskJson = encodeURIComponent(JSON.stringify(task));
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${task.name}</td>
+                    <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
+                    <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                            </div>
+                            <span class="progress-text">${progressText}</span>
                         </div>
-                        <span class="progress-text">${progressText}</span>
-                    </div>
-                </td>
-                <td><span class="status-label ${statusClass}">${statusText}</span></td>
-                <td>
-                    <div class="task-actions">
-                        <button class="task-action-btn edit-btn" onclick="handleEditTaskClick(decodeURIComponent('${taskJson}'))">编辑</button>
-                        <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}')">同步</button>
-                        <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}')">删除</button>
-                    </div>
-                </td>
-            `;
+                    </td>
+                    <td><span class="status-label ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <div class="task-actions">
+                            <button class="task-action-btn edit-btn" onclick="handleEditTaskClick(decodeURIComponent('${taskJson}'))">编辑</button>
+                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}')">同步</button>
+                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
             tableBody.appendChild(row);
-        });
-    } else {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
-        tableBody.appendChild(row);
+        }
     }
 }
 
 // 同步任务（预留功能）
-function syncTask(taskId) {
+function syncTask(taskId, envId) {
     alert('同步功能正在开发中...');
 }
 
 // 处理编辑任务点击事件
 function handleEditTaskClick(taskJsonString) {
+    try {
+        const task = JSON.parse(decodeURIComponent(taskJsonString));
+        showEditTaskModal(task);
+    } catch (error) {
+        console.error('解析任务数据时出错:', error);
+        alert('编辑任务时发生错误');
+    }
+}
+
+// 处理编辑任务点击事件（针对特定环境）
+function handleEditTaskClickForEnv(taskJsonString, envId) {
     try {
         const task = JSON.parse(decodeURIComponent(taskJsonString));
         showEditTaskModal(task);

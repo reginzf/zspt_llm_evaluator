@@ -38,6 +38,22 @@ function switchTab(tabName) {
     }
 }
 
+// 添加展开/折叠标注任务管理功能
+function toggleTaskManagement() {
+    const taskManagementContent = document.getElementById('taskManagementContent');
+    const toggleButton = document.getElementById('taskManagementToggle');
+    
+    if (taskManagementContent.style.display === 'none' || taskManagementContent.style.display === '') {
+        // 展开
+        taskManagementContent.style.display = 'block';
+        toggleButton.textContent = '折叠';
+    } else {
+        // 折叠
+        taskManagementContent.style.display = 'none';
+        toggleButton.textContent = '展开';
+    }
+}
+
 // 加载文件列表
 function loadFileList() {
     const fileListContainer = document.getElementById('file-list');
