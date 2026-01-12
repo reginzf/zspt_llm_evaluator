@@ -3,8 +3,60 @@
 
 let currentKnoId = null;
 let currentEnvironment = null;
-let expandedEnvironmentId = null;  // 记录当前展开的环境ID
 
+// 初始化表格列宽调整功能
+function initTableColumnResizing() {
+    // 为所有任务表格的表头添加列宽调整器
+    const tables = document.querySelectorAll('.task-table');
+    
+    tables.forEach(table => {
+        const headers = table.querySelectorAll('th');
+        
+        headers.forEach((header, index) => {
+            // 检查是否已经添加了调整器
+            if (!header.querySelector('.column-resizer')) {
+                const resizer = document.createElement('div');
+                resizer.className = 'column-resizer';
+                
+                // 为最后一个列不添加调整器
+                if (index < headers.length - 1) {
+                    header.appendChild(resizer);
+                    
+                    let startX, startWidth;
+                    
+                    resizer.addEventListener('mousedown', function(e) {
+                        startX = e.pageX;
+                        startWidth = header.offsetWidth;
+                        
+                        document.documentElement.classList.add('resizing');
+                        
+                        e.preventDefault();
+                        
+                        const mouseMoveHandler = function(e) {
+                            const diff = e.pageX - startX;
+                            const newWidth = startWidth + diff;
+                            
+                            if (newWidth > 50) { // 最小宽度50px
+                                header.style.width = newWidth + 'px';
+                                header.style.minWidth = newWidth + 'px';
+                                header.style.maxWidth = newWidth + 'px';
+                            }
+                        };
+                        
+                        const mouseUpHandler = function() {
+                            document.documentElement.classList.remove('resizing');
+                            document.removeEventListener('mousemove', mouseMoveHandler);
+                            document.removeEventListener('mouseup', mouseUpHandler);
+                        };
+                        
+                        document.addEventListener('mousemove', mouseMoveHandler);
+                        document.addEventListener('mouseup', mouseUpHandler);
+                    });
+                }
+            }
+        });
+    });
+}
 
 // 加载环境绑定状态
 function loadEnvironmentStatus() {
@@ -21,6 +73,8 @@ function loadEnvironmentStatus() {
     .then(data => {
         if (data.success) {
             updateEnvironmentDisplay(data.data);  // data.data 现在包含 environments 和 bound_environments
+            // 在更新完环境显示后初始化列宽调整功能
+            setTimeout(initTableColumnResizing, 100);
         } else {
             console.error('获取环境状态失败:', data.message);
             // 即使失败也更新UI显示错误信息
@@ -263,14 +317,6 @@ function toggleEnvironmentTasks(envId) {
     const taskRow = document.getElementById(`taskManagementRow-${envId}`);
     const expandButton = document.querySelector(`.environment-row[data-env-id="${envId}"] .expand-btn`);
     
-    console.log('toggleEnvironmentTasks called for envId:', envId);
-    console.log('taskRow found:', !!taskRow);
-    console.log('expandButton found:', !!expandButton);
-    if (taskRow) {
-        console.log('taskRow display style:', taskRow.style.display);
-        console.log('taskRow offsetParent:', taskRow.offsetParent); // 检查元素是否可见
-    }
-    
     if (!taskRow || !expandButton) {
         console.error('找不到对应的行或按钮:', envId);
         return;
@@ -280,7 +326,6 @@ function toggleEnvironmentTasks(envId) {
     // offsetParent为null表示元素不可见
     if (!taskRow.offsetParent) {
         // 展开：显示对应环境的任务管理区域
-        console.log('Expanding task management area for envId:', envId);
         taskRow.style.display = '';
         expandButton.textContent = '折叠';
         
@@ -288,7 +333,6 @@ function toggleEnvironmentTasks(envId) {
         loadTasksForEnvironment(envId);
     } else {
         // 折叠：隐藏对应环境的任务管理区域，不重新加载数据
-        console.log('Collapsing task management area for envId:', envId);
         taskRow.style.display = 'none';
         expandButton.textContent = '展开';
     }
@@ -346,65 +390,60 @@ function renderTaskTableForEnvironment(envId, tasks) {
             let statusText = '';
             switch(task.task_status || task.status) {
                 case '未开始':
-                    statusClass = 'status-not-started';
-                    statusText = '未开始';
-                    break;
-                case '进行中':
-                    statusClass = 'status-in-progress';
-                    statusText = '进行中';
-                    break;
-                case '已完成':
-                    statusClass = 'status-completed';
-                    statusText = '已完成';
-                    break;
                 case 'not_started':
                     statusClass = 'status-not-started';
                     statusText = '未开始';
                     break;
+                case '进行中':
                 case 'in_progress':
                     statusClass = 'status-in-progress';
                     statusText = '进行中';
                     break;
-                    case 'completed':
-                        statusClass = 'status-completed';
-                        statusText = '已完成';
-                        break;
-                    default:
-                        statusClass = 'status-not-started';
-                        statusText = task.task_status || task.status;
-                }
+                case '已完成':
+                case 'completed':
+                    statusClass = 'status-completed';
+                    statusText = '已完成';
+                    break;
+                default:
+                    statusClass = 'status-not-started';
+                    statusText = task.task_status || task.status;
+            }
                 
-                // 创建一个安全的onclick事件处理器
-                const taskJson = encodeURIComponent(JSON.stringify(task));
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${task.name}</td>
-                    <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
-                    <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
-                    <td>
-                        <div class="progress-container">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                            </div>
-                            <span class="progress-text">${progressText}</span>
-                        </div>
-                    </td>
-                    <td><span class="status-label ${statusClass}">${statusText}</span></td>
-                    <td>
-                        <div class="task-actions">
-                            <button class="task-action-btn edit-btn" onclick="handleEditTaskClickForEnv(decodeURIComponent('${taskJson}'), '${envId}')">编辑</button>
-                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}', '${envId}')">同步</button>
-                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}', '${envId}')">删除</button>
-                        </div>
-                    </td>
-                `;
-                tableBody.appendChild(row);
-            });
-        } else {
+            // 创建一个安全的onclick事件处理器
+            const taskJson = encodeURIComponent(JSON.stringify(task));
             const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
+            row.innerHTML = `
+                <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
+                <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
+                <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
+                <td>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <span class="progress-text">${progressText}</span>
+                    </div>
+                </td>
+                <td><span class="status-label ${statusClass}">${statusText}</span></td>
+                <td>
+                    <div class="task-actions">
+                        <button class="task-action-btn edit-btn" onclick="handleEditTaskClickForEnv(decodeURIComponent('${taskJson}'), '${envId}')">编辑</button>
+                        <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
+                        <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id}', '${envId}')">删除</button>
+                    </div>
+                </td>
+            `;
             tableBody.appendChild(row);
-        }
+        });
+         // 初始化列宽调整功能
+        setTimeout(() => initTableColumnResizing(), 0);
+    } else {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
+        tableBody.appendChild(row);
+        // 初始化列宽调整功能
+        setTimeout(() => initTableColumnResizing(), 0);
+    }
 }
 
 // 显示创建任务模态框（带环境ID）
@@ -461,9 +500,13 @@ function loadBoundKnowledgeBases(envId) {
 
 // 当选择知识库时，加载问题集列表
 function loadQuestionSetsForKnowledgeBase() {
-    // 使用本地知识库ID而不是下拉框选中的值
-    const localKnowledgeId = currentKnoId;
-    if (!localKnowledgeId) {
+    // 从知识库选择框获取选中的值
+    const selectedKnowledgeBaseId = document.getElementById('taskKnowledgeBaseSelect').value;
+    
+    // 如果选择了知识库ID，使用选中的ID，否则使用当前本地知识库ID作为备用
+    const knowledgeBaseId = selectedKnowledgeBaseId || currentKnoId;
+    
+    if (!knowledgeBaseId) {
         document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
         return;
     }
@@ -474,7 +517,7 @@ function loadQuestionSetsForKnowledgeBase() {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            knowledge_id: localKnowledgeId
+            knowledge_id: knowledgeBaseId
         })
     })
     .then(response => response.json())
@@ -519,11 +562,32 @@ function showCreateTaskModal() {
 function showEditTaskModal(task) {
     document.getElementById('taskModalTitle').textContent = '编辑标注任务';
     document.getElementById('taskIdInput').style.display = 'block';
-    document.getElementById('taskId').value = task.id;
+    document.getElementById('taskId').value = task.task_id;
     document.getElementById('taskName').value = task.name;
     // 注释掉不存在的元素，使用taskKnowledgeBaseSelect代替
     // document.getElementById('taskKnowledgeBase').value = task.knowledge_base_id;
-    document.getElementById('taskEnvironment').value = task.environment_id;
+    document.getElementById('taskEnvironment').value = task.environment_id || task.label_studio_id || '';
+    
+    // 将知识库和问题集设置为只读或禁用，以防止在编辑模式下修改这些关联项
+    const knowledgeBaseSelect = document.getElementById('taskKnowledgeBaseSelect');
+    const questionSetSelect = document.getElementById('taskQuestionSet');
+    
+    // 显示当前关联的知识库和问题集信息，但不允许编辑
+    if(task.knowledge_base_name) {
+        knowledgeBaseSelect.innerHTML = `<option value="${task.knowledge_base_id || ''}">${task.knowledge_base_name}(${task.knowledge_base_id || ''})</option>`;
+        knowledgeBaseSelect.disabled = true; // 禁用选择
+    } else if(task.knowledge_base_id) {
+        knowledgeBaseSelect.innerHTML = `<option value="${task.knowledge_base_id}">${task.knowledge_base_id}</option>`;
+        knowledgeBaseSelect.disabled = true; // 禁用选择
+    }
+    
+    if(task.question_set_name) {
+        questionSetSelect.innerHTML = `<option value="${task.question_set_id || ''}">${task.question_set_name}(${task.question_set_id || ''})</option>`;
+        questionSetSelect.disabled = true; // 禁用选择
+    } else if(task.question_set_id) {
+        questionSetSelect.innerHTML = `<option value="${task.question_set_id}">${task.question_set_id}</option>`;
+        questionSetSelect.disabled = true; // 禁用选择
+    }
     
     document.getElementById('taskModal').style.display = 'block';
 }
@@ -666,25 +730,16 @@ function renderTaskTable(tasks) {
                 let statusText = '';
                 switch(task.task_status || task.status) {
                     case '未开始':
-                        statusClass = 'status-not-started';
-                        statusText = '未开始';
-                        break;
-                    case '进行中':
-                        statusClass = 'status-in-progress';
-                        statusText = '进行中';
-                        break;
-                    case '已完成':
-                        statusClass = 'status-completed';
-                        statusText = '已完成';
-                        break;
                     case 'not_started':
                         statusClass = 'status-not-started';
                         statusText = '未开始';
                         break;
+                    case '进行中':
                     case 'in_progress':
                         statusClass = 'status-in-progress';
                         statusText = '进行中';
                         break;
+                    case '已完成':
                     case 'completed':
                         statusClass = 'status-completed';
                         statusText = '已完成';
@@ -698,9 +753,9 @@ function renderTaskTable(tasks) {
                 const taskJson = encodeURIComponent(JSON.stringify(task));
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${task.name}</td>
-                    <td>${task.knowledge_base_name || task.knowledge_base_id}(${task.knowledge_base_id})</td>
-                    <td>${task.question_set_name || '待选择'}(${task.question_set_id || '-'})</td>
+                    <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
+                    <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
+                    <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
                     <td>
                         <div class="progress-container">
                             <div class="progress-bar">
@@ -713,24 +768,59 @@ function renderTaskTable(tasks) {
                     <td>
                         <div class="task-actions">
                             <button class="task-action-btn edit-btn" onclick="handleEditTaskClick(decodeURIComponent('${taskJson}'))">编辑</button>
-                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id || task.id}')">同步</button>
-                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id || task.id}')">删除</button>
+                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
+                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id}')">删除</button>
                         </div>
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
+            // 初始化列宽调整功能
+            setTimeout(() => initTableColumnResizing(), 0);
         } else {
             const row = document.createElement('tr');
             row.innerHTML = `<td colspan="6" style="text-align: center;">暂无标注任务</td>`;
             tableBody.appendChild(row);
+            // 初始化列宽调整功能
+            setTimeout(() => initTableColumnResizing(), 0);
         }
     }
 }
 
-// 同步任务（预留功能）
+// 同步任务（实现同步功能）
 function syncTask(taskId, envId) {
-    alert('同步功能正在开发中...');
+    if (!taskId) {
+        alert('任务ID不能为空');
+        return;
+    }
+
+    fetch('/local_knowledge_detail/label_studio/sync_project', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            task_id: taskId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('任务同步成功');
+            // 成功后刷新任务列表
+            if (envId && document.getElementById(`taskManagementRow-${envId}`).style.display !== 'none') {
+                loadTasksForEnvironment(envId);
+            } else {
+                loadAnnotationProjects();
+            }
+        } else {
+            alert('任务同步失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('同步任务时出错:', error);
+        alert('同步任务时发生错误');
+    });
 }
 
 // 处理编辑任务点击事件
@@ -745,7 +835,7 @@ function handleEditTaskClick(taskJsonString) {
 }
 
 // 处理编辑任务点击事件（针对特定环境）
-function handleEditTaskClickForEnv(taskJsonString, envId) {
+function handleEditTaskClickForEnv(taskJsonString) {
     try {
         const task = JSON.parse(decodeURIComponent(taskJsonString));
         showEditTaskModal(task);
@@ -754,8 +844,6 @@ function handleEditTaskClickForEnv(taskJsonString, envId) {
         alert('编辑任务时发生错误');
     }
 }
-
-
 
 // 添加初始化函数，供页面调用
 function initAnnotationTab(knoId) {

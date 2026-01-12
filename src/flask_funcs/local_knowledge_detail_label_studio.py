@@ -156,7 +156,7 @@ def create_annotation_project():
 
 @local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_project', methods=['POST'])
 def get_annotation_projects():
-    """获取标注任务列表 (新版本，使用JSON格式)"""
+    """获取标注任务列表"""
     try:
         data = request.get_json()
         kno_id = data.get('kno_id')
@@ -268,6 +268,67 @@ def delete_annotation_project():
         return jsonify({'success': False, 'message': f'删除任务时发生错误: {str(e)}'}), 500
 
 
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/sync_project', methods=['POST'])
+def sync_annotation_project():
+    """同步标注任务 - 从数据库获取任务信息"""
+    try:
+        data = request.get_json()
+        required_fields = ['task_id']
+        missing_field = validate_required_fields(data, required_fields)
+        if missing_field:
+            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+
+        task_id = data['task_id']
+
+        # 从ai_annotation_tasks表查询任务信息
+        with LabelStudioCrud() as ls_crud:
+            # 查询指定任务ID的信息
+            tasks = ls_crud.annotation_task_list(task_id=task_id)
+            
+            if not tasks:
+                return jsonify({'success': False, 'message': '未找到指定的标注任务'}), 404
+            
+            # 获取第一个匹配的任务
+            task = tasks[0]
+            task_data = ls_crud._annotation_task_to_json(task)
+            
+            # 提取需要的字段
+            local_knowledge_id = task_data.get('local_knowledge_id')
+            question_set_id = task_data.get('question_set_id')
+            label_studio_env_id = task_data.get('label_studio_env_id')
+            label_studio_project_id = task_data.get('label_studio_project_id')
+        if not label_studio_project_id:
+            # 创建项目
+            # project = create_project()
+            # 根据问题创建标注视图
+            #project.create_view(questions)
+            # 获取在ls的项目id
+            # label_studio_project_id = project.id
+            pass
+        else:
+            # 查看是否存在标注视图，如果不存在则创建
+            # 获取项目中的所有的切片
+            pass
+        # 获取紫鸾平台知识库中的切片
+        # chunk_all = zlpt_get_chunk_save(local_knowledge_id)
+        # 根据项目中的切片，获得要上传到label-studio中的切片
+        # 上传到label-studio的项目中
+        return jsonify({
+            'success': True,
+            'message': '任务信息获取成功',
+            'data': {
+                'task_id': task_id,
+                'local_knowledge_id': local_knowledge_id,
+                'question_set_id': question_set_id,
+                'label_studio_env_id': label_studio_env_id,
+                'label_studio_project_id': label_studio_project_id
+            }
+        })
+    except Exception as e:
+        logger.error(f"同步标注任务时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'同步标注任务时发生错误: {str(e)}'}), 500
+
+
 @local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/knowledge/bound_list', methods=['POST'])
 def get_bound_knowledge_list():
     """获取环境已绑定的知识库列表"""
@@ -356,7 +417,7 @@ def get_tasks_by_environment():
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
 
         # 查询特定环境和知识库下的标注任务
-        with LabelStudioCrud() as ls_crud, LocalKnowledgeCrud() as lk_crud, QuestionsCRUD() as q_crud:
+        with LabelStudioCrud() as ls_crud, LocalKnowledgeCrud() as lk_crud, QuestionsCRUD() as q_crud, Environment_Crud() as e_crud:
             tasks = ls_crud.annotation_task_list(local_knowledge_id=kno_id, label_studio_env_id=env_id)
 
             # 转换为前端期望的格式
@@ -365,21 +426,44 @@ def get_tasks_by_environment():
                 task_data = ls_crud._annotation_task_to_json(task)
 
                 # 获取知识库和问题集的名称
-                # kb_name = get_knowledge_base_name(task_data['local_knowledge_id'])
-                kb_name = lk_crud.get_local_knowledge(kno_id=task_data['local_knowledge_id'])[0][2]
+                # 从ai_knowledge_base表获取知识库名称
+                knowledge_base_id = task_data.get('knowledge_base_id')
+                if knowledge_base_id:
+                    kb_result = e_crud.get_knowledge_base(knowledge_id=knowledge_base_id)
+                    if kb_result and len(kb_result) > 0:
+                        kb_name = kb_result[0][1]  # 假设第二个字段是名称
+                    else:
+                        kb_name = '未知知识库'
+                else:
+                    # 如果没有knowledge_base_id，则使用local_knowledge_id作为备选
+                    local_kb_result = lk_crud.get_local_knowledge(kno_id=task_data.get('local_knowledge_id'))
+                    if local_kb_result and len(local_kb_result) > 0:
+                        kb_name = local_kb_result[0][2]  # 原来的查询方式
+                    else:
+                        kb_name = '未知知识库'
+
                 # qs_name = get_question_set_name(task_data['question_set_id'])
-                qs_name = q_crud.question_config_list(question_id=task_data['question_set_id'])[0][1]
+                question_set_id = task_data.get('question_set_id')
+                if question_set_id:
+                    qs_result = q_crud.question_config_list(question_id=question_set_id)
+                    if qs_result and len(qs_result) > 0:
+                        qs_name = qs_result[0][1]
+                    else:
+                        qs_name = '未知问题集'
+                else:
+                    qs_name = '未知问题集'
+
                 projects.append({
-                    'task_id': task_data['task_id'],
-                    'name': task_data['task_name'],
-                    'knowledge_base_id': task_data['local_knowledge_id'],
+                    'task_id': task_data.get('task_id'),
+                    'name': task_data.get('task_name'),
+                    'knowledge_base_id': knowledge_base_id,
                     'knowledge_base_name': kb_name,
-                    'environment_id': task_data['label_studio_env_id'],
-                    'question_set_id': task_data['question_set_id'],
+                    'environment_id': task_data.get('label_studio_env_id'),
+                    'question_set_id': question_set_id,
                     'question_set_name': qs_name,
-                    'total_chunks': task_data['total_chunks'],
-                    'annotated_chunks': task_data['annotated_chunks'],
-                    'task_status': task_data['task_status']
+                    'total_chunks': task_data.get('total_chunks'),
+                    'annotated_chunks': task_data.get('annotated_chunks'),
+                    'task_status': task_data.get('task_status')
                 })
 
         return jsonify({

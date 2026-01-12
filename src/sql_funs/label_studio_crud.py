@@ -151,12 +151,12 @@ class LabelStudioCrud(PostgreSQLManager):
         }
 
     # 新增：标注任务相关的方法
-    def annotation_task_list(self, task_name=None, local_knowledge_id=None, label_studio_env_id=None,
+    def annotation_task_list(self, task_id=None, task_name=None, local_knowledge_id=None, label_studio_env_id=None,
                              question_set_id=None, label_studio_project_id=None,
                              task_status=None):
         """获取标注任务列表"""
-        exact_match_fields = ['local_knowledge_id', 'label_studio_env_id', 'question_set_id', 'label_studio_project_id',
-                              'task_status']
+        exact_match_fields = ['task_id', 'local_knowledge_id', 'label_studio_env_id', 'question_set_id',
+                              'label_studio_project_id', 'task_status']
         partial_match_fields = ['task_name']
         allowed_fileds = exact_match_fields + partial_match_fields
         data = {}
@@ -253,4 +253,5 @@ class LabelStudioCrud(PostgreSQLManager):
             'task_status': row[8] if len(row) > 8 else '未开始',
             'created_at': row[9].isoformat() if len(row) > 9 and row[9] else None,
             'updated_at': row[10].isoformat() if len(row) > 10 and row[10] else None,
+            'knowledge_base_id': row[11] if len(row) > 11 else None,
         }
