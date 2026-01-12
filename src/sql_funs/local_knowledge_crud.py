@@ -1,6 +1,7 @@
 from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 BIND_STATUS_MAP = {
@@ -38,24 +39,11 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         if not data:
             return False
 
-            # 构建更新语句
-        set_clauses = []
-        param_values = []
-        for key, value in data.items():
-            set_clauses.append(f"{key} = %s")
-            param_values.append(value)
-
-        set_clause = ", ".join(set_clauses)
-        query = f"UPDATE ai_local_knowledge SET {set_clause} WHERE kno_id = %s"
-        params = param_values + [kno_id]
-
         try:
-            self.cursor.execute(query, params)
-            self.connection.commit()
-            # 检查是否有行被更新
-            return self.cursor.rowcount > 0
+            result = self.update("ai_local_knowledge", data, kno_id=kno_id)
+            return result
         except Exception as e:
-            self.connection.rollback()
+            logger.error(f"更新本地知识库信息失败: {e}")
             return False
 
     def local_knowledge_delete(self, kno_id: str):
@@ -235,24 +223,11 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         if not data:
             return False
 
-        # 构建更新语句
-        set_clauses = []
-        param_values = []
-        for key, value in data.items():
-            set_clauses.append(f"{key} = %s")
-            param_values.append(value)
-
-        set_clause = ", ".join(set_clauses)
-        query = f"UPDATE ai_local_knowledge_list SET {set_clause} WHERE knol_id = %s"
-        params = param_values + [knol_id]
-
         try:
-            self.cursor.execute(query, params)
-            self.connection.commit()
-            # 检查是否有行被更新
-            return self.cursor.rowcount > 0
+            result = self.update("ai_local_knowledge_list", data, knol_id=knol_id)
+            return result
         except Exception as e:
-            self.connection.rollback()
+            logger.error(f"更新本地知识库列表信息失败: {e}")
             return False
 
     def local_knowledge_list_delete(self, knol_id: str):

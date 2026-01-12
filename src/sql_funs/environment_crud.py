@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List, Tuple
 import logging
 from env_config_init import settings
@@ -173,38 +172,26 @@ class Environment_Crud(PostgreSQLManager):
             logging.error("错误: 不能更新zlpt_base_id字段")
             return False
 
+        # 验证字段名是否合法
+        validated_updates = {}
+        for key, value in kwargs.items():
+            if key not in ALLOWED_FIELDS and key not in ['username', 'password', 'key1', 'key2_add', 'pk']:
+                logging.warning(f"Invalid field name: {key}")
+                continue
+            validated_updates[key] = value
+
+        if not validated_updates:
+            logging.error("错误: 没有提供要更新的合法字段")
+            return False
+
         try:
-            # 构建更新语句
-            set_clause_parts = []
-            values = []
-            for key, value in kwargs.items():
-                # 验证字段名是否合法
-                if key not in ALLOWED_FIELDS and key not in ['username', 'password', 'key1', 'key2_add', 'pk']:
-                    logging.warning(f"Invalid field name: {key}")
-                    continue
-                set_clause_parts.append(f"{key} = %s")
-                values.append(value)
-
-            if not set_clause_parts:
-                logging.error("错误: 没有提供要更新的合法字段")
-                return False
-
-            set_clause = ", ".join(set_clause_parts)
-            query = f"UPDATE ai_environment_info SET {set_clause} WHERE zlpt_base_id = %s"
-            values.append(zlpt_base_id)
-
-            logging.info(f"执行更新语句: {query}，参数: {values}")
-            self.cursor.execute(query, values)
-            self.connection.commit()
-
-            if self.cursor.rowcount > 0:
+            result = self.update("ai_environment_info", validated_updates, zlpt_base_id=zlpt_base_id)
+            if result:
                 logging.info("成功: 环境信息更新成功")
-                return True
             else:
                 logging.error("错误: 环境信息更新失败")
-                return False
+            return result
         except Exception as e:
-            self.connection.rollback()
             logging.error(f"错误: 更新数据时发生异常: {e}")
             return False
 
@@ -226,7 +213,7 @@ class Environment_Crud(PostgreSQLManager):
             "visiblerange": visiblerange,
             "deptidlist": deptidlist or [],
             "managedeptidlist": managedeptidlist or [],
-            "zlpt_id": zlpt_base_id
+            "zlpt_base_id": zlpt_base_id  # 修正字段名
         })
 
     def knowledge_base_update(self, knowledge_id: str, knowledge_name: str = None, kno_root_id: str = None,
@@ -244,24 +231,12 @@ class Environment_Crud(PostgreSQLManager):
         if not data:
             return False
 
-            # 构建更新语句
-        set_clauses = []
-        param_values = []
-        for key, value in data.items():
-            set_clauses.append(f"{key} = %s")
-            param_values.append(value)
-
-        set_clause = ", ".join(set_clauses)
-        query = f"UPDATE ai_knowledge_base SET {set_clause} WHERE knowledge_id = %s"
-        params = param_values + [knowledge_id]
-
         try:
-            self.cursor.execute(query, params)
-            self.connection.commit()
-            # 检查是否有行被更新
-            return self.cursor.rowcount > 0
+            result = self.update("ai_knowledge_base", data, knowledge_id=knowledge_id)
+            return result
         except Exception as e:
-            self.connection.rollback()
+            # 记录错误以便调试
+            print(f"更新知识库基础信息失败: {e}")
             return False
 
     def knowledge_base_delete(self, knowledge_id: str):
