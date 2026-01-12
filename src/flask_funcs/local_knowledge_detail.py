@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 import os
 import logging
 from env_config_init import settings
-from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud,LabelStudioCrud
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, LabelStudioCrud
 
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
@@ -308,7 +308,7 @@ def local_knowledge_sync():
             logger.info(f"获取到content_code: {content_code}")
             # 4、获取本地知识库的文件列表
             logger.info(f"获取本地知识库 {local_kno_id} 的文件列表")
-            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id)
+            local_files = l_crud.get_local_knowledge_list(kno_id=local_kno_id, ls_status=1)  # 获取状态为1的文件列表
             logger.info(f"获取到 {len(local_files)} 个本地文件")
 
             # 构建文件路径列表
@@ -355,16 +355,30 @@ def local_knowledge_sync():
                     logger.info(f"成功更新文件 {file[1]} 状态为 2")
 
             # 8、将同步信息插入知识库路径表
-            logger.info("将同步信息插入知识库路径表")
-            file_sync_info = {file[1]: {'name': file[2], 'path': file[4], 'status': file[5]} for file in local_files}
-            insert_result = kp_crud.knowledge_path_insert(
-                kno_path_id=content_code,
-                kno_path_name=local_knowledge_info['kno_path'],
-                knowledge_id=knowledge_id,
-                parent=None,
-                doc_map=file_sync_info
-            )
-            if not insert_result:
+            k_p_result = kp_crud.get_knowledge_path_list(kno_path_id=content_code)
+            if k_p_result:
+                logger.info("将同步信息更新到知识库路径表")
+                k_p_result = k_p_result[0]
+                file_sync_info = k_p_result[4]
+                for file in local_files:
+                    file_sync_info[file[1]] = {'name': file[2], 'path': file[4], 'status': file[5]}
+                logger.info(f"更新后的文件同步信息: {file_sync_info}")
+                result = kp_crud.knowledge_path_update(
+                    kno_path_id=content_code,
+                    doc_map=file_sync_info
+                )
+            else:
+                logger.info("将同步信息插入知识库路径表")
+                file_sync_info = {file[1]: {'name': file[2], 'path': file[4], 'status': file[5]} for file in
+                                  local_files}
+                result = kp_crud.knowledge_path_insert(
+                    kno_path_id=content_code,
+                    kno_path_name=local_knowledge_info['kno_path'],
+                    knowledge_id=knowledge_id,
+                    parent=None,
+                    doc_map=file_sync_info
+                )
+            if not result:
                 logger.warning("插入知识库路径信息失败")
             else:
                 logger.info("成功插入知识库路径信息")
@@ -379,4 +393,3 @@ def local_knowledge_sync():
     except Exception as e:
         logger.error(f"同步知识库时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
-
