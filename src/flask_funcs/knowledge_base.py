@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields
-from src.zlpt.zlpt_temp import zlpt_create_knowledge_base, know_client
+from src.zlpt_temp import zlpt_create_knowledge_base, know_client
 # 创建logger
 logger = logging.getLogger(__name__)
 

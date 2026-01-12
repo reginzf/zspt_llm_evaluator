@@ -327,7 +327,7 @@ def zlpt_create_project(QUESTION_JSON):
         raise
 
 
-def ls_create_project_and_tasks():
+def ls_create_project_and_tasks(chunk_all):
     logger.info("===step 2: label studio的项目、任务创建 ===")
     # 加载配置文件
     knowledge_dict = load_json_file(KNOWLEDGE_PATH)

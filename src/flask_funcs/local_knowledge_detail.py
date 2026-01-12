@@ -5,11 +5,11 @@ from flask import Blueprint, request, jsonify
 import os
 import logging
 from env_config_init import settings
-from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, LabelStudioCrud
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud
 
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
-from src.zlpt.zlpt_temp import know_client, zlpt_upload_files
+from src.zlpt_temp import know_client, zlpt_upload_files
 
 # 创建logger
 logger = logging.getLogger(__name__)

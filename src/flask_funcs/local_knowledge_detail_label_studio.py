@@ -277,29 +277,27 @@ def sync_annotation_project():
         missing_field = validate_required_fields(data, required_fields)
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
-
         task_id = data['task_id']
 
         # 从ai_annotation_tasks表查询任务信息
         with LabelStudioCrud() as ls_crud:
             # 查询指定任务ID的信息
             tasks = ls_crud.annotation_task_list(task_id=task_id)
-            
             if not tasks:
                 return jsonify({'success': False, 'message': '未找到指定的标注任务'}), 404
-            
             # 获取第一个匹配的任务
             task = tasks[0]
             task_data = ls_crud._annotation_task_to_json(task)
-            
             # 提取需要的字段
             local_knowledge_id = task_data.get('local_knowledge_id')
             question_set_id = task_data.get('question_set_id')
             label_studio_env_id = task_data.get('label_studio_env_id')
             label_studio_project_id = task_data.get('label_studio_project_id')
+        from src.zlpt_temp import ls_create_project
+
         if not label_studio_project_id:
             # 创建项目
-            # project = create_project()
+            project = ls_create_project()
             # 根据问题创建标注视图
             #project.create_view(questions)
             # 获取在ls的项目id
