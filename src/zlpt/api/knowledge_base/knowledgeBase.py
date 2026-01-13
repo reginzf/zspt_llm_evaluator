@@ -85,10 +85,12 @@ class KnowledgeBase(BaseClient):
         if not content_data:
             return []
         tree = []
+
         def build_tree(item):
             if item['children']:
                 item['children'] = [build_tree(child) for child in item['children']]
             return item
+
         for ele in tree:
             if ele['pcontentCode'] is None:
                 tree.append(build_tree(ele))
@@ -201,7 +203,7 @@ class KnowledgeBase(BaseClient):
             res = self.send_request(api, method, data, knowledgeBaseName=knowledgeBaseName)
         return res
 
-    def knowledge_doc_list(self, knowledgeId, docName='', docSource="0,1,2", current=1, size=25):
+    def knowledge_doc_list(self, knowledgeId, docName='', docSource="0,1,2", contentCode="", current=1, size=25):
         """
         查询指定知识库下的文件列表
         :param knowledgeId:
@@ -235,7 +237,8 @@ class KnowledgeBase(BaseClient):
             docName=docName,
             docSource=docSource,
             current=current,
-            size=size
+            size=size,
+            contentCode=contentCode
         )
         return res
 

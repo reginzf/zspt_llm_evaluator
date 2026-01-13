@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 import os
 import logging
 from env_config_init import settings
-from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, KnowledgeCrud
 
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
@@ -254,7 +254,7 @@ def local_knowledge_sync():
 
         logger.info(f"开始同步本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
-        with LocalKnowledgeCrud() as l_crud, Environment_Crud() as e_crud, KnowledgePathCrud() as kp_crud:
+        with LocalKnowledgeCrud() as l_crud, Environment_Crud() as e_crud, KnowledgePathCrud() as kp_crud, KnowledgeCrud() as k_crud:
             # 1、获取本地知识库的信息
             logger.info(f"获取本地知识库信息: {local_kno_id}")
             local_knowledge_list = l_crud.get_local_knowledge(kno_id=local_kno_id)
@@ -280,25 +280,21 @@ def local_knowledge_sync():
                     contentName=local_knowledge_info['kno_path'],
                     parentContentCode=None  # 创建在根目录
                 )
-
                 if not create_dir_result or create_dir_result.get('code') != 200:
                     logger.error(f"创建目录失败: {create_dir_result}")
                     return jsonify({'success': False, 'message': '创建知识库目录失败'}), 500
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 创建成功")
             else:
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 已存在")
-
             # 获取目录的content_code
             logger.info(f"获取目录 {local_knowledge_info['kno_path']} 的content_code")
             res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
             if not res or res.get('code') != 200:
                 logger.error(f"获取知识库目录树失败: {res}")
                 return jsonify({'success': False, 'message': '获取知识库目录树失败'}), 500
-
             content_code_result = jsonpath.jsonpath(
                 res,
-                f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]'''
-            )
+                f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]''')
 
             if not content_code_result:
                 logger.error(f"未找到目录 {local_knowledge_info['kno_path']} 的content_code")
@@ -382,7 +378,11 @@ def local_knowledge_sync():
                 logger.warning("插入知识库路径信息失败")
             else:
                 logger.info("成功插入知识库路径信息")
-
+            # 更新ai_knowledge表
+            doc_records = know_client.knowledge_doc_list(knowledge_id, contentCode=content_code,size=100)
+            for doc_record in doc_records['data']['records']:
+                k_crud.knowledge_insert(doc_record['docId'], doc_record['docName'], doc_record['fileFormat'],
+                                        doc_record['description'],doc_record['docName'], content_code,knowledge_id)
             logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
         return jsonify({
