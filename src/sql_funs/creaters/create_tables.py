@@ -207,6 +207,18 @@ class CreateTables(PostgreSQLManager):
         }
         return self._create_table_with_common_fields("ai_annotation_tasks", columns)
 
+    def create_metric_tasks_table(self):
+        """11. 创建指标任务表"""
+        columns = {
+            "task_id": "VARCHAR(100) PRIMARY KEY",
+            "annotation_type": "VARCHAR(20) CHECK (annotation_type IN ('llm', 'manual', 'mlb'))",
+            "status": "VARCHAR(20) NOT NULL CHECK (status IN ('初始化', '标注中', '标注完成', '计算中', '完成')) DEFAULT '初始化'",
+            "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
+            "report_path": "VARCHAR(500)",
+            "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE"
+        }
+        return self._create_table_with_common_fields("ai_metric_tasks", columns)
+
     def create_all_tables(self):
         """创建所有表"""
         self.create_environment_table()
@@ -224,6 +236,7 @@ class CreateTables(PostgreSQLManager):
         self.create_knowledge_bind_table()  # 新增绑定关系表
         self.create_label_studio_bind_table()  # 新增localknowledge和labelstudio的绑定关系表
         self.create_annotation_tasks_table()  # 新增标注任务表
+        self.create_metric_tasks_table()  # 新增指标任务表
 
 
 if __name__ == '__main__':

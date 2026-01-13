@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ detail_css_path }}">
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_label_studio.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_question.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_detail_task.css') }}">
 </head>
 <body>
 <div class="detail-container">
@@ -281,8 +282,7 @@
 
         <!-- 任务页 -->
         <div id="tasks" class="tab-content">
-            <h3>任务</h3>
-            <p>此功能正在开发中...</p>
+            {% include 'local_knowledge_detail_task.html' %}
         </div>
     </div>
 </div>
@@ -291,6 +291,7 @@
 <script src="{{ detail_js_url }}"></script>
 <script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_detail_label_studio.js') }}"></script>
 <script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_detail_question.js') }}"></script>
+<script src="{{ url_for('static_bp.custom_js', filename='local_knowledge_detail_task.js') }}"></script>
 
 <!-- 绑定对话框 -->
 <div id="bindDialog" class="modal">

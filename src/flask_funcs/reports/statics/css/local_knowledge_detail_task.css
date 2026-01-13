@@ -1,0 +1,283 @@
+/* 任务管理页面样式 */
+
+.task-section {
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.task-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.task-actions {
+    margin-bottom: 15px;
+}
+
+.create-task-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.create-task-btn:hover {
+    background-color: #218838;
+}
+
+.task-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    table-layout: fixed; /* 启用固定表格布局以支持列宽调整 */
+}
+
+.task-table th,
+.task-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    word-wrap: break-word; /* 允许内容换行 */
+}
+
+.task-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #667eea;
+    position: relative; /* 为列宽调整功能准备 */
+    user-select: none; /* 防止文字选择干扰拖拽 */
+}
+
+.task-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 列宽调整器 */
+.task-table th .column-resizer {
+    display: inline-block;
+    width: 6px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    cursor: col-resize;
+    background-color: #ddd;
+    border-right: 1px solid #f8f9fa;
+}
+
+.task-table th .column-resizer:hover {
+    background-color: #667eea;
+}
+
+/* 状态标签样式 */
+.status-initial {
+    background-color: #6c757d; /* 灰色 - 初始化 */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-annotating {
+    background-color: #ffc107; /* 黄色 - 标注中 */
+    color: #212529;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-annotated {
+    background-color: #17a2b8; /* 蓝色 - 标注完成 */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-calculating {
+    background-color: #6f42c1; /* 紫色 - 计算中 */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-completed {
+    background-color: #28a745; /* 绿色 - 完成 */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+/* 操作按钮样式 */
+.task-actions-cell {
+    display: flex;
+    gap: 5px;
+}
+
+.task-action-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-right: 5px;
+}
+
+.annotate-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.calculate-btn {
+    background-color: #6f42c1;
+    color: white;
+}
+
+.report-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.task-action-btn:disabled {
+    background-color: #6c757d;
+    color: #fff;
+    cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .task-table {
+        font-size: 0.9rem;
+    }
+    
+    .task-table th,
+    .task-table td {
+        padding: 8px;
+    }
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 50%;
+    max-width: 500px;
+}
+
+.modal-content.large {
+    width: 70%;
+    max-width: 800px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+.modal-body {
+    margin-bottom: 15px;
+}
+
+.modal-footer {
+    text-align: right;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.form-group input[type="radio"] {
+    margin-right: 8px;
+}
+
+.btn-confirm {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.btn-cancel {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-confirm:hover {
+    background-color: #218838;
+}
+
+.btn-cancel:hover {
+    background-color: #5a6268;
+}
+
+/* 报告内容样式 */
+#reportContent {
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}

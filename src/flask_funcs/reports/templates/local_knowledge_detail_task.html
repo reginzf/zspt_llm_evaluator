@@ -1,0 +1,100 @@
+<div class="task-section">
+    <h3>AI指标任务管理</h3>
+    <div class="task-actions">
+        <button class="action-btn create-task-btn" onclick="createMetricTask()">创建指标任务</button>
+    </div>
+    <div class="task-list">
+        <table class="task-table">
+            <thead>
+                <tr>
+                    <th>任务ID</th>
+                    <th>任务名称</th>
+                    <th>标注类型</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="taskTableBody">
+                <tr>
+                    <td colspan="5" style="text-align: center;">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 标注方式选择模态框 -->
+<div id="annotationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>选择标注方式</h2>
+            <span class="close" onclick="hideAnnotationModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>
+                    <input type="radio" name="annotationType" value="llm" checked> LLM标注
+                </label>
+                <label>
+                    <input type="radio" name="annotationType" value="manual"> 人工标注
+                </label>
+                <label>
+                    <input type="radio" name="annotationType" value="mlb"> MLB标注
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="hideAnnotationModal()">取消</button>
+            <button type="button" class="btn-confirm" onclick="confirmAnnotationType()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 质量计算方式选择模态框 -->
+<div id="calculationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>选择召回方式</h2>
+            <span class="close" onclick="hideCalculationModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>
+                    <input type="radio" name="searchType" value="vectorSearch" checked> 向量检索
+                </label>
+                <label>
+                    <input type="radio" name="searchType" value="hybridSearch"> 混合检索
+                </label>
+                <label>
+                    <input type="radio" name="searchType" value="augmentedSearch"> 增强检索
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="hideCalculationModal()">取消</button>
+            <button type="button" class="btn-confirm" onclick="confirmCalculationType()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 报告查看模态框 -->
+<div id="reportModal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h2>质量评估报告</h2>
+            <span class="close" onclick="hideReportModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="reportContent">
+                <!-- 报告内容将在这里动态加载 -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="hideReportModal()">关闭</button>
+            <button type="button" class="btn-confirm" onclick="exportReport()">导出报告</button>
+        </div>
+    </div>
+</div>
+
+<!-- 任务ID隐藏字段，用于存储当前操作的任务ID -->
+<input type="hidden" id="currentTaskId" value="">

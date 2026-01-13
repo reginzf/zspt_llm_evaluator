@@ -35,6 +35,12 @@ function switchTab(tabName) {
         if (typeof initQuestionTab !== 'undefined') {
             initQuestionTab(knoId);
         }
+    } else if (tabName === 'tasks') {
+        // 初始化任务页签
+        const knoId = document.getElementById('knowledge-id').textContent.trim();
+        if (typeof initTaskTab !== 'undefined') {
+            initTaskTab(knoId);
+        }
     }
 }
 
