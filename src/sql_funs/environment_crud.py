@@ -213,7 +213,7 @@ class Environment_Crud(PostgreSQLManager):
             "visiblerange": visiblerange,
             "deptidlist": deptidlist or [],
             "managedeptidlist": managedeptidlist or [],
-            "zlpt_base_id": zlpt_base_id  # 修正字段名
+            "zlpt_id": zlpt_base_id  # 修正字段名
         })
 
     def knowledge_base_update(self, knowledge_id: str, knowledge_name: str = None, kno_root_id: str = None,
@@ -253,6 +253,7 @@ class Environment_Crud(PostgreSQLManager):
             return self.cursor.rowcount > 0
         except Exception as e:
             self.connection.rollback()
+            raise e
             return False
 
     def get_knowledge_base(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:

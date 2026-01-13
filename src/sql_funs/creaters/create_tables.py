@@ -50,7 +50,7 @@ class CreateTables(PostgreSQLManager):
             "knowledge_name": "VARCHAR(200) NOT NULL",
             "kno_root_id": "VARCHAR(100)",
             "chunk_size": "INTEGER DEFAULT 500",
-            "chunk_overlap": "DECIMAL(3,2) DEFAULT 0.2",
+            "chunk_overlap": "INTEGER DEFAULT 10",
             "sliceidentifier": "JSONB DEFAULT '[]'::jsonb",
             "visiblerange": "INTEGER DEFAULT 0",
             "deptidlist": "JSONB DEFAULT '[]'::jsonb",

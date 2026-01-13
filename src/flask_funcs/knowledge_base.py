@@ -4,6 +4,7 @@ import logging
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields
 from src.zlpt_temp import zlpt_create_knowledge_base, know_client
+
 # 创建logger
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,6 @@ def knowledge_base_list():
 
 @knowledge_base_bp.route('/knowledge_base/create', methods=['POST'])
 def knowledge_base_create():
-
     """创建知识库"""
     try:
         data = request.get_json()
@@ -52,6 +52,7 @@ def knowledge_base_create():
         kno_id = jsonpath.jsonpath(res, '$.data..knowledgeId')[0]
         data['knowledge_id'] = kno_id
         # 查询root_id
+        res = know_client.knowledge_content_tree(knowledgeId=kno_id)
         root_id = jsonpath.jsonpath(res, '$.data[?(@.plevel==0)]')[0]['contentCode']
         data["kno_root_id"] = root_id
         with Environment_Crud() as crud:
@@ -67,6 +68,7 @@ def knowledge_base_create():
                 return jsonify({'success': False, 'message': '知识库创建失败'}), 400
     except Exception as e:
         logger.error(f"创建知识库时发生错误: {str(e)}")
+        raise e
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
