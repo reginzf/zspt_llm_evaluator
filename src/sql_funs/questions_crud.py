@@ -187,21 +187,21 @@ class QuestionsCRUD(PostgreSQLManager):
         }
         return question_type_mapping.get(question_type)
 
-    def _question_config_to_json(self, question_config_tuple):
+    def _question_to_json(self, question_tuple):
         """
-        将问题集配置元组转换为JSON格式
+        将问题记录元组转换为JSON格式
+        问题表结构：(id, question_id, question_set_id, question_type, question_content, chunk_ids, created_at, updated_at)
         """
-        if question_config_tuple:
+        if question_tuple:
             return {
-                "question_id": question_config_tuple[0],
-                "question_name": question_config_tuple[1],
-                "knowledge_id": question_config_tuple[2],
-                "question_count": question_config_tuple[6],
-                "question_set_type": question_config_tuple[5],
-                "created_at": question_config_tuple[3].isoformat() if len(question_config_tuple) > 3 and
-                                                                      question_config_tuple[3] else None,
-                "updated_at": question_config_tuple[4].isoformat() if len(question_config_tuple) > 4 and
-                                                                      question_config_tuple[4] else None
+                "id": question_tuple[0] if len(question_tuple) > 0 else None,
+                "question_id": question_tuple[1] if len(question_tuple) > 1 else None,
+                "question_set_id": question_tuple[2] if len(question_tuple) > 2 else None,
+                "question_type": question_tuple[3] if len(question_tuple) > 3 else None,
+                "question_content": question_tuple[4] if len(question_tuple) > 4 else None,
+                "chunk_ids": question_tuple[5] if len(question_tuple) > 5 else [],
+                "created_at": question_tuple[6].isoformat() if len(question_tuple) > 6 and question_tuple[6] and hasattr(question_tuple[6], 'isoformat') else None,
+                "updated_at": question_tuple[7].isoformat() if len(question_tuple) > 7 and question_tuple[7] and hasattr(question_tuple[7], 'isoformat') else None
             }
         return None
 
@@ -225,7 +225,7 @@ class QuestionsCRUD(PostgreSQLManager):
             logger.info(f"问题集 '{question_set_id}' 中没有问题")
             return {"doc_name": qs_set_name, "datas": []}
 
-        questions = [self._question_config_to_json(question) for question in questions]
+        questions = [self._question_to_json(question) for question in questions]
         questions_by_type = defaultdict(list)
         for question in questions:
             q_type = question.get('question_type', 'factual')  # 默认为factual类型

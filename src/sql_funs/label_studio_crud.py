@@ -175,7 +175,7 @@ class LabelStudioCrud(PostgreSQLManager):
             return []
 
     def annotation_task_create(self, task_id, task_name, local_knowledge_id, question_set_id,
-                               label_studio_env_id, label_studio_project_id=None,
+                               label_studio_env_id, label_studio_project_id=None, knowledge_base_id=None,
                                total_chunks=0, annotated_chunks=0, task_status='未开始'):
         """创建标注任务"""
         try:
@@ -188,8 +188,10 @@ class LabelStudioCrud(PostgreSQLManager):
                 'label_studio_project_id': label_studio_project_id,
                 'total_chunks': total_chunks,
                 'annotated_chunks': annotated_chunks,
-                'task_status': task_status
+                'task_status': task_status,
+                'knowledge_base_id': knowledge_base_id
             }
+            logger.info(f"创建标注任务: {data}")
             return self.insert('ai_annotation_tasks', data)
         except Exception as e:
             logger.error(f"创建标注任务时发生错误: {str(e)}")
