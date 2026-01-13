@@ -195,24 +195,20 @@ class LabelStudioCrud(PostgreSQLManager):
             logger.error(f"创建标注任务时发生错误: {str(e)}")
             return False
 
-    def annotation_task_update(self, task_id, task_name=None, task_status=None,
+    def annotation_task_update(self, task_id, task_name=None, task_status=None, label_studio_project_id=None,
                                total_chunks=None, annotated_chunks=None):
         """更新标注任务"""
         try:
-            updates = {}
-
-            if task_name is not None:
-                updates['task_name'] = task_name
-            if task_status is not None:
-                updates['task_status'] = task_status
-            if total_chunks is not None:
-                updates['total_chunks'] = total_chunks
-            if annotated_chunks is not None:
-                updates['annotated_chunks'] = annotated_chunks
-
+            updates = {
+                'task_name': task_name,
+                'task_status': task_status,
+                'label_studio_project_id': label_studio_project_id,
+                'total_chunks': total_chunks,
+                'annotated_chunks': annotated_chunks
+            }
+            updates = {k: v for k, v in updates.items() if v is not None}
             if not updates:
                 return False
-
             return self.update('ai_annotation_tasks', updates, task_id=task_id)
         except Exception as e:
             logger.error(f"更新标注任务时发生错误: {str(e)}")
