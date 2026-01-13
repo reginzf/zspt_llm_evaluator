@@ -58,6 +58,77 @@ function initTableColumnResizing() {
     });
 }
 
+// 通用的任务状态处理函数
+function getTaskStatusInfo(task) {
+    let statusClass = '';
+    let statusText = '';
+    switch(task.task_status || task.status) {
+        case '未开始':
+        case 'not_started':
+            statusClass = 'status-not-started';
+            statusText = '未开始';
+            break;
+        case '进行中':
+        case 'in_progress':
+            statusClass = 'status-in-progress';
+            statusText = '进行中';
+            break;
+        case '已完成':
+        case 'completed':
+            statusClass = 'status-completed';
+            statusText = '已完成';
+            break;
+        default:
+            statusClass = 'status-not-started';
+            statusText = task.task_status || task.status;
+    }
+    return { statusClass, statusText };
+}
+
+// 通用的创建任务行函数
+function createTaskRow(task, envId = null) {
+    const progressText = (task.annotated_chunks !== undefined && task.total_chunks !== undefined) ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
+    const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
+    
+    const { statusClass, statusText } = getTaskStatusInfo(task);
+    
+    // 创建一个安全的onclick事件处理器
+    const taskJson = encodeURIComponent(JSON.stringify(task));
+    const row = document.createElement('tr');
+    
+    // 根据是否有envId决定使用哪个编辑点击处理器
+    const editClickHandler = envId ? 
+        `handleEditTaskClickForEnv(decodeURIComponent('${taskJson}'), '${envId}')` : 
+        `handleEditTaskClick(decodeURIComponent('${taskJson}'))`;
+    
+    // 根据是否有envId决定删除按钮的参数
+    const deleteBtnParams = envId ? `'${task.task_id}', '${envId}'` : `'${task.task_id}'`;
+    
+    row.innerHTML = `
+        <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
+        <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
+        <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
+        <td>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+                <span class="progress-text">${progressText}</span>
+            </div>
+        </td>
+        <td><span class="status-label ${statusClass}">${statusText}</span></td>
+        <td>
+            <div class="task-actions">
+                <button class="task-action-btn edit-btn" onclick="${editClickHandler}">编辑</button>
+                <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
+                <button class="task-action-btn delete-btn" onclick="deleteTask(${deleteBtnParams})">删除</button>
+            </div>
+        </td>
+    `;
+    
+    return row;
+}
+
 // 加载环境绑定状态
 function loadEnvironmentStatus() {
     fetch('/local_knowledge_detail/label_studio/get_environments', {
@@ -383,56 +454,7 @@ function renderTaskTableForEnvironment(envId, tasks) {
     
     if (tasks && tasks.length > 0) {
         tasks.forEach(task => {
-            const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
-            const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
-            
-            let statusClass = '';
-            let statusText = '';
-            switch(task.task_status || task.status) {
-                case '未开始':
-                case 'not_started':
-                    statusClass = 'status-not-started';
-                    statusText = '未开始';
-                    break;
-                case '进行中':
-                case 'in_progress':
-                    statusClass = 'status-in-progress';
-                    statusText = '进行中';
-                    break;
-                case '已完成':
-                case 'completed':
-                    statusClass = 'status-completed';
-                    statusText = '已完成';
-                    break;
-                default:
-                    statusClass = 'status-not-started';
-                    statusText = task.task_status || task.status;
-            }
-                
-            // 创建一个安全的onclick事件处理器
-            const taskJson = encodeURIComponent(JSON.stringify(task));
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
-                <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
-                <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
-                <td>
-                    <div class="progress-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                        </div>
-                        <span class="progress-text">${progressText}</span>
-                    </div>
-                </td>
-                <td><span class="status-label ${statusClass}">${statusText}</span></td>
-                <td>
-                    <div class="task-actions">
-                        <button class="task-action-btn edit-btn" onclick="handleEditTaskClickForEnv(decodeURIComponent('${taskJson}'), '${envId}')">编辑</button>
-                        <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
-                        <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id}', '${envId}')">删除</button>
-                    </div>
-                </td>
-            `;
+            const row = createTaskRow(task, envId);
             tableBody.appendChild(row);
         });
          // 初始化列宽调整功能
@@ -504,7 +526,7 @@ function loadQuestionSetsForKnowledgeBase() {
     const selectedKnowledgeBaseId = document.getElementById('taskKnowledgeBaseSelect').value;
     
     // 如果选择了知识库ID，使用选中的ID，否则使用当前本地知识库ID作为备用
-    const knowledgeBaseId = selectedKnowledgeBaseId || currentKnoId;
+    const knowledgeBaseId = selectedKnowledgeBaseId;
     
     if (!knowledgeBaseId) {
         document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
@@ -628,7 +650,8 @@ function saveTask() {
         requestData.id = taskId;
     } else {
         // 创建模式：需要所有参数
-        requestData.knowledge_base_id = currentKnoId;  // 使用本地知识库ID
+        requestData.knowledge_base_id = knowledgeBaseId;  // 使用本地知识库ID
+        requestData.local_knowledge_id = currentKnoId; // 同时传递local_knowledge_id
         requestData.label_studio_id = environmentId;  // 改名为label_studio_id
         requestData.question_set_id = questionSetId;  // 添加问题集ID
     }
@@ -723,56 +746,7 @@ function renderTaskTable(tasks) {
         
         if (tasks && tasks.length > 0) {
             tasks.forEach(task => {
-                const progressText = task.annotated_chunks ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
-                const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
-                
-                let statusClass = '';
-                let statusText = '';
-                switch(task.task_status || task.status) {
-                    case '未开始':
-                    case 'not_started':
-                        statusClass = 'status-not-started';
-                        statusText = '未开始';
-                        break;
-                    case '进行中':
-                    case 'in_progress':
-                        statusClass = 'status-in-progress';
-                        statusText = '进行中';
-                        break;
-                    case '已完成':
-                    case 'completed':
-                        statusClass = 'status-completed';
-                        statusText = '已完成';
-                        break;
-                    default:
-                        statusClass = 'status-not-started';
-                        statusText = task.task_status || task.status;
-                }
-                
-                // 创建一个安全的onclick事件处理器
-                const taskJson = encodeURIComponent(JSON.stringify(task));
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
-                    <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
-                    <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
-                    <td>
-                        <div class="progress-container">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                            </div>
-                            <span class="progress-text">${progressText}</span>
-                        </div>
-                    </td>
-                    <td><span class="status-label ${statusClass}">${statusText}</span></td>
-                    <td>
-                        <div class="task-actions">
-                            <button class="task-action-btn edit-btn" onclick="handleEditTaskClick(decodeURIComponent('${taskJson}'))">编辑</button>
-                            <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
-                            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.task_id}')">删除</button>
-                        </div>
-                    </td>
-                `;
+                const row = createTaskRow(task);
                 tableBody.appendChild(row);
             });
             // 初始化列宽调整功能

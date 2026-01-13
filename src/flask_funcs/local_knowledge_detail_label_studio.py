@@ -4,7 +4,7 @@ import logging
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
     KnowledgePathCrud
-from src.zlpt_temp import ls_create_project, project_client, ls_create_tasks, know_client
+from src.zlpt_temp import ls_create_project, ls_create_tasks, know_client, ls_user
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -107,15 +107,16 @@ def create_annotation_project():
     """创建标注任务"""
     try:
         data = request.get_json()
-        required_fields = ['name', 'knowledge_base_id', 'label_studio_id', 'question_set_id']
+        required_fields = ['name', 'knowledge_base_id', 'label_studio_id', 'question_set_id', 'knowledge_base_id']
         missing_field = validate_required_fields(data, required_fields)
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
 
         task_name = data['name']
-        local_knowledge_id = data['knowledge_base_id']
+        local_knowledge_id = data['local_knowledge_id']
         label_studio_env_id = data['label_studio_id']
         question_set_id = data['question_set_id']
+        knowledge_base_id = data['knowledge_base_id']
 
         # 验证本地知识库ID是否一致，如果提供的话
         if 'local_knowledge_id' in data:
@@ -135,6 +136,7 @@ def create_annotation_project():
                 local_knowledge_id=local_knowledge_id,
                 question_set_id=question_set_id,
                 label_studio_env_id=label_studio_env_id,
+                knowledge_base_id=knowledge_base_id,
                 total_chunks=0,
                 annotated_chunks=0,
                 task_status='未开始'
@@ -298,26 +300,27 @@ def sync_annotation_project():
             label_studio_project_id = task_data.get('label_studio_project_id')
             knowledge_base_id = task_data.get('knowledge_base_id')
 
-        # 如果没project_id则创建project
-        if not label_studio_project_id:
-            question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
-            project = ls_create_project(project_client, f'{task_name}_{task_id}', question_json)
-            label_studio_project_id = project.id
-            ls_crud.annotation_task_update(task_id, label_studio_project_id=label_studio_project_id)
-
-        # 获取紫鸾平台知识库中的切片
-        # 获取kno_path_id
-        kno_path_id = kp_crud.get_knowledge_path_list(knowledge_id=knowledge_base_id)
-        if kno_path_id:
-            kno_path_id = kno_path_id[0]['kno_path_id']
-        # 获取目录下的doc_id
-        doc_ids = k_crud.knowledge_list(kno_path_id=kno_path_id)
-        if doc_ids:
-            doc_ids = [doc_id[0] for doc_id in doc_ids]
-        # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
-        task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
-        # 将对应task_id设置为已同步
-        result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)
+            # 如果没project_id则创建project
+            if not label_studio_project_id:
+                question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
+                project = ls_create_project(ls_user, f'{task_name}_{task_id}', question_json)
+                label_studio_project_id = project.id
+                ls_crud.annotation_task_update(task_id, label_studio_project_id=label_studio_project_id)
+            else:
+                project = ls_user.get_project(label_studio_project_id)
+            # 获取紫鸾平台知识库中的切片
+            # 获取kno_path_id
+            kno_path_id = kp_crud.get_knowledge_path_list(knowledge_id=knowledge_base_id)
+            if kno_path_id:
+                kno_path_id = kno_path_id[0][0]
+            # 获取目录下的doc_id
+            doc_ids = k_crud.knowledge_list(kno_path_id=kno_path_id)
+            if doc_ids:
+                doc_ids = [doc_id[0] for doc_id in doc_ids]
+            # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
+            task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
+            # 将对应task_id设置为已同步
+            result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)
         if not result:
             return jsonify({'success': False, 'message': '任务信息更新失败'}), 500
         return jsonify({
@@ -334,6 +337,7 @@ def sync_annotation_project():
         })
     except Exception as e:
         logger.error(f"同步标注任务时发生错误: {str(e)}")
+        raise e
         return jsonify({'success': False, 'message': f'同步标注任务时发生错误: {str(e)}'}), 500
 
 

@@ -1,6 +1,7 @@
 from env_config_init import settings
 from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve, SLICEIDENTIFIER
 from src.zlpt.api.project import Project
+from src.label_studio_api import label_studio_client
 from src.zlpt.login import LoginManager
 from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
@@ -33,12 +34,19 @@ def login_zlpt():
     # 切换项目
     return login_manager
 
+def login_label_studio():
+    """
+     获取Label Studio客户端实例
 
+     Returns:
+         label_studio_client: Label Studio客户端实例
+     """
+    return label_studio_client
 zlpt_user = login_zlpt()
 know_client = KnowledgeBase(zlpt_user)
 project_client = Project(zlpt_user)
 retrieve_client = Retrieve(zlpt_user)
-
+ls_user = login_label_studio()
 
 def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size, chunk_overlap):
     """
@@ -154,11 +162,12 @@ def ls_create_tasks(know_client,project, doc_ids):
     try:
         for doc_id in doc_ids:
             doc_name, chunks = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
-            chunk_all.append(chunks)
+            chunk_all.extend(chunks)
         logger.info("开始创建Label Studio任务")
         tasks = doc_slices_format_for_label_studio(chunk_all)
         res = create_tasks(project, tasks)  # [task_id1,task_id2...]
         return res,len(chunk_all)
     except Exception as e:
         logger.error(f"创建Label Studio任务失败: {e}")
+        raise e
         return False
