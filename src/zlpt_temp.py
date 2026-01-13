@@ -148,7 +148,7 @@ def ls_create_project(ls_user, title, QUESTION_JSON, description=''):
         raise e
 
 
-def ls_create_tasks(project, doc_ids):
+def ls_create_tasks(know_client,project, doc_ids):
     # 根据doc_ids获取切片
     chunk_all = []
     try:
@@ -158,7 +158,7 @@ def ls_create_tasks(project, doc_ids):
         logger.info("开始创建Label Studio任务")
         tasks = doc_slices_format_for_label_studio(chunk_all)
         res = create_tasks(project, tasks)  # [task_id1,task_id2...]
-        return res
+        return res,len(chunk_all)
     except Exception as e:
         logger.error(f"创建Label Studio任务失败: {e}")
         return False

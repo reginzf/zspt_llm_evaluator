@@ -2,7 +2,9 @@ from flask import Blueprint, request, jsonify
 import logging
 
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
-from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD
+from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
+    KnowledgePathCrud
+from src.zlpt_temp import ls_create_project, project_client, ls_create_tasks, know_client
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -280,7 +282,7 @@ def sync_annotation_project():
         task_id = data['task_id']
 
         # 从ai_annotation_tasks表查询任务信息
-        with LabelStudioCrud() as ls_crud:
+        with LabelStudioCrud() as ls_crud, QuestionsCRUD() as q_crud, KnowledgeCrud() as k_crud, KnowledgePathCrud() as kp_crud:
             # 查询指定任务ID的信息
             tasks = ls_crud.annotation_task_list(task_id=task_id)
             if not tasks:
@@ -289,28 +291,35 @@ def sync_annotation_project():
             task = tasks[0]
             task_data = ls_crud._annotation_task_to_json(task)
             # 提取需要的字段
+            task_name = task_data['task_name']
             local_knowledge_id = task_data.get('local_knowledge_id')
             question_set_id = task_data.get('question_set_id')
             label_studio_env_id = task_data.get('label_studio_env_id')
             label_studio_project_id = task_data.get('label_studio_project_id')
-        from src.zlpt_temp import ls_create_project
+            knowledge_base_id = task_data.get('knowledge_base_id')
 
+        # 如果没project_id则创建project
         if not label_studio_project_id:
-            # 创建项目
-            project = ls_create_project()
-            # 根据问题创建标注视图
-            #project.create_view(questions)
-            # 获取在ls的项目id
-            # label_studio_project_id = project.id
-            pass
-        else:
-            # 查看是否存在标注视图，如果不存在则创建
-            # 获取项目中的所有的切片
-            pass
+            question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
+            project = ls_create_project(project_client, f'{task_name}_{task_id}', question_json)
+            label_studio_project_id = project.id
+            ls_crud.annotation_task_update(task_id, label_studio_project_id=label_studio_project_id)
+
         # 获取紫鸾平台知识库中的切片
-        # chunk_all = zlpt_get_chunk_save(local_knowledge_id)
-        # 根据项目中的切片，获得要上传到label-studio中的切片
-        # 上传到label-studio的项目中
+        # 获取kno_path_id
+        kno_path_id = kp_crud.get_knowledge_path_list(knowledge_id=knowledge_base_id)
+        if kno_path_id:
+            kno_path_id = kno_path_id[0]['kno_path_id']
+        # 获取目录下的doc_id
+        doc_ids = k_crud.knowledge_list(kno_path_id=kno_path_id)
+        if doc_ids:
+            doc_ids = [doc_id[0] for doc_id in doc_ids]
+        # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
+        task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
+        # 将对应task_id设置为已同步
+        result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)
+        if not result:
+            return jsonify({'success': False, 'message': '任务信息更新失败'}), 500
         return jsonify({
             'success': True,
             'message': '任务信息获取成功',
@@ -319,7 +328,8 @@ def sync_annotation_project():
                 'local_knowledge_id': local_knowledge_id,
                 'question_set_id': question_set_id,
                 'label_studio_env_id': label_studio_env_id,
-                'label_studio_project_id': label_studio_project_id
+                'label_studio_project_id': label_studio_project_id,
+                'total_chunks': total_chunks
             }
         })
     except Exception as e:
