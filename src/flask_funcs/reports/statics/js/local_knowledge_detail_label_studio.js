@@ -78,17 +78,25 @@ function getTaskStatusInfo(task) {
             statusClass = 'status-completed';
             statusText = '已完成';
             break;
+        case '已同步':
+            statusClass = 'status-completed';
+            statusText = '已同步';
+            break;
         default:
             statusClass = 'status-not-started';
-            statusText = task.task_status || task.status;
+            statusText = task.task_status || task.status || '未知';
     }
     return { statusClass, statusText };
 }
 
-// 通用的创建任务行函数
-function createTaskRow(task, envId = null) {
-    const progressText = (task.annotated_chunks !== undefined && task.total_chunks !== undefined) ? `${task.annotated_chunks}/${task.total_chunks}` : '0/0';
-    const progressPercent = task.total_chunks ? (task.annotated_chunks / task.total_chunks * 100) : 0;
+// 标注标签页专用的创建任务行函数
+function createAnnotationTaskRow(task, envId = null) {
+    console.log('Creating annotation task row with data:', task); // 添加调试日志
+    // 确保数据存在
+    const annotatedChunks = task.annotated_chunks !== undefined ? task.annotated_chunks : 0;
+    const totalChunks = task.total_chunks !== undefined ? task.total_chunks : 0;
+    const progressText = `${annotatedChunks}/${totalChunks}`;
+    const progressPercent = totalChunks ? (annotatedChunks / totalChunks * 100) : 0;
     
     const { statusClass, statusText } = getTaskStatusInfo(task);
     
@@ -104,10 +112,18 @@ function createTaskRow(task, envId = null) {
     // 根据是否有envId决定删除按钮的参数
     const deleteBtnParams = envId ? `'${task.task_id}', '${envId}'` : `'${task.task_id}'`;
     
+    // 确保所有字段都有默认值，防止显示N/A或未设置
+    const taskName = task.name || task.task_name || '未知任务';
+    const knowledgeBaseName = task.knowledge_base_name || '未知知识库';
+    const knowledgeBaseId = task.knowledge_base_id || 'N/A';
+    const questionSetName = task.question_set_name || '未知问题集';
+    const questionSetId = task.question_set_id || 'N/A';
+    const taskId = task.task_id || task.id || 'N/A';
+    
     row.innerHTML = `
-        <td><div>${task.name}</div><div style="font-size: 0.8em; color: #666;">(ID: ${task.task_id || task.id || 'N/A'})</div></td>
-        <td><div>${task.knowledge_base_name || '知识库未命名'}</div><div style="font-size: 0.8em; color: #666;">(${task.knowledge_base_id || 'N/A'})</div></td>
-        <td><div>${task.question_set_name || '待选择'}</div><div style="font-size: 0.8em; color: #666;">(${task.question_set_id || '-'})</div></td>
+        <td><div>${taskName}</div><div style="font-size: 0.8em; color: #666;">(ID: ${taskId})</div></td>
+        <td><div>${knowledgeBaseName}</div><div style="font-size: 0.8em; color: #666;">(${knowledgeBaseId})</div></td>
+        <td><div>${questionSetName}</div><div style="font-size: 0.8em; color: #666;">(${questionSetId})</div></td>
         <td>
             <div class="progress-container">
                 <div class="progress-bar">
@@ -127,6 +143,11 @@ function createTaskRow(task, envId = null) {
     `;
     
     return row;
+}
+
+// 通用的创建任务行函数（保持原名用于兼容性，但内部调用标注专用函数）
+function createTaskRow(task, envId = null) {
+    return createAnnotationTaskRow(task, envId);
 }
 
 // 加载环境绑定状态
@@ -411,6 +432,7 @@ function toggleEnvironmentTasks(envId) {
 
 // 加载特定环境的任务列表
 function loadTasksForEnvironment(envId) {
+    console.log('Loading tasks for environment:', envId, 'and knowledge base:', currentKnoId);
     fetch('/local_knowledge_detail/label_studio/get_tasks_by_environment', {
         method: 'POST',
         headers: {
@@ -421,8 +443,12 @@ function loadTasksForEnvironment(envId) {
             kno_id: currentKnoId
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Raw response:', response);
+        return response.json();
+    })
     .then(data => {
+        console.log('Parsed response data:', data);
         if (data.success) {
             renderTaskTableForEnvironment(envId, data.data);
         } else {
@@ -444,6 +470,7 @@ function loadTasksForEnvironment(envId) {
 
 // 为特定环境渲染任务表格
 function renderTaskTableForEnvironment(envId, tasks) {
+    console.log('Rendering tasks for environment:', envId, 'tasks:', tasks);
     const tableBody = document.getElementById(`taskTableBody-${envId}`);
     if (!tableBody) {
         console.error('找不到任务表格:', envId);
@@ -453,9 +480,15 @@ function renderTaskTableForEnvironment(envId, tasks) {
     tableBody.innerHTML = '';
     
     if (tasks && tasks.length > 0) {
+        console.log(`Rendering ${tasks.length} tasks`);
         tasks.forEach(task => {
-            const row = createTaskRow(task, envId);
-            tableBody.appendChild(row);
+            console.log('Processing task:', task);
+            const row = createAnnotationTaskRow(task, envId); // 使用专用的标注任务创建函数
+            if (row) {
+                tableBody.appendChild(row);
+            } else {
+                console.error('Failed to create row for task:', task);
+            }
         });
          // 初始化列宽调整功能
         setTimeout(() => initTableColumnResizing(), 0);
@@ -740,13 +773,13 @@ function loadAnnotationProjects() {
 
 // 渲染任务表格
 function renderTaskTable(tasks) {
-    const tableBody = document.getElementById('taskTableBody');
+    const tableBody = document.getElementById('annotationTaskTableBody');
     if (tableBody) {
         tableBody.innerHTML = '';
         
         if (tasks && tasks.length > 0) {
             tasks.forEach(task => {
-                const row = createTaskRow(task);
+                const row = createAnnotationTaskRow(task); // 使用专用的标注任务创建函数
                 tableBody.appendChild(row);
             });
             // 初始化列宽调整功能
