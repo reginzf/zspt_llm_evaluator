@@ -10,15 +10,21 @@ function initTaskTab(knoId) {
 
 // 加载任务列表
 function loadTaskList() {
+    
     fetch(`/local_knowledge_detail/task/metric/list?knowledge_id=${currentKnowledgeId}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+
+        return response.json();
+    })
     .then(data => {
+
         if (data.success) {
+
             renderTaskTable(data.data);
         } else {
             console.error('获取任务列表失败:', data.message);
@@ -39,25 +45,53 @@ function loadTaskList() {
 
 // 渲染任务表格
 function renderTaskTable(tasks) {
-    const tableBody = document.getElementById('taskTableBody');
-    if (tableBody) {
-        tableBody.innerHTML = '';
 
-        if (tasks && tasks.length > 0) {
-            tasks.forEach(task => {
-                const row = createTaskRow(task);
+    const tableBody = document.getElementById('taskTableBody');
+    if (!tableBody) {
+        console.error('Could not find taskTableBody element'); // 添加调试日志
+        // 如果找不到元素，稍后再试一次，以防DOM还没完全加载
+        setTimeout(() => {
+            const retryTableBody = document.getElementById('taskTableBody');
+            if (retryTableBody) {
+
+                renderTaskTable(tasks); // 递归调用
+            } else {
+                console.error('Still could not find taskTableBody element after retry');
+            }
+        }, 100);
+        return;
+    }
+    
+    tableBody.innerHTML = ''; // 清空现有内容
+
+    if (tasks && tasks.length > 0) {
+
+        tasks.forEach(task => {
+
+            const row = createTaskRow(task);
+            if (row) { // 确保row存在
+
                 tableBody.appendChild(row);
-            });
-        } else {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="5" style="text-align: center;">暂无指标任务</td>`;
-            tableBody.appendChild(row);
-        }
+
+            }
+        });
+
+    } else {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="5" style="text-align: center;">暂无指标任务</td>`;
+        tableBody.appendChild(row);
     }
 }
 
 // 创建任务行
 function createTaskRow(task) {
+
+    // 确保task对象存在
+    if (!task) {
+        console.error('Task object is null or undefined');
+        return null;
+    }
+
     // 确定状态样式类
     let statusClass = '';
     switch(task.status) {
@@ -86,25 +120,41 @@ function createTaskRow(task) {
     const reportDisabled = task.status !== '完成';
 
     const row = document.createElement('tr');
+    // 使用更安全的innerHTML赋值，防止潜在的XSS问题
     row.innerHTML = `
-        <td>${task.task_id}</td>
-        <td>${task.task_name || 'N/A'}</td>
-        <td>${task.annotation_type || '未设置'}</td>
-        <td><span class="${statusClass}">${task.status}</span></td>
+        <td>${task.task_id ? escapeHtml(task.task_id) : 'N/A'}</td>
+        <td>${task.task_name ? escapeHtml(task.task_name) : 'N/A'}</td>
+        <td>${task.annotation_type ? escapeHtml(task.annotation_type) : '未设置'}</td>
+        <td><span class="${statusClass}">${task.status ? escapeHtml(task.status) : '未知'}</span></td>
         <td class="task-actions-cell">
-            <button class="task-action-btn annotate-btn" onclick="showAnnotationDialog('${task.task_id}')" ${annotateDisabled ? 'disabled' : ''}>
+            <button class="task-action-btn annotate-btn" onclick="showAnnotationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${annotateDisabled ? 'disabled' : ''}>
                 ${task.annotation_type ? '修改标注' : '标注'}
             </button>
-            <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id}')" ${calculateDisabled ? 'disabled' : ''}>
+            <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${calculateDisabled ? 'disabled' : ''}>
                 质量计算
             </button>
-            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.task_id}')" ${reportDisabled ? 'disabled' : ''}>
+            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${reportDisabled ? 'disabled' : ''}>
                 查看报告
             </button>
         </td>
     `;
 
     return row;
+}
+
+// 辅助函数：转义HTML特殊字符
+function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return String(text);
+    }
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 // 显示标注方式选择对话框
@@ -256,8 +306,3 @@ function exportReport() {
     // TODO: 实现报告导出功能
 }
 
-// 创建指标任务
-function createMetricTask() {
-    // TODO: 实现创建指标任务的功能
-    alert('创建指标任务功能待实现...');
-}
