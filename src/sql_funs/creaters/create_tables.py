@@ -55,11 +55,13 @@ class CreateTables(PostgreSQLManager):
             "visiblerange": "INTEGER DEFAULT 0",
             "deptidlist": "JSONB DEFAULT '[]'::jsonb",
             "managedeptidlist": "JSONB DEFAULT '[]'::jsonb",
-            "zlpt_base_id": "VARCHAR(100)",  # 外键，关联环境信息
-            "FOREIGN KEY (zlpt_base_id)": "REFERENCES ai_environment_info(zlpt_base_id) ON DELETE SET NULL"
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "zlpt_id": "VARCHAR(100)",  # 外键，关联环境信息
+            "FOREIGN KEY (zlpt_id)": "REFERENCES ai_environment_info(zlpt_base_id) ON DELETE SET NULL"
         }
 
-        return self._create_table_with_common_fields("ai_knowledge_base", columns)
+        return self.create_table("ai_knowledge_base", columns)
 
     def create_knowledge_path_table(self) -> bool:
         """3. 创建知识库目录表"""
@@ -81,9 +83,12 @@ class CreateTables(PostgreSQLManager):
             "label_studio_id": "VARCHAR(100) PRIMARY KEY",
             "label_studio_url": "VARCHAR(500) NOT NULL",
             "label_studio_api_key": "VARCHAR(200) NOT NULL",
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "project_count": "INTEGER DEFAULT 0",
         }
 
-        return self._create_table_with_common_fields("ai_label_studio_info", columns)
+        return self.create_table("ai_label_studio_info", columns)
 
     def create_knowledge_table(self) -> bool:
         """5. 创建知识表"""
@@ -107,10 +112,10 @@ class CreateTables(PostgreSQLManager):
             "question_id": "VARCHAR(100) PRIMARY KEY",
             "question_name": "VARCHAR(200) NOT NULL",
             "knowledge_id": "VARCHAR(100)",
-            "question_set_type": "VARCHAR(50) NOT NULL CHECK (question_set_type IN ('basic', 'detailed', 'mechanism', 'thematic'))",
-            "question_count": "INTEGER DEFAULT 0",  # 问题数量统计
             "last_updated": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",  # 最后更新时间
-            "FOREIGN KEY (knowledge_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE"
+            "FOREIGN KEY (knowledge_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE",
+            "question_set_type": "VARCHAR(50) NOT NULL CHECK (question_set_type IN ('basic', 'detailed', 'mechanism', 'thematic'))",
+            "question_count": "INTEGER DEFAULT 0" # 问题数量统计
         }
 
         return self._create_table_with_common_fields("ai_question_config", columns)
@@ -154,10 +159,12 @@ class CreateTables(PostgreSQLManager):
             "knol_describe": "TEXT",  # 描述
             "knol_path": "VARCHAR(500)",  # 文件夹绝对目录
             "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "kno_id": "VARCHAR(100) NOT NULL UNIQUE",
             "FOREIGN KEY (kno_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE"  # 上级文件夹作为外键
         }
-        return self._create_table_with_common_fields("ai_local_knowledge_list", columns)
+        return self.create_table("ai_local_knowledge_list", columns)
 
     def create_knowledge_bind_table(self) -> bool:
         """创建知识库绑定关系表"""
@@ -195,17 +202,19 @@ class CreateTables(PostgreSQLManager):
             "local_knowledge_id": "VARCHAR(100) NOT NULL",
             "question_set_id": "VARCHAR(100) NOT NULL",
             "label_studio_env_id": "VARCHAR(100) NOT NULL",
-            "knowledge_base_id": "VARCHAR(100) NOT NULL",
             "label_studio_project_id": "VARCHAR(100)",  # Label-Studio中创建的project ID
             "total_chunks": "INTEGER DEFAULT 0",  # 需要标注的切片总数
             "annotated_chunks": "INTEGER DEFAULT 0",  # 已标注切片数量
             "task_status": "VARCHAR(20) DEFAULT '未开始' CHECK (task_status IN ('未开始', '进行中', '已完成'))",
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "knowledge_base_id": "VARCHAR(100) NOT NULL",
             "FOREIGN KEY (local_knowledge_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
             "FOREIGN KEY (question_set_id)": "REFERENCES ai_question_config(question_id) ON DELETE CASCADE",
             "FOREIGN KEY (label_studio_env_id)": "REFERENCES ai_label_studio_info(label_studio_id) ON DELETE CASCADE",
             "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE",
         }
-        return self._create_table_with_common_fields("ai_annotation_tasks", columns)
+        return self.create_table("ai_annotation_tasks", columns)
 
     def create_metric_tasks_table(self):
         """11. 创建指标任务表"""
