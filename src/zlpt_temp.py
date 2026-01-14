@@ -1,17 +1,41 @@
-from env_config_init import settings
-from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve, SLICEIDENTIFIER
-from src.zlpt.api.project import Project
-from src.label_studio_api import label_studio_client
-from src.zlpt.login import LoginManager
-from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
-from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 import logging
 import os
+from jsonpath import jsonpath
+
+from env_config_init import settings
+
+from typing import Callable, List, Dict, Any
+
+from src.zlpt.login import LoginManager
+from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve, SLICEIDENTIFIER
+from src.zlpt.api.project import Project
+
+from src.label_studio_api import label_studio_client
+from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
+from src.label_studio_api.task import get_tasks_with_specific_choice
+
+from utils.zl_to_label_studio import doc_slices_format_for_label_studio
+from utils.pub_funs import save_json_file, load_json_file
+
+from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["login_zlpt", "know_client", "project_client", "retrieve_client", "zlpt_user", "zlpt_create_knowledge_base",
-           "zlpt_upload_files", "zlpt_get_chunk_all_by_doc_id", "ls_create_project", "ls_create_tasks"]
+__all__ = [
+    "login_zlpt",
+    "know_client", 
+    "project_client", 
+    "retrieve_client", 
+    "zlpt_user", 
+    "zlpt_create_knowledge_base",
+    "zlpt_upload_files", 
+    "zlpt_get_chunk_all_by_doc_id", 
+    "ls_create_project", 
+    "ls_create_tasks",
+    "cal_metric_by_chunk_id_fullmatch"
+]
+CHUNK_ID_PATH = '$.data.records..chunk_id'
+CHUNK_TEXT_PATH = '$.data.records..chunk_text'
 
 
 def login_zlpt():
@@ -34,6 +58,7 @@ def login_zlpt():
     # 切换项目
     return login_manager
 
+
 def login_label_studio():
     """
      获取Label Studio客户端实例
@@ -42,11 +67,14 @@ def login_label_studio():
          label_studio_client: Label Studio客户端实例
      """
     return label_studio_client
+
+
 zlpt_user = login_zlpt()
 know_client = KnowledgeBase(zlpt_user)
 project_client = Project(zlpt_user)
 retrieve_client = Retrieve(zlpt_user)
 ls_user = login_label_studio()
+
 
 def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size, chunk_overlap):
     """
@@ -156,7 +184,7 @@ def ls_create_project(ls_user, title, QUESTION_JSON, description=''):
         raise e
 
 
-def ls_create_tasks(know_client,project, doc_ids):
+def ls_create_tasks(know_client, project, doc_ids):
     # 根据doc_ids获取切片
     chunk_all = []
     try:
@@ -166,8 +194,78 @@ def ls_create_tasks(know_client,project, doc_ids):
         logger.info("开始创建Label Studio任务")
         tasks = doc_slices_format_for_label_studio(chunk_all)
         res = create_tasks(project, tasks)  # [task_id1,task_id2...]
-        return res,len(chunk_all)
+        return res, len(chunk_all)
     except Exception as e:
         logger.error(f"创建Label Studio任务失败: {e}")
         raise e
-        return False
+
+
+
+def _process_question_chunk_data(
+        project,
+        question: str,
+        kno_id: str,
+        search_type: str,
+        extract_zlpt_chunk_fn: Callable[[Dict], Any],
+        extract_labeled_chunk_fn: Callable[[List[Dict]], Any],
+        compute_metrics_fn: Callable[[Any, Any], Dict]
+) -> Dict:
+    """处理单个问题的 chunk 数据并计算指标"""
+    try:
+        zlpt_retrieve_data = retrieve_client.webKnowledgeRetrieve(search_type, question, kno_id)
+        zlpt_records_count = len(zlpt_retrieve_data.get('data', {}).get('records', []))
+        logger.debug(f"从知识平台获取到 {zlpt_records_count} 个切片，问题: {question}")
+
+        labeled_tasks = get_tasks_with_specific_choice(project, question)  # project 已在外层传递
+        logger.debug(f"从Label Studio获取到 {len(labeled_tasks)} 个已标注任务，问题: {question}")
+
+        zlpt_chunks = extract_zlpt_chunk_fn(zlpt_retrieve_data)
+        labeled_chunks = extract_labeled_chunk_fn(labeled_tasks)
+
+        metrics = compute_metrics_fn(labeled_chunks, zlpt_chunks)
+        logger.info(f"问题 [{question}] 的切片质量计算结果: {metrics}")
+        return metrics
+
+    except Exception as e:
+        logger.error(f"处理问题 '{question}' 时发生异常：{e}", exc_info=True)
+        return {"error": str(e)}
+
+
+def _get_project(ls_user, project_id: str):
+    """根据 project_id 或 project_name 获取 Label Studio 项目对象"""
+
+    return ls_user.get_project(project_id)
+
+
+def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_type: str,
+                                     questions: List[Dict[str, Any]],
+                                     ):
+    def extract_zlpt_chunk_ids(data):
+        return jsonpath(data, CHUNK_ID_PATH) or []
+
+    def extract_labeled_chunk_ids(tasks):
+        return [task['data']['chunk_id'] for task in tasks]
+
+    logger.info(f"共找到 {len(questions)} 个问题需要处理")
+    metric_all = {}
+    project = _get_project(ls_user, project_id)
+    logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
+    logger.debug(f"成功获取项目: {project.title}")
+    file_path = ''  # 保存json 文件的路径
+
+    for question in questions:
+        logger.info(f"正在处理问题: {question}")
+        metrics = _process_question_chunk_data(
+            project=project,
+            question=question['question_content'],
+            kno_id=kno_id,
+            search_type=search_type,
+            extract_zlpt_chunk_fn=extract_zlpt_chunk_ids,
+            extract_labeled_chunk_fn=extract_labeled_chunk_ids,
+            compute_metrics_fn=calculate_chunk_recall_metrics
+        )
+        metrics['type'] = question['question_type']
+        metric_all[question] = metrics
+
+    save_json_file(metric_all, file_path)
+    logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
