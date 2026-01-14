@@ -55,6 +55,15 @@ class QuestionsCRUD(PostgreSQLManager):
                                               allowed_fileds=allowed_fileds, **kwargs)
         return self.execute_query(query, params)
 
+    def _question_config_to_json(self, question_config_tuple):
+        return {
+            "question_id": question_config_tuple[0],
+            "question_name": question_config_tuple[1],
+            "knowledge_id": question_config_tuple[2],
+            "question_set_type": question_config_tuple[5],
+            "question_count": question_config_tuple[6]
+        }
+
     def _create_question(self, table_name: str, question_id: str, question_type: str, question_content: str,
                          question_set_id: str = None, chunk_ids: List[str] = None):
         """
@@ -200,8 +209,10 @@ class QuestionsCRUD(PostgreSQLManager):
                 "question_type": question_tuple[3] if len(question_tuple) > 3 else None,
                 "question_content": question_tuple[4] if len(question_tuple) > 4 else None,
                 "chunk_ids": question_tuple[5] if len(question_tuple) > 5 else [],
-                "created_at": question_tuple[6].isoformat() if len(question_tuple) > 6 and question_tuple[6] and hasattr(question_tuple[6], 'isoformat') else None,
-                "updated_at": question_tuple[7].isoformat() if len(question_tuple) > 7 and question_tuple[7] and hasattr(question_tuple[7], 'isoformat') else None
+                "created_at": question_tuple[6].isoformat() if len(question_tuple) > 6 and question_tuple[
+                    6] and hasattr(question_tuple[6], 'isoformat') else None,
+                "updated_at": question_tuple[7].isoformat() if len(question_tuple) > 7 and question_tuple[
+                    7] and hasattr(question_tuple[7], 'isoformat') else None
             }
         return None
 
