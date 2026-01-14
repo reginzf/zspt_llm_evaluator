@@ -227,7 +227,9 @@ class CreateTables(PostgreSQLManager):
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE"
         }
         return self._create_table_with_common_fields("ai_metric_tasks", columns)
-
+    def create_report_table(self):
+        columns = {}
+        return self._create_table_with_common_fields("ai_reports", columns)
     def create_all_tables(self):
         """创建所有表"""
         self.create_environment_table()

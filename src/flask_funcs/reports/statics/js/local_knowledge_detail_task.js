@@ -28,7 +28,7 @@ function loadTaskList() {
             renderTaskTable(data.data);
         } else {
             console.error('获取任务列表失败:', data.message);
-            const tableBody = document.getElementById('taskTableBody');
+            const tableBody = document.getElementById('metricTaskTableBody');
             if (tableBody) {
                 tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">获取任务列表失败: ${data.message}</td></tr>`;
             }
@@ -36,7 +36,7 @@ function loadTaskList() {
     })
     .catch(error => {
         console.error('请求任务列表时出错:', error);
-        const tableBody = document.getElementById('taskTableBody');
+        const tableBody = document.getElementById('metricTaskTableBody');
         if (tableBody) {
             tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">网络请求错误: ${error.message}</td></tr>`;
         }
@@ -46,17 +46,17 @@ function loadTaskList() {
 // 渲染任务表格
 function renderTaskTable(tasks) {
 
-    const tableBody = document.getElementById('taskTableBody');
+    const tableBody = document.getElementById('metricTaskTableBody');
     if (!tableBody) {
-        console.error('Could not find taskTableBody element'); // 添加调试日志
+        console.error('Could not find metricTaskTableBody element'); // 添加调试日志
         // 如果找不到元素，稍后再试一次，以防DOM还没完全加载
         setTimeout(() => {
-            const retryTableBody = document.getElementById('taskTableBody');
+            const retryTableBody = document.getElementById('metricTaskTableBody');
             if (retryTableBody) {
 
                 renderTaskTable(tasks); // 递归调用
             } else {
-                console.error('Still could not find taskTableBody element after retry');
+                console.error('Still could not find metricTaskTableBody element after retry');
             }
         }, 100);
         return;
@@ -305,4 +305,3 @@ function exportReport() {
     alert(`正在导出任务 ${taskId} 的报告...`);
     // TODO: 实现报告导出功能
 }
-
