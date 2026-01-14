@@ -16,28 +16,14 @@
     padding-bottom: 10px;
 }
 
-.task-actions {
-    margin-bottom: 15px;
-}
-
-.create-task-btn {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.create-task-btn:hover {
-    background-color: #218838;
-}
 
 .task-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 15px;
     table-layout: fixed; /* 启用固定表格布局以支持列宽调整 */
+    display: table !important; /* 强制显示表格 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .task-table th,
@@ -46,6 +32,8 @@
     text-align: left;
     border-bottom: 1px solid #ddd;
     word-wrap: break-word; /* 允许内容换行 */
+    vertical-align: top; /* 确保内容垂直对齐 */
+    display: table-cell !important; /* 强制显示为表格单元格 */
 }
 
 .task-table th {
@@ -54,6 +42,20 @@
     color: #667eea;
     position: relative; /* 为列宽调整功能准备 */
     user-select: none; /* 防止文字选择干扰拖拽 */
+}
+
+.task-table tbody tr {
+    display: table-row !important; /* 强制表格行显示 */
+    visibility: visible !important; /* 确保可见性 */
+    opacity: 1 !important; /* 确保不透明 */
+    height: auto !important; /* 确保高度自适应 */
+}
+
+.task-table tr {
+    display: table-row !important; /* 强制表格行显示 */
+    visibility: visible !important; /* 确保可见性 */
+    opacity: 1 !important; /* 确保不透明 */
+    height: auto !important; /* 确保高度自适应 */
 }
 
 .task-table tr:hover {
@@ -85,6 +87,8 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block; /* 确保标签正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .status-annotating {
@@ -94,6 +98,8 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block; /* 确保标签正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .status-annotated {
@@ -103,6 +109,8 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block; /* 确保标签正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .status-calculating {
@@ -112,6 +120,8 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block; /* 确保标签正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .status-completed {
@@ -121,12 +131,16 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block; /* 确保标签正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 /* 操作按钮样式 */
 .task-actions-cell {
-    display: flex;
+    display: table-cell !important; /* 确保单元格正确显示 */
+    visibility: visible !important; /* 确保可见性 */
     gap: 5px;
+    min-height: auto; /* 确保单元格正确显示内容 */
 }
 
 .task-action-btn {
@@ -136,6 +150,8 @@
     cursor: pointer;
     font-size: 0.8rem;
     margin-right: 5px;
+    display: inline-block !important; /* 确保按钮正确显示 */
+    visibility: visible !important; /* 确保可见性 */
 }
 
 .annotate-btn {
@@ -157,6 +173,33 @@
     background-color: #6c757d;
     color: #fff;
     cursor: not-allowed;
+}
+
+/* 确保表格行可见性 */
+.task-table tbody tr {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: table-row !important;
+}
+
+/* 针对可能的父级隐藏问题 */
+.task-list {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important; /* 防止内容被裁剪 */
+}
+
+/* 单选按钮样式 */
+.radio-label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px; /* 为每个选项添加底部间距 */
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    margin-right: 8px; /* 单选按钮和文字之间的间距 */
+    cursor: pointer;
 }
 
 /* 响应式设计 */
