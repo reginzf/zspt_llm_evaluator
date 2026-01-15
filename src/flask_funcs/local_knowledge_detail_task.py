@@ -1,8 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.sql_funs import MetricTasksCRUD, LabelStudioCrud, QuestionsCRUD
-
+import datetime
 import logging
 from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, ls_user
+from concurrent.futures import ThreadPoolExecutor
+
+# 创建线程池执行器
+executor = ThreadPoolExecutor(max_workers=5)
 
 logger = logging.getLogger(__name__)
 
@@ -10,14 +14,42 @@ logger = logging.getLogger(__name__)
 local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 
-def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list):
-    cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list)
-    with MetricTasksCRUD() as mt_crud:
-        success = mt_crud.metric_task_update(task_id, status='完成')
-    if success:
-        return jsonify({'success': True, 'message': '计算完成'})
-    else:
-        return jsonify({'success': False, 'message': '计算失败'})
+def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
+    try:
+        cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name)
+        with MetricTasksCRUD() as mt_crud:
+            success = mt_crud.metric_task_update(task_id, status='完成')
+        if success:
+            logging.info(f'计算任务 {task_id} 已完成')
+        else:
+            logging.error(f'更新任务 {task_id} 状态失败')
+    except Exception as e:
+        logging.error(f'执行计算任务 {task_id} 时发生错误: {str(e)}')
+        with MetricTasksCRUD() as mt_crud:
+            mt_crud.metric_task_update(task_id, status='失败')
+
+
+@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/create', methods=['POST'])
+def create_metric_task():
+    """
+    创建指标任务
+    """
+    try:
+        data = request.get_json()
+        task_id = data.get('task_id')
+        annotation_type = data.get('annotation_type')  # 修改参数名为annotation_type，与前端一致
+        if not task_id or not annotation_type:
+            return jsonify({"success": False, "message": "缺少必要参数"}), 400
+        with MetricTasksCRUD() as m_crud:
+            success = m_crud.metric_task_create(task_id, status='未开始')  # 使用annotation_type参数
+            if success:
+                return jsonify({"success": True, "message": "创建任务成功"})
+            else:
+                return jsonify({"success": False, "message": "创建任务失败"}), 500
+    except Exception as e:
+        logger.error(f"创建指标任务时发生错误: {str(e)}")
+        return jsonify({"success": False, "message": f"创建指标任务时发生错误: {str(e)}"}), 500
+
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/list', methods=['GET'])
 def get_metric_task_list():
@@ -29,45 +61,30 @@ def get_metric_task_list():
         if not knowledge_id:
             return jsonify({"success": False, "message": "缺少knowledge_id参数"}), 400
 
-        with MetricTasksCRUD() as mt_crud,LabelStudioCrud() as ls_crud:
-            annotation_tasks = ls_crud.annotation_task_list(local_knowledge_id=knowledge_id)
+        with MetricTasksCRUD() as mt_crud, LabelStudioCrud() as ls_crud:
+            annotation_tasks = ls_crud.view_annotation_task_extended_list(local_knowledge_id=knowledge_id)
             # 构造返回数据
             result = []
             for task in annotation_tasks:
-                task_data = ls_crud._annotation_task_to_json(task)
-
+                task_id = task[0]
                 # 查询对应的指标任务
-                metric_task = mt_crud.metric_task_get_by_id(task_data['task_id'])
+                metric_task = mt_crud.metric_task_get_by_id(task_id)
                 if metric_task:
                     metric_task_data = mt_crud._metric_task_to_json(metric_task)
-
-                    # 合并数据
                     combined_data = {
-                        'task_id': task_data['task_id'],
-                        'task_name': task_data['task_name'],
-                        'annotation_type': metric_task_data.get('annotation_type'),
-                        'status': metric_task_data.get('status', task_data.get('task_status', '初始化')),
-                        'search_type': metric_task_data.get('search_type'),
-                        'report_path': metric_task_data.get('report_path')
+                        'task_id': task_id,
+                        'task_name': task[1],
+                        'annotation_type': task[12],
+                        'status': metric_task_data['status'],
+                        'search_type': metric_task_data['search_type'],
+                        'report_path': metric_task_data['report_path']
                     }
-                else:
-                    # 如果没有对应的指标任务，则使用标注任务数据
-                    combined_data = {
-                        'task_id': task_data['task_id'],
-                        'task_name': task_data['task_name'],
-                        'annotation_type': task_data.get('annotation_type'),
-                        'status': task_data.get('task_status', '初始化'),
-                        'search_type': None,
-                        'report_path': None
-                    }
-
-                result.append(combined_data)
+                    result.append(combined_data)
 
         return jsonify({"success": True, "data": result})
     except Exception as e:
         logger.error(f"获取指标任务列表时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"获取指标任务列表时发生错误: {str(e)}"}), 500
-
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/start_calculation', methods=['POST'])
@@ -102,11 +119,16 @@ def start_calculation():
                 questions_list = [q_crud._question_to_json(q) for q in questions]
             # 更新任务状态为"计算中"并设置search_type
             success = mt_crud.metric_task_update(task_id=task_id, status='计算中', search_type=search_type)
-
+            # 生成文件名
+            time = datetime.datetime.now().strftime('%Y%m%d%H%M')
+            file_name = f'{task_id}_{search_type}_{time}.json'
+            # 更新任务记录中的报告路径
+            success = mt_crud.metric_task_update(task_id=task_id, status='计算中', search_type=search_type,
+                                                 report_path=file_name)
         if success:
-            # 这里可以启动后台异步计算任务
-            cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list)
-
+            # 使用线程池异步执行计算任务
+            executor.submit(cal_metric, task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list,
+                            file_name)
             return jsonify({"success": True, "message": "质量计算已启动"})
         else:
             return jsonify({"success": False, "message": "启动计算失败"}), 500
