@@ -16,6 +16,9 @@
     padding-bottom: 10px;
 }
 
+.task-section > div:first-child {
+    margin-bottom: 20px;
+}
 
 .task-table {
     width: 100%;
@@ -323,4 +326,46 @@
     padding: 15px;
     background-color: #f9f9f9;
     border-radius: 4px;
+}
+
+/* 创建指标任务按钮样式 - 与标注页签的绑定按钮样式一致 */
+.create-metric-task-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.create-metric-task-btn:hover {
+    background-color: #5a67d8;
+    color: white;
+}
+
+/* 已完成任务列表样式 */
+.completed-task-item {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    background-color: #f9f9f9;
+}
+
+.completed-task-item:hover {
+    background-color: #f0f8ff;
+}
+
+.completed-task-item input[type="radio"] {
+    margin-right: 10px;
+}
+
+.completed-task-item label {
+    cursor: pointer;
+    display: block;
+}
+
+.completed-task-item small {
+    color: #666;
+    font-size: 0.9em;
 }

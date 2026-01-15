@@ -48,12 +48,10 @@ function renderTaskTable(tasks) {
 
     const tableBody = document.getElementById('metricTaskTableBody');
     if (!tableBody) {
-        console.error('Could not find metricTaskTableBody element'); // 添加调试日志
         // 如果找不到元素，稍后再试一次，以防DOM还没完全加载
         setTimeout(() => {
             const retryTableBody = document.getElementById('metricTaskTableBody');
             if (retryTableBody) {
-
                 renderTaskTable(tasks); // 递归调用
             } else {
                 console.error('Still could not find metricTaskTableBody element after retry');
@@ -250,4 +248,117 @@ function exportReport() {
     const taskId = document.getElementById('currentTaskId').value;
     alert(`正在导出任务 ${taskId} 的报告...`);
     // TODO: 实现报告导出功能
+}
+
+// 显示创建指标任务对话框
+function showCreateMetricTaskDialog() {
+    // 先加载已完成的标注任务列表
+    loadCompletedAnnotationTasks();
+    
+    // 显示模态框
+    document.getElementById('createMetricTaskModal').style.display = 'block';
+}
+
+// 隐藏创建指标任务对话框
+function hideCreateMetricTaskModal() {
+    document.getElementById('createMetricTaskModal').style.display = 'none';
+}
+
+// 加载已完成的标注任务列表
+function loadCompletedAnnotationTasks() {
+    fetch('/local_knowledge_detail/task/metric/completed_tasks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            local_knowledge_id: currentKnowledgeId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderCompletedAnnotationTasks(data.data);
+        } else {
+            console.error('获取已完成的标注任务失败:', data.message);
+            const taskListElement = document.getElementById('completedTaskList');
+            if (taskListElement) {
+                taskListElement.innerHTML = `<p style="color: red;">获取任务列表失败: ${data.message}</p>`;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('请求已完成的标注任务时出错:', error);
+        const taskListElement = document.getElementById('completedTaskList');
+        if (taskListElement) {
+            taskListElement.innerHTML = `<p style="color: red;">网络请求错误: ${error.message}</p>`;
+        }
+    });
+}
+
+// 渲染已完成的标注任务列表
+function renderCompletedAnnotationTasks(tasks) {
+    const taskListElement = document.getElementById('completedTaskList');
+    if (!taskListElement) {
+        console.error('找不到已完成任务列表元素');
+        return;
+    }
+    
+    if (tasks && tasks.length > 0) {
+        let html = '';
+        tasks.forEach(task => {
+            html += `
+                <div class="completed-task-item">
+                    <input type="radio" name="selectedTask" value="${task.task_id}" id="task_${task.task_id}">
+                    <label for="task_${task.task_id}">
+                        <strong>${task.task_name}</strong> 
+                        (<em>${task.knowledge_base_name}</em> - ${task.question_set_name})
+                        <br>
+                        <small>进度: ${task.annotated_chunks}/${task.total_chunks} | 状态: ${task.task_status}</small>
+                    </label>
+                </div>
+            `;
+        });
+        taskListElement.innerHTML = html;
+    } else {
+        taskListElement.innerHTML = '<p>暂无已完成的标注任务</p>';
+    }
+}
+
+// 创建指标任务
+function createMetricTask() {
+    const selectedTaskId = document.querySelector('input[name="selectedTask"]:checked');
+    if (!selectedTaskId) {
+        alert('请先选择一个已完成的标注任务');
+        return;
+    }
+    
+    const taskId = selectedTaskId.value;
+    
+    // 将任务信息写入ai_metric_tasks表
+    fetch('/local_knowledge_detail/task/metric/update_annotation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            task_id: taskId,
+            annotation_type: 'metric_task' // 标记这是一个指标任务
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('指标任务创建成功');
+            hideCreateMetricTaskModal();
+            // 重新加载任务列表
+            loadTaskList();
+        } else {
+            alert('创建失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('创建指标任务时出错:', error);
+        alert('创建指标任务时发生错误');
+    });
 }

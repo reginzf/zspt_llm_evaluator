@@ -298,22 +298,14 @@ textarea.form-control {
     gap: 5px;
 }
 
-.upload-btn, .action-btn {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.3s;
-}
-
-.action-btn {
-    color: #333; /* 深色字体 */
-}
-
+/* 上传按钮样式 - 与标注页签的绑定按钮样式一致 */
 .upload-btn {
     background-color: #667eea;
     color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .upload-btn:hover {
@@ -539,6 +531,20 @@ textarea.form-control {
 
 .btn-secondary:hover {
     background-color: #545b62;
+}
+
+/* 绑定按钮样式 - 与标注页签的绑定按钮样式一致 */
+.bind-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.bind-btn:hover {
+    background-color: #5a67d8;
 }
 
 /* 绑定状态样式 */

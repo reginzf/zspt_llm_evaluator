@@ -1,25 +1,26 @@
-<div class="task-section">
-    <h3>AI指标任务管理</h3>
 
-    <div class="task-list">
-        <table class="task-table">
-            <thead>
-                <tr>
-                    <th>任务ID</th>
-                    <th>任务名称</th>
-                    <th>标注类型</th>
-                    <th>状态</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="metricTaskTableBody">
-                <tr>
-                    <td colspan="5" style="text-align: center;">加载中...</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <button class="action-btn create-metric-task-btn" onclick="showCreateMetricTaskDialog()">创建指标任务</button>
 </div>
+<div class="task-list">
+    <table class="task-table">
+        <thead>
+            <tr>
+                <th>任务ID</th>
+                <th>任务名称</th>
+                <th>标注类型</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="metricTaskTableBody">
+            <tr>
+                <td colspan="5" style="text-align: center;">加载中...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
 
 <!-- 标注方式选择模态框 -->
 <div id="annotationModal" class="modal">
@@ -90,6 +91,26 @@
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="hideReportModal()">关闭</button>
             <button type="button" class="btn-confirm" onclick="exportReport()">导出报告</button>
+        </div>
+    </div>
+</div>
+
+<!-- 创建指标任务模态框 -->
+<div id="createMetricTaskModal" class="modal">
+    <div class="modal-content" style="width: 600px;">
+        <div class="modal-header">
+            <h2>创建指标任务</h2>
+            <span class="close" onclick="hideCreateMetricTaskModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>请选择一个已完成的标注任务来创建指标任务：</p>
+            <div id="completedTaskList" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                <p>加载中...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="hideCreateMetricTaskModal()">取消</button>
+            <button type="button" class="btn-confirm" onclick="createMetricTask()">创建指标任务</button>
         </div>
     </div>
 </div>

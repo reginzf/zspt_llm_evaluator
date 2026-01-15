@@ -12,6 +12,7 @@
     margin-bottom: 20px;
 }
 
+/* 创建问题集按钮样式 - 与标注页签的绑定按钮样式一致 */
 .create-question-set-btn {
     background-color: #667eea;
     color: white;
