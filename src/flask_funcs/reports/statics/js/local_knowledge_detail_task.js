@@ -336,7 +336,7 @@ function createMetricTask() {
     const taskId = selectedTaskId.value;
     
     // 将任务信息写入ai_metric_tasks表
-    fetch('/local_knowledge_detail/task/metric/update_annotation', {
+    fetch('/local_knowledge_detail/task/metric/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
