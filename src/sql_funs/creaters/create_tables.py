@@ -221,9 +221,8 @@ class CreateTables(PostgreSQLManager):
         """11. 创建指标任务表"""
         columns = {
             "task_id": "VARCHAR(100) PRIMARY KEY",
-            "status": "VARCHAR(20) NOT NULL CHECK (status IN ('初始化', '标注中', '标注完成', '计算中', '完成')) DEFAULT '初始化'",
+            "status": "VARCHAR(20) NOT NULL DEFAULT '初始化'",
             "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
-            "report_path": "VARCHAR(500)",
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE"
         }
         return self._create_table_with_common_fields("ai_metric_tasks", columns)

@@ -26,8 +26,7 @@ class CreateViews(PostgreSQLManager):
                             at.updated_at as task_updated_at,
                             at.annotation_type,
                             mt.status     as metric_status,
-                            mt.search_type,
-                            mt.report_path,
+                            mt.search_type,                     
                             mt.created_at as metric_created_at,
                             mt.updated_at as metric_updated_at
                      FROM ai_annotation_tasks at

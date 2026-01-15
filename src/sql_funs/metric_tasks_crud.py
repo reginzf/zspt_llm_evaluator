@@ -7,22 +7,21 @@ logger = logging.getLogger(__name__)
 
 class MetricTasksCRUD(PostgreSQLManager):
     def metric_task_create(self, task_id: str, status: str = '初始化',
-                           search_type: str = None, report_path: str = None):
+                           search_type: str = None):
         """
         创建指标任务
         """
         data = {
             "task_id": task_id,
             "status": status,
-            "search_type": search_type,
-            "report_path": report_path
+            "search_type": search_type
         }
         # 只插入非空值
         data = {k: v for k, v in data.items() if v is not None}
         return self.insert("ai_metric_tasks", data=data)
 
     def metric_task_update(self, task_id: str, status: str = None,
-                           search_type: str = None, report_path: str = None):
+                           search_type: str = None):
         """
         更新指标任务
         """
@@ -30,10 +29,8 @@ class MetricTasksCRUD(PostgreSQLManager):
             key: value for key, value in locals().items()
             if key not in ['self', 'task_id'] and value is not None
         }
-
         if not data:
             return False
-
         try:
             result = self.update("ai_metric_tasks", data, task_id=task_id)
             return result
@@ -96,9 +93,8 @@ class MetricTasksCRUD(PostgreSQLManager):
             'task_id': row[0] if len(row) > 0 else None,
             'status': row[1] if len(row) > 1 else None,
             'search_type': row[2] if len(row) > 2 else None,
-            'report_path': row[3] if len(row) > 3 else None,
-            'created_at': row[4].isoformat() if len(row) > 4 and row[4] and hasattr(row[4], 'isoformat') else None,
-            'updated_at': row[5].isoformat() if len(row) > 5 and row[5] and hasattr(row[5], 'isoformat') else None,
+            'created_at': row[3].isoformat(),
+            'updated_at': row[4].isoformat(),
         }
 
     def get_annotation_metric_tasks(self, task_id: str = None, local_knowledge_id: str = None,
@@ -156,9 +152,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             'annotation_type': row[12] if len(row) > 12 else None,  # 从ai_annotation_tasks表获取
             'metric_status': row[13] if len(row) > 13 else None,
             'search_type': row[14] if len(row) > 14 else None,
-            'report_path': row[15] if len(row) > 15 else None,
-            'metric_created_at': row[16].isoformat() if len(row) > 16 and row[16] and hasattr(row[16],
-                                                                                              'isoformat') else None,
-            'metric_updated_at': row[17].isoformat() if len(row) > 17 and row[17] and hasattr(row[17],
-                                                                                              'isoformat') else None,
+
+            'metric_created_at': row[15].isoformat(),
+            'metric_updated_at': row[16].isoformat(),
         }
