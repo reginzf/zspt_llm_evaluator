@@ -18,13 +18,10 @@ function loadTaskList() {
         }
     })
     .then(response => {
-
         return response.json();
     })
     .then(data => {
-
         if (data.success) {
-
             renderTaskTable(data.data);
         } else {
             console.error('获取任务列表失败:', data.message);

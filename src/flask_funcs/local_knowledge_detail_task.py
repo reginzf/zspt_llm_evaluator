@@ -76,11 +76,9 @@ def get_metric_task_list():
                         'task_name': task[1],
                         'annotation_type': task[12],
                         'status': metric_task_data['status'],
-                        'search_type': metric_task_data['search_type'],
-                        'report_path': metric_task_data['report_path']
+                        'search_type': metric_task_data['search_type']
                     }
                     result.append(combined_data)
-
         return jsonify({"success": True, "data": result})
     except Exception as e:
         logger.error(f"获取指标任务列表时发生错误: {str(e)}")
