@@ -236,6 +236,32 @@ class LabelStudioCrud(PostgreSQLManager):
             logger.error(f"获取环境任务数量时发生错误: {str(e)}")
             return 0
 
+    def annotation_task_get_by_id(self, task_id):
+        """通过任务ID获取标注任务"""
+        result = self.annotation_task_list(task_id=task_id)
+        if result:
+            return self._annotation_task_to_json(result[0])
+    def view_annotation_task_extended_list(self, label_studio_env_id=None, local_knowledge_id=None):
+        """根据label_studio_env_id和local_knowledge_id查询标注任务扩展视图"""
+        exact_match_fields = ['label_studio_env_id', 'local_knowledge_id']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        data = {}
+        for ele in allowed_fileds:
+            if locals().get(ele):
+                data[ele] = locals()[ele]
+        
+        query, values = self.gen_select_query("ai_annotation_task_extended_view",
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **data)
+        try:
+            return self.execute_query(query, values)
+        except Exception as e:
+            logger.error(f"查询标注任务扩展视图时发生错误: {str(e)}")
+            return []
+
     def _annotation_task_to_json(self, row):
         """将标注任务数据库记录转换为JSON格式"""
         if not row:
@@ -254,5 +280,5 @@ class LabelStudioCrud(PostgreSQLManager):
             'created_at': row[9].isoformat() if len(row) > 9 and row[9] else None,
             'updated_at': row[10].isoformat() if len(row) > 10 and row[10] else None,
             'knowledge_base_id': row[11] if len(row) > 11 else None,
-            'annotation_type': row[12] if len(row) > 12 else None,
+            'annotation_type': row[12] if len(row) > 12 else None
         }

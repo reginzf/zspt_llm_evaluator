@@ -446,56 +446,23 @@ def get_tasks_by_environment():
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
 
         # 查询特定环境和知识库下的标注任务
-        with LabelStudioCrud() as ls_crud, LocalKnowledgeCrud() as lk_crud, QuestionsCRUD() as q_crud, Environment_Crud() as e_crud:
-            tasks = ls_crud.annotation_task_list(local_knowledge_id=kno_id, label_studio_env_id=env_id)
-
+        with LabelStudioCrud() as ls_crud:
+            tasks = ls_crud.view_annotation_task_extended_list(label_studio_env_id=env_id, local_knowledge_id=kno_id)
             # 转换为前端期望的格式
             projects = []
             for task in tasks:
-                task_data = ls_crud._annotation_task_to_json(task)
-
-                # 获取知识库和问题集的名称
-                # 从ai_knowledge_base表获取知识库名称
-                knowledge_base_id = task_data.get('knowledge_base_id')
-                kb_name = '未知知识库'
-                if knowledge_base_id:
-                    kb_result = e_crud.get_knowledge_base(knowledge_id=knowledge_base_id)
-                    if kb_result and len(kb_result) > 0:
-                        kb_name = kb_result[0][1]  # 假设第二个字段是名称
-                    else:
-                        # 如果从ai_knowledge_base表找不到，尝试从ai_local_knowledge表获取
-                        local_kb_result = lk_crud.get_local_knowledge(kno_id=knowledge_base_id)
-                        if local_kb_result and len(local_kb_result) > 0:
-                            kb_name = local_kb_result[0][2]  # 知识库名称字段
-                else:
-                    # 如果没有knowledge_base_id，则使用local_knowledge_id作为备选
-                    local_kb_result = lk_crud.get_local_knowledge(kno_id=task_data.get('local_knowledge_id'))
-                    if local_kb_result and len(local_kb_result) > 0:
-                        kb_name = local_kb_result[0][2]  # 原来的查询方式
-
-                # qs_name = get_question_set_name(task_data['question_set_id'])
-                question_set_id = task_data.get('question_set_id')
-                qs_name = '未知问题集'
-                if question_set_id:
-                    qs_result = q_crud.question_config_list(question_id=question_set_id)
-                    if qs_result and len(qs_result) > 0:
-                        qs_name = qs_result[0][1]
-                    else:
-                        qs_name = '未知问题集'
-                else:
-                    qs_name = '未知问题集'
-
                 projects.append({
-                    'task_id': task_data.get('task_id'),
-                    'name': task_data.get('task_name'),
-                    'knowledge_base_id': knowledge_base_id,
-                    'knowledge_base_name': kb_name,
-                    'environment_id': task_data.get('label_studio_env_id'),
-                    'question_set_id': question_set_id,
-                    'question_set_name': qs_name,
-                    'total_chunks': task_data.get('total_chunks'),
-                    'annotated_chunks': task_data.get('annotated_chunks'),
-                    'task_status': task_data.get('task_status')
+                    'task_id': task[0],
+                    'name': task[1],
+                    'knowledge_base_id': task[2],
+                    'knowledge_base_name': task[13],
+                    'environment_id': task[4],
+                    'question_set_id': task[3],
+                    'question_set_name': task[14],
+                    'total_chunks': task[7],
+                    'annotated_chunks': task[8],
+                    'task_status': task[9],
+                    'annotation_type': task[12]
                 })
 
         return jsonify({
@@ -506,7 +473,8 @@ def get_tasks_by_environment():
         logger.error(f"获取环境标注任务列表时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'获取环境标注任务列表时发生错误: {str(e)}'}), 500
 
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/task/metric/update_annotation', methods=['POST'])
+
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/update_annotation', methods=['POST'])
 def update_annotation():
     """
     更新标注方式
@@ -518,28 +486,16 @@ def update_annotation():
 
         if not task_id or not annotation_type:
             return jsonify({"success": False, "message": "缺少必要参数"}), 400
-
-        # 同时更新两个地方：ai_annotation_tasks表（通过LabelStudioCrud）和ai_metric_tasks表（通过MetricTasksCRUD）
-        with LabelStudioCrud() as ls_crud, MetricTasksCRUD() as mt_crud:
+        with LabelStudioCrud() as ls_crud:
             # 检查任务是否存在
             task = ls_crud.annotation_task_get_by_id(task_id)
             if not task:
                 return jsonify({"success": False, "message": "任务不存在"}), 400
-            
-            # 更新ai_annotation_tasks表中的annotation_type字段
-            success1 = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type)
-            
-            # 更新ai_metric_tasks表中的状态
-            if mt_crud.metric_task_exists(task_id):
-                success2 = mt_crud.metric_task_update(task_id=task_id, status='标注中')
-            else:
-                success2 = mt_crud.metric_task_create(task_id=task_id, status='标注中')
-        
-        if success1 and success2:
+            success = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type)
+        if success:
             return jsonify({"success": True, "message": "更新标注方式成功"})
         else:
             return jsonify({"success": False, "message": "更新标注方式失败"}), 500
-
     except Exception as e:
         logger.error(f"更新标注方式时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
