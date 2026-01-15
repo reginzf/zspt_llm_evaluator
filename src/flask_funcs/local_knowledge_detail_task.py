@@ -75,33 +75,6 @@ def get_metric_task_list():
         return jsonify({"success": False, "message": f"获取指标任务列表时发生错误: {str(e)}"}), 500
 
 
-@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/update_annotation', methods=['POST'])
-def update_annotation():
-    """
-    更新标注方式
-    """
-    try:
-        data = request.get_json()
-        task_id = data.get('task_id')
-        annotation_type = data.get('annotation_type')
-
-        if not task_id or not annotation_type:
-            return jsonify({"success": False, "message": "缺少必要参数"}), 400
-
-        with MetricTasksCRUD() as mt_crud:
-            if not mt_crud.metric_task_exists(task_id):
-                success = mt_crud.metric_task_create(task_id=task_id, annotation_type=annotation_type, status='标注中')
-            else:
-                success = mt_crud.metric_task_update(task_id=task_id, annotation_type=annotation_type, status='标注中')
-        if success:
-            return jsonify({"success": True, "message": "更新标注方式成功"})
-        else:
-            return jsonify({"success": False, "message": "更新标注方式失败"}), 500
-
-    except Exception as e:
-        logger.error(f"更新标注方式时发生错误: {str(e)}")
-        return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
-
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/start_calculation', methods=['POST'])
 def start_calculation():

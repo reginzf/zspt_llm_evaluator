@@ -505,3 +505,41 @@ def get_tasks_by_environment():
     except Exception as e:
         logger.error(f"获取环境标注任务列表时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'获取环境标注任务列表时发生错误: {str(e)}'}), 500
+
+@local_knowledge_label_studio_bp.route('/local_knowledge_detail/task/metric/update_annotation', methods=['POST'])
+def update_annotation():
+    """
+    更新标注方式
+    """
+    try:
+        data = request.get_json()
+        task_id = data.get('task_id')
+        annotation_type = data.get('annotation_type')
+
+        if not task_id or not annotation_type:
+            return jsonify({"success": False, "message": "缺少必要参数"}), 400
+
+        # 同时更新两个地方：ai_annotation_tasks表（通过LabelStudioCrud）和ai_metric_tasks表（通过MetricTasksCRUD）
+        with LabelStudioCrud() as ls_crud, MetricTasksCRUD() as mt_crud:
+            # 检查任务是否存在
+            task = ls_crud.annotation_task_get_by_id(task_id)
+            if not task:
+                return jsonify({"success": False, "message": "任务不存在"}), 400
+            
+            # 更新ai_annotation_tasks表中的annotation_type字段
+            success1 = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type)
+            
+            # 更新ai_metric_tasks表中的状态
+            if mt_crud.metric_task_exists(task_id):
+                success2 = mt_crud.metric_task_update(task_id=task_id, status='标注中')
+            else:
+                success2 = mt_crud.metric_task_create(task_id=task_id, status='标注中')
+        
+        if success1 and success2:
+            return jsonify({"success": True, "message": "更新标注方式成功"})
+        else:
+            return jsonify({"success": False, "message": "更新标注方式失败"}), 500
+
+    except Exception as e:
+        logger.error(f"更新标注方式时发生错误: {str(e)}")
+        return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
