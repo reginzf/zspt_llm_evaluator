@@ -115,7 +115,7 @@ class CreateTables(PostgreSQLManager):
             "last_updated": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",  # 最后更新时间
             "FOREIGN KEY (knowledge_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE",
             "question_set_type": "VARCHAR(50) NOT NULL CHECK (question_set_type IN ('basic', 'detailed', 'mechanism', 'thematic'))",
-            "question_count": "INTEGER DEFAULT 0" # 问题数量统计
+            "question_count": "INTEGER DEFAULT 0"  # 问题数量统计
         }
 
         return self._create_table_with_common_fields("ai_question_config", columns)
@@ -226,9 +226,20 @@ class CreateTables(PostgreSQLManager):
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE"
         }
         return self._create_table_with_common_fields("ai_metric_tasks", columns)
+
     def create_report_table(self):
-        columns = {}
+        """12. 创建报告表"""
+        columns = {
+            "report_id": "VARCHAR(100) PRIMARY KEY",
+            "search_type": "VARCHAR(20) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
+            "filepath": "VARCHAR(500) NOT NULL",
+            "task_id": "VARCHAR(100)",
+            "status": "VARCHAR(20) NOT NULL DEFAULT '待处理'",
+            "error_msg": "TEXT",
+            "FOREIGN KEY (task_id)": "REFERENCES ai_metric_tasks(task_id) ON DELETE CASCADE"
+        }
         return self._create_table_with_common_fields("ai_reports", columns)
+
     def create_all_tables(self):
         """创建所有表"""
         self.create_environment_table()
@@ -247,6 +258,7 @@ class CreateTables(PostgreSQLManager):
         self.create_label_studio_bind_table()  # 新增localknowledge和labelstudio的绑定关系表
         self.create_annotation_tasks_table()  # 新增标注任务表
         self.create_metric_tasks_table()  # 新增指标任务表
+        self.create_report_table()
 
 
 if __name__ == '__main__':
