@@ -29,45 +29,39 @@ def get_metric_task_list():
         if not knowledge_id:
             return jsonify({"success": False, "message": "缺少knowledge_id参数"}), 400
 
-        with MetricTasksCRUD() as mt_crud:
-            # 查询指标任务表中与知识库相关的任务
-            # 由于annotation_metric_tasks_crud.py已被删除，我们需要使用其他方式关联查询
-            # 先获取标注任务信息
-            from src.sql_funs.label_studio_crud import LabelStudioCrud
-            with LabelStudioCrud() as ls_crud:
-                annotation_tasks = ls_crud.annotation_task_list(local_knowledge_id=knowledge_id)
+        with MetricTasksCRUD() as mt_crud,LabelStudioCrud() as ls_crud:
+            annotation_tasks = ls_crud.annotation_task_list(local_knowledge_id=knowledge_id)
+            # 构造返回数据
+            result = []
+            for task in annotation_tasks:
+                task_data = ls_crud._annotation_task_to_json(task)
 
-                # 构造返回数据
-                result = []
-                for task in annotation_tasks:
-                    task_data = ls_crud._annotation_task_to_json(task)
+                # 查询对应的指标任务
+                metric_task = mt_crud.metric_task_get_by_id(task_data['task_id'])
+                if metric_task:
+                    metric_task_data = mt_crud._metric_task_to_json(metric_task)
 
-                    # 查询对应的指标任务
-                    metric_task = mt_crud.metric_task_get_by_id(task_data['task_id'])
-                    if metric_task:
-                        metric_task_data = mt_crud._metric_task_to_json(metric_task)
+                    # 合并数据
+                    combined_data = {
+                        'task_id': task_data['task_id'],
+                        'task_name': task_data['task_name'],
+                        'annotation_type': metric_task_data.get('annotation_type'),
+                        'status': metric_task_data.get('status', task_data.get('task_status', '初始化')),
+                        'search_type': metric_task_data.get('search_type'),
+                        'report_path': metric_task_data.get('report_path')
+                    }
+                else:
+                    # 如果没有对应的指标任务，则使用标注任务数据
+                    combined_data = {
+                        'task_id': task_data['task_id'],
+                        'task_name': task_data['task_name'],
+                        'annotation_type': task_data.get('annotation_type'),
+                        'status': task_data.get('task_status', '初始化'),
+                        'search_type': None,
+                        'report_path': None
+                    }
 
-                        # 合并数据
-                        combined_data = {
-                            'task_id': task_data['task_id'],
-                            'task_name': task_data['task_name'],
-                            'annotation_type': metric_task_data.get('annotation_type'),
-                            'status': metric_task_data.get('status', task_data.get('task_status', '初始化')),
-                            'search_type': metric_task_data.get('search_type'),
-                            'report_path': metric_task_data.get('report_path')
-                        }
-                    else:
-                        # 如果没有对应的指标任务，则使用标注任务数据
-                        combined_data = {
-                            'task_id': task_data['task_id'],
-                            'task_name': task_data['task_name'],
-                            'annotation_type': task_data.get('annotation_type'),
-                            'status': task_data.get('task_status', '初始化'),
-                            'search_type': None,
-                            'report_path': None
-                        }
-
-                    result.append(combined_data)
+                result.append(combined_data)
 
         return jsonify({"success": True, "data": result})
     except Exception as e:

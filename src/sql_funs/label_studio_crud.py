@@ -262,6 +262,24 @@ class LabelStudioCrud(PostgreSQLManager):
             logger.error(f"查询标注任务扩展视图时发生错误: {str(e)}")
             return []
 
+    def view_annotation_task_completed_list(self, local_knowledge_id=None):
+        """查询状态为'已完成'的标注任务扩展视图，用于创建指标任务时选择"""
+        exact_match_fields = ['local_knowledge_id', 'task_status']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        data = {'local_knowledge_id': local_knowledge_id, 'task_status': '已完成'}
+        
+        query, values = self.gen_select_query("ai_annotation_task_extended_view",
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **data)
+        try:
+            return self.execute_query(query, values)
+        except Exception as e:
+            logger.error(f"查询已完成的标注任务扩展视图时发生错误: {str(e)}")
+            return []
+
     def _annotation_task_to_json(self, row):
         """将标注任务数据库记录转换为JSON格式"""
         if not row:
