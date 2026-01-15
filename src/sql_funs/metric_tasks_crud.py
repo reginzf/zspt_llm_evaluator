@@ -6,14 +6,13 @@ logger = logging.getLogger(__name__)
 
 
 class MetricTasksCRUD(PostgreSQLManager):
-    def metric_task_create(self, task_id: str, annotation_type: str = None, status: str = '初始化',
+    def metric_task_create(self, task_id: str, status: str = '初始化',
                            search_type: str = None, report_path: str = None):
         """
         创建指标任务
         """
         data = {
             "task_id": task_id,
-            "annotation_type": annotation_type,
             "status": status,
             "search_type": search_type,
             "report_path": report_path
@@ -22,7 +21,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         data = {k: v for k, v in data.items() if v is not None}
         return self.insert("ai_metric_tasks", data=data)
 
-    def metric_task_update(self, task_id: str, annotation_type: str = None, status: str = None,
+    def metric_task_update(self, task_id: str, status: str = None,
                            search_type: str = None, report_path: str = None):
         """
         更新指标任务
@@ -56,20 +55,20 @@ class MetricTasksCRUD(PostgreSQLManager):
         result = self.execute_query(query, (task_id,))
         return result[0] if result else None
 
-    def metric_task_list(self, task_id: str = None, annotation_type: str = None, status: str = None,
+    def metric_task_list(self, task_id: str = None, status: str = None,
                          search_type: str = None, order_by: str = None, limit: int = None, **kwargs) -> Optional[
         List[Tuple]]:
         """
         获取指标任务列表
         支持按条件查询
         """
-        exact_match_fields = ['task_id', 'annotation_type', 'status', 'search_type']
+        exact_match_fields = ['task_id', 'status', 'search_type']
         partial_match_fields = []  # 没有需要模糊匹配的字段
         allowed_fileds = exact_match_fields + partial_match_fields + ['order_by', 'limit']
 
         # 添加传入的额外参数
         query_params = {k: v for k, v in locals().items()
-                        if k in ['task_id', 'annotation_type', 'status', 'search_type'] and v is not None}
+                        if k in ['task_id', 'status', 'search_type'] and v is not None}
         query_params.update({k: v for k, v in kwargs.items() if v is not None})
 
         query, params = self.gen_select_query('ai_metric_tasks',
@@ -95,28 +94,26 @@ class MetricTasksCRUD(PostgreSQLManager):
 
         return {
             'task_id': row[0] if len(row) > 0 else None,
-            'annotation_type': row[1] if len(row) > 1 else None,
-            'status': row[2] if len(row) > 2 else None,
-            'search_type': row[3] if len(row) > 3 else None,
-            'report_path': row[4] if len(row) > 4 else None,
-            'created_at': row[5].isoformat() if len(row) > 5 and row[5] and hasattr(row[5], 'isoformat') else None,
-            'updated_at': row[6].isoformat() if len(row) > 6 and row[6] and hasattr(row[6], 'isoformat') else None,
+            'status': row[1] if len(row) > 1 else None,
+            'search_type': row[2] if len(row) > 2 else None,
+            'report_path': row[3] if len(row) > 3 else None,
+            'created_at': row[4].isoformat() if len(row) > 4 and row[4] and hasattr(row[4], 'isoformat') else None,
+            'updated_at': row[5].isoformat() if len(row) > 5 and row[5] and hasattr(row[5], 'isoformat') else None,
         }
 
     def get_annotation_metric_tasks(self, task_id: str = None, local_knowledge_id: str = None,
-                                    annotation_type: str = None, task_status: str = None,
-                                    metric_status: str = None, order_by: str = None,
+                                    task_status: str = None, metric_status: str = None, order_by: str = None,
                                     limit: int = None, **kwargs) -> Optional[List[Tuple]]:
         """
         获取标注任务与指标任务关联信息
         """
-        exact_match_fields = ['task_id', 'local_knowledge_id', 'annotation_type', 'task_status', 'metric_status']
+        exact_match_fields = ['task_id', 'local_knowledge_id', 'task_status', 'metric_status']
         partial_match_fields = ['task_name']  # 任务名称可能需要模糊匹配
         allowed_fileds = exact_match_fields + partial_match_fields + ['order_by', 'limit']
 
         # 添加传入的额外参数
         query_params = {k: v for k, v in locals().items()
-                        if k in ['task_id', 'local_knowledge_id', 'annotation_type', 'task_status',
+                        if k in ['task_id', 'local_knowledge_id', 'task_status',
                                  'metric_status'] and v is not None}
         query_params.update({k: v for k, v in kwargs.items() if v is not None})
 
@@ -156,7 +153,7 @@ class MetricTasksCRUD(PostgreSQLManager):
                                                                                             'isoformat') else None,
             'task_updated_at': row[11].isoformat() if len(row) > 11 and row[11] and hasattr(row[11],
                                                                                             'isoformat') else None,
-            'annotation_type': row[12] if len(row) > 12 else None,
+            'annotation_type': row[12] if len(row) > 12 else None,  # 从ai_annotation_tasks表获取
             'metric_status': row[13] if len(row) > 13 else None,
             'search_type': row[14] if len(row) > 14 else None,
             'report_path': row[15] if len(row) > 15 else None,

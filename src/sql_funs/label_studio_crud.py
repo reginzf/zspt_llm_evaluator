@@ -153,10 +153,10 @@ class LabelStudioCrud(PostgreSQLManager):
     # 新增：标注任务相关的方法
     def annotation_task_list(self, task_id=None, task_name=None, local_knowledge_id=None, label_studio_env_id=None,
                              question_set_id=None, label_studio_project_id=None,
-                             task_status=None):
+                             task_status=None, annotation_type=None):
         """获取标注任务列表"""
         exact_match_fields = ['task_id', 'local_knowledge_id', 'label_studio_env_id', 'question_set_id',
-                              'label_studio_project_id', 'task_status']
+                              'label_studio_project_id', 'task_status', 'annotation_type']
         partial_match_fields = ['task_name']
         allowed_fileds = exact_match_fields + partial_match_fields
         data = {}
@@ -176,7 +176,7 @@ class LabelStudioCrud(PostgreSQLManager):
 
     def annotation_task_create(self, task_id, task_name, local_knowledge_id, question_set_id,
                                label_studio_env_id, label_studio_project_id=None, knowledge_base_id=None,
-                               total_chunks=0, annotated_chunks=0, task_status='未开始'):
+                               total_chunks=0, annotated_chunks=0, task_status='未开始', annotation_type=None):
         """创建标注任务"""
         try:
             data = {
@@ -189,7 +189,8 @@ class LabelStudioCrud(PostgreSQLManager):
                 'total_chunks': total_chunks,
                 'annotated_chunks': annotated_chunks,
                 'task_status': task_status,
-                'knowledge_base_id': knowledge_base_id
+                'knowledge_base_id': knowledge_base_id,
+                'annotation_type': annotation_type
             }
             logger.info(f"创建标注任务: {data}")
             return self.insert('ai_annotation_tasks', data)
@@ -198,7 +199,7 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def annotation_task_update(self, task_id, task_name=None, task_status=None, label_studio_project_id=None,
-                               total_chunks=None, annotated_chunks=None):
+                               total_chunks=None, annotated_chunks=None, annotation_type=None):
         """更新标注任务"""
         try:
             updates = {
@@ -206,7 +207,8 @@ class LabelStudioCrud(PostgreSQLManager):
                 'task_status': task_status,
                 'label_studio_project_id': label_studio_project_id,
                 'total_chunks': total_chunks,
-                'annotated_chunks': annotated_chunks
+                'annotated_chunks': annotated_chunks,
+                'annotation_type': annotation_type
             }
             updates = {k: v for k, v in updates.items() if v is not None}
             if not updates:
@@ -252,4 +254,5 @@ class LabelStudioCrud(PostgreSQLManager):
             'created_at': row[9].isoformat() if len(row) > 9 and row[9] else None,
             'updated_at': row[10].isoformat() if len(row) > 10 and row[10] else None,
             'knowledge_base_id': row[11] if len(row) > 11 else None,
+            'annotation_type': row[12] if len(row) > 12 else None,
         }
