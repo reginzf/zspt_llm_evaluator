@@ -209,6 +209,7 @@ class CreateTables(PostgreSQLManager):
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "knowledge_base_id": "VARCHAR(100) NOT NULL",
+            "annotation_type": "VARCHAR(20) CHECK (annotation_type IN ('llm', 'manual', 'mlb'))",
             "FOREIGN KEY (local_knowledge_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
             "FOREIGN KEY (question_set_id)": "REFERENCES ai_question_config(question_id) ON DELETE CASCADE",
             "FOREIGN KEY (label_studio_env_id)": "REFERENCES ai_label_studio_info(label_studio_id) ON DELETE CASCADE",
@@ -220,7 +221,6 @@ class CreateTables(PostgreSQLManager):
         """11. 创建指标任务表"""
         columns = {
             "task_id": "VARCHAR(100) PRIMARY KEY",
-            "annotation_type": "VARCHAR(20) CHECK (annotation_type IN ('llm', 'manual', 'mlb'))",
             "status": "VARCHAR(20) NOT NULL CHECK (status IN ('初始化', '标注中', '标注完成', '计算中', '完成')) DEFAULT '初始化'",
             "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
             "report_path": "VARCHAR(500)",
