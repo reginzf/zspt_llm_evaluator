@@ -1,8 +1,10 @@
 import logging
 import os
+from pathlib import Path
+
 from jsonpath import jsonpath
 
-from env_config_init import settings
+from env_config_init import settings, REPORT_PATH
 
 from typing import Callable, List, Dict, Any
 
@@ -23,14 +25,14 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "login_zlpt",
-    "know_client", 
-    "project_client", 
-    "retrieve_client", 
-    "zlpt_user", 
+    "know_client",
+    "project_client",
+    "retrieve_client",
+    "zlpt_user",
     "zlpt_create_knowledge_base",
-    "zlpt_upload_files", 
-    "zlpt_get_chunk_all_by_doc_id", 
-    "ls_create_project", 
+    "zlpt_upload_files",
+    "zlpt_get_chunk_all_by_doc_id",
+    "ls_create_project",
     "ls_create_tasks",
     "cal_metric_by_chunk_id_fullmatch"
 ]
@@ -200,7 +202,6 @@ def ls_create_tasks(know_client, project, doc_ids):
         raise e
 
 
-
 def _process_question_chunk_data(
         project,
         question: str,
@@ -238,7 +239,7 @@ def _get_project(ls_user, project_id: str):
 
 
 def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_type: str,
-                                     questions: List[Dict[str, Any]],
+                                     questions: List[Dict[str, Any]], file_name: str
                                      ):
     def extract_zlpt_chunk_ids(data):
         return jsonpath(data, CHUNK_ID_PATH) or []
@@ -251,8 +252,8 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
     project = _get_project(ls_user, project_id)
     logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
     logger.debug(f"成功获取项目: {project.title}")
-    file_path = ''  # 保存json 文件的路径
-
+    file_path = Path(REPORT_PATH) / kno_id / file_name
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     for question in questions:
         logger.info(f"正在处理问题: {question}")
         metrics = _process_question_chunk_data(
@@ -265,7 +266,7 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
             compute_metrics_fn=calculate_chunk_recall_metrics
         )
         metrics['type'] = question['question_type']
-        metric_all[question] = metrics
+        metric_all[question['question_content']] = metrics
 
-    save_json_file(metric_all, file_path)
+    save_json_file(metric_all, str(file_path))
     logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
