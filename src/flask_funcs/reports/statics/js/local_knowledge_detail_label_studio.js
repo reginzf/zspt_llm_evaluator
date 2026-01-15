@@ -119,6 +119,7 @@ function createAnnotationTaskRow(task, envId = null) {
     const questionSetName = task.question_set_name || '未知问题集';
     const questionSetId = task.question_set_id || 'N/A';
     const taskId = task.task_id || task.id || 'N/A';
+    const annotationType = task.annotation_type || '未设置';
     
     row.innerHTML = `
         <td><div>${taskName}</div><div style="font-size: 0.8em; color: #666;">(ID: ${taskId})</div></td>
@@ -131,10 +132,12 @@ function createAnnotationTaskRow(task, envId = null) {
                 </div>
                 <span class="progress-text">${progressText}</span>
             </div>
+            <div style="font-size: 0.8em; color: #666; margin-top: 4px;">${annotationType}</div>
         </td>
         <td><span class="status-label ${statusClass}">${statusText}</span></td>
         <td>
             <div class="task-actions">
+                <button class="task-action-btn annotate-btn" onclick="showAnnotationDialog('${task.task_id}')">标注</button>
                 <button class="task-action-btn edit-btn" onclick="${editClickHandler}">编辑</button>
                 <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
                 <button class="task-action-btn delete-btn" onclick="deleteTask(${deleteBtnParams})">删除</button>
@@ -148,6 +151,62 @@ function createAnnotationTaskRow(task, envId = null) {
 // 通用的创建任务行函数（保持原名用于兼容性，但内部调用标注专用函数）
 function createTaskRow(task, envId = null) {
     return createAnnotationTaskRow(task, envId);
+}
+
+// 显示标注方式选择对话框
+function showAnnotationDialog(taskId) {
+    // 存储当前任务ID
+    document.getElementById('currentTaskId').value = taskId;
+
+    // 显示模态框
+    document.getElementById('annotationModal').style.display = 'block';
+}
+
+// 隐藏标注方式选择对话框
+function hideAnnotationModal() {
+    document.getElementById('annotationModal').style.display = 'none';
+}
+
+// 确认标注类型
+function confirmAnnotationType() {
+    const selectedType = document.querySelector('input[name="annotationType"]:checked').value;
+    const taskId = document.getElementById('currentTaskId').value;
+
+    // 使用Label Studio的更新接口更新标注类型
+    fetch('/local_knowledge_detail/label_studio/update_project', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            id: taskId,
+            annotation_type: selectedType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('标注方式更新成功');
+            hideAnnotationModal();
+            // 重新加载任务列表 - 需要重新加载相关的任务列表
+            if(currentEnvironment) {
+                // 如果当前有展开的环境，重新加载该环境的任务列表
+                const envId = currentEnvironment.label_studio_id;
+                const taskRow = document.getElementById(`taskManagementRow-${envId}`);
+                if (taskRow && taskRow.style.display !== 'none') {
+                    loadTasksForEnvironment(envId);
+                }
+            }
+            // 同时重新加载主任务列表
+            loadAnnotationProjects();
+        } else {
+            alert('更新失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('更新标注方式时出错:', error);
+        alert('更新标注方式时发生错误');
+    });
 }
 
 // 加载环境绑定状态

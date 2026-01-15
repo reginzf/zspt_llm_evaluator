@@ -114,11 +114,6 @@ function createTaskRow(task) {
             statusClass = 'status-initial';
     }
 
-    // 根据状态确定按钮可用性
-    const annotateDisabled = task.status !== '初始化';
-    const calculateDisabled = task.status !== '标注完成';
-    const reportDisabled = task.status !== '完成';
-
     const row = document.createElement('tr');
     // 使用更安全的innerHTML赋值，防止潜在的XSS问题
     row.innerHTML = `
@@ -127,13 +122,10 @@ function createTaskRow(task) {
         <td>${task.annotation_type ? escapeHtml(task.annotation_type) : '未设置'}</td>
         <td><span class="${statusClass}">${task.status ? escapeHtml(task.status) : '未知'}</span></td>
         <td class="task-actions-cell">
-            <button class="task-action-btn annotate-btn" onclick="showAnnotationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${annotateDisabled ? 'disabled' : ''}>
-                ${task.annotation_type ? '修改标注' : '标注'}
-            </button>
-            <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${calculateDisabled ? 'disabled' : ''}>
+            <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')">
                 质量计算
             </button>
-            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')" ${reportDisabled ? 'disabled' : ''}>
+            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')">
                 查看报告
             </button>
         </td>
@@ -155,52 +147,6 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-// 显示标注方式选择对话框
-function showAnnotationDialog(taskId) {
-    // 存储当前任务ID
-    document.getElementById('currentTaskId').value = taskId;
-
-    // 显示模态框
-    document.getElementById('annotationModal').style.display = 'block';
-}
-
-// 隐藏标注方式选择对话框
-function hideAnnotationModal() {
-    document.getElementById('annotationModal').style.display = 'none';
-}
-
-// 确认标注类型
-function confirmAnnotationType() {
-    const selectedType = document.querySelector('input[name="annotationType"]:checked').value;
-    const taskId = document.getElementById('currentTaskId').value;
-
-    fetch('/local_knowledge_detail/task/metric/update_annotation', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            task_id: taskId,
-            annotation_type: selectedType
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('标注方式更新成功');
-            hideAnnotationModal();
-            // 重新加载任务列表
-            loadTaskList();
-        } else {
-            alert('更新失败: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('更新标注方式时出错:', error);
-        alert('更新标注方式时发生错误');
-    });
 }
 
 // 显示质量计算方式选择对话框

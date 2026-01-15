@@ -278,6 +278,33 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- 标注方式选择模态框 -->
+            <div id="annotationModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>选择标注方式</h2>
+                        <span class="close" onclick="hideAnnotationModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="radio-label">
+                                <input type="radio" name="annotationType" value="llm" checked> LLM标注
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="annotationType" value="manual"> 人工标注
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="annotationType" value="mlb"> MLB标注
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="hideAnnotationModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="confirmAnnotationType()">确定</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 任务页 -->
@@ -340,5 +367,8 @@
         </div>
     </div>
 </div>
+
+<!-- 任务ID隐藏字段，用于存储当前操作的任务ID -->
+<input type="hidden" id="currentTaskId" value="">
 </body>
 </html>
