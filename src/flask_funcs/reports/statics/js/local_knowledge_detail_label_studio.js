@@ -173,13 +173,13 @@ function confirmAnnotationType() {
     const taskId = document.getElementById('currentTaskId').value;
 
     // 使用Label Studio的更新接口更新标注类型
-    fetch('/local_knowledge_detail/label_studio/update_project', {
-        method: 'PUT',
+    fetch('/local_knowledge_detail/label_studio/update_annotation', {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            id: taskId,
+            task_id: taskId,
             annotation_type: selectedType
         })
     })
