@@ -77,12 +77,6 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               **query_params)
         return self.execute_query(query, params)
 
-    def metric_task_exists(self, task_id: str) -> bool:
-        """
-        检查指标任务是否存在
-        """
-        result = self.metric_task_get_by_id(task_id)
-        return result is not None
 
     def _metric_task_to_json(self, row):
         """将指标任务数据库记录转换为JSON格式"""
@@ -97,9 +91,9 @@ class MetricTasksCRUD(PostgreSQLManager):
             'updated_at': row[4].isoformat(),
         }
 
-    def get_annotation_metric_tasks(self, task_id: str = None, local_knowledge_id: str = None,
-                                    task_status: str = None, metric_status: str = None, order_by: str = None,
-                                    limit: int = None, **kwargs) -> Optional[List[Tuple]]:
+    def view_get_annotation_metric_tasks(self, task_id: str = None, local_knowledge_id: str = None,
+                                         task_status: str = None, metric_status: str = None, order_by: str = None,
+                                         limit: int = None, **kwargs) -> Optional[List[Tuple]]:
         """
         获取标注任务与指标任务关联信息
         """
@@ -122,12 +116,7 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               **query_params)
         return self.execute_query(query, params)
 
-    def view_get_annotation_metric_tasks_by_knowledge_id(self, local_knowledge_id: str) -> Optional[List[Tuple]]:
-        """
-        根据本地知识库ID获取标注任务与指标任务关联信息
-        """
-        query = "SELECT * FROM ai_annotation_metric_tasks_view WHERE local_knowledge_id = %s ORDER BY task_created_at DESC"
-        return self.execute_query(query, (local_knowledge_id,))
+
 
     def view_annotation_metric_task_to_json(self, row):
         """将标注任务与指标任务关联视图记录转换为JSON格式"""
@@ -199,16 +188,9 @@ class MetricTasksCRUD(PostgreSQLManager):
         """
         return self.delete("ai_reports", report_id=report_id)
 
-    def report_get_by_id(self, report_id: str) -> Optional[Tuple]:
-        """
-        根据报告ID获取报告信息
-        """
-        query = "SELECT * FROM ai_reports WHERE report_id = %s"
-        result = self.execute_query(query, (report_id,))
-        return result[0] if result else None
-
     def report_list(self, report_id: str = None, search_type: str = None, filepath: str = None, task_id: str = None,
-                   status: str = None, error_msg: str = None, order_by: str = None, limit: int = None, **kwargs) -> Optional[
+                    status: str = None, error_msg: str = None, order_by: str = None, limit: int = None, **kwargs) -> \
+    Optional[
         List[Tuple]]:
         """
         获取报告列表
@@ -220,7 +202,8 @@ class MetricTasksCRUD(PostgreSQLManager):
 
         # 添加传入的额外参数
         query_params = {k: v for k, v in locals().items()
-                        if k in ['report_id', 'search_type', 'filepath', 'task_id', 'status', 'error_msg'] and v is not None}
+                        if k in ['report_id', 'search_type', 'filepath', 'task_id', 'status',
+                                 'error_msg'] and v is not None}
         query_params.update({k: v for k, v in kwargs.items() if v is not None})
 
         query, params = self.gen_select_query('ai_reports',
@@ -231,13 +214,6 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               allowed_fileds=allowed_fileds,
                                               **query_params)
         return self.execute_query(query, params)
-
-    def report_exists(self, report_id: str) -> bool:
-        """
-        检查报告记录是否存在
-        """
-        result = self.report_get_by_id(report_id)
-        return result is not None
 
     def _report_to_json(self, row):
         """将报告数据库记录转换为JSON格式"""
