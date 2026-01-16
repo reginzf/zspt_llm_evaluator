@@ -72,23 +72,16 @@ def get_metric_task_list():
             return jsonify({"success": False, "message": "缺少knowledge_id参数"}), 400
 
         with MetricTasksCRUD() as mt_crud, LabelStudioCrud() as ls_crud:
-            annotation_tasks = ls_crud.view_annotation_task_extended_list(local_knowledge_id=knowledge_id)
-            # 构造返回数据
+            metric_tasks = mt_crud.view_get_annotation_metric_tasks(local_knowledge_id=knowledge_id)
             result = []
-            for task in annotation_tasks:
-                task_id = task[0]
-                # 查询对应的指标任务
-                metric_task = mt_crud.metric_task_get_by_id(task_id)
-                if metric_task:
-                    metric_task_data = mt_crud._metric_task_to_json(metric_task)
-                    combined_data = {
-                        'task_id': task_id,
-                        'task_name': task[1],
-                        'annotation_type': task[12],
-                        'status': metric_task_data['status'],
-                        'search_type': metric_task_data['search_type']
-                    }
-                    result.append(combined_data)
+            for task in metric_tasks:
+                combined_data = {
+                    'task_id': task[0],
+                    'task_name': task[1],
+                    'annotation_type': task[12],
+                    'status': task[13]
+                }
+                result.append(combined_data)
         return jsonify({"success": True, "data": result})
     except Exception as e:
         logger.error(f"获取指标任务列表时发生错误: {str(e)}")
@@ -169,3 +162,26 @@ def get_report():
     except Exception as e:
         logger.error(f"获取报告时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"获取报告时发生错误: {str(e)}"}), 500
+
+@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
+def get_completed_annotation_tasks():
+    """
+    获取已完成的标注任务列表，用于创建指标任务
+    """
+    try:
+        data = request.get_json()
+        local_knowledge_id = data.get('local_knowledge_id')
+
+        if not local_knowledge_id:
+            return jsonify({"success": False, "message": "缺少local_knowledge_id参数"}), 400
+
+        with LabelStudioCrud() as ls_crud:
+            tasks = ls_crud.view_annotation_task_completed_list(local_knowledge_id=local_knowledge_id)
+            task_list = []
+            for task in tasks:
+                task_list.append(ls_crud._view_annotation_task_completed_list_to_json(task))
+        return jsonify({"success": True, "data": task_list})
+
+    except Exception as e:
+        logger.error(f"获取已完成的标注任务时发生错误: {str(e)}")
+        return jsonify({"success": False, "message": f"获取已完成的标注任务时发生错误: {str(e)}"}), 500
