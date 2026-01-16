@@ -21,7 +21,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.insert("ai_metric_tasks", data=data)
 
     def metric_task_update(self, task_id: str, status: str = None,
-                           search_type: str = None):
+                           search_type: str = None,report_path=None):
         """
         更新指标任务
         """

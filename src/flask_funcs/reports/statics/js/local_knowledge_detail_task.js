@@ -144,25 +144,40 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// 显示质量计算方式选择对话框
+// 显示质量计算方式选择模态框
 function showCalculationDialog(taskId) {
     // 存储当前任务ID
     document.getElementById('currentTaskId').value = taskId;
+
+    // 重置下拉框选择
+    const selectElement = document.getElementById('searchTypeSelect');
+    selectElement.selectedIndex = 0;
 
     // 显示模态框
     document.getElementById('calculationModal').style.display = 'block';
 }
 
-// 隐藏质量计算方式选择对话框
+// 隐藏质量计算方式选择模态框
 function hideCalculationModal() {
     document.getElementById('calculationModal').style.display = 'none';
 }
 
 // 确认计算类型
 function confirmCalculationType() {
-    const selectedType = document.querySelector('input[name="searchType"]:checked').value;
+    const selectedType = document.getElementById('searchTypeSelect').value;
     const taskId = document.getElementById('currentTaskId').value;
 
+    if (!selectedType) {
+        alert('请选择召回方式');
+        return;
+    }
+
+    if (!taskId) {
+        alert('任务ID不能为空');
+        return;
+    }
+
+    // 发送请求启动计算
     fetch('/local_knowledge_detail/task/metric/start_calculation', {
         method: 'POST',
         headers: {
@@ -178,15 +193,15 @@ function confirmCalculationType() {
         if (data.success) {
             alert('质量计算已启动');
             hideCalculationModal();
-            // 重新加载任务列表
+            // 刷新任务列表
             loadTaskList();
         } else {
             alert('启动计算失败: ' + data.message);
         }
     })
     .catch(error => {
-        console.error('启动质量计算时出错:', error);
-        alert('启动质量计算时发生错误');
+        console.error('启动计算时出错:', error);
+        alert('启动计算时发生错误');
     });
 }
 
