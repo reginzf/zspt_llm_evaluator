@@ -113,13 +113,15 @@ function createAnnotationTaskRow(task, envId = null) {
     const deleteBtnParams = envId ? `'${task.task_id}', '${envId}'` : `'${task.task_id}'`;
     
     // 确保所有字段都有默认值，防止显示N/A或未设置
-    const taskName = task.name || task.task_name || '未知任务';
+    const taskName = task.task_name || '未知任务';
     const knowledgeBaseName = task.knowledge_base_name || '未知知识库';
     const knowledgeBaseId = task.knowledge_base_id || 'N/A';
     const questionSetName = task.question_set_name || '未知问题集';
     const questionSetId = task.question_set_id || 'N/A';
-    const taskId = task.task_id || task.id || 'N/A';
+    const taskId = task.task_id  || 'N/A';
     const annotationType = task.annotation_type || '未设置';
+    // 使用label_studio_env_id作为environment_id的来源（因为后端现在返回的是label_studio_env_id）
+    const environmentId = task.label_studio_env_id || 'N/A';
     
     row.innerHTML = `
         <td><div>${taskName}</div><div style="font-size: 0.8em; color: #666;">(ID: ${taskId})</div></td>
@@ -677,10 +679,10 @@ function showEditTaskModal(task) {
     document.getElementById('taskModalTitle').textContent = '编辑标注任务';
     document.getElementById('taskIdInput').style.display = 'block';
     document.getElementById('taskId').value = task.task_id;
-    document.getElementById('taskName').value = task.name;
+    document.getElementById('taskName').value = task.name || task.task_name;  // 兼容新的数据结构
     // 注释掉不存在的元素，使用taskKnowledgeBaseSelect代替
     // document.getElementById('taskKnowledgeBase').value = task.knowledge_base_id;
-    document.getElementById('taskEnvironment').value = task.environment_id || task.label_studio_id || '';
+    document.getElementById('taskEnvironment').value = task.environment_id || task.label_studio_env_id || task.label_studio_id || '';  // 兼容多种环境ID字段
     
     // 将知识库和问题集设置为只读或禁用，以防止在编辑模式下修改这些关联项
     const knowledgeBaseSelect = document.getElementById('taskKnowledgeBaseSelect');
