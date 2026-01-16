@@ -444,27 +444,13 @@ def get_tasks_by_environment():
 
         if not env_id or not kno_id:
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
-
         # 查询特定环境和知识库下的标注任务
         with LabelStudioCrud() as ls_crud:
             tasks = ls_crud.view_annotation_task_extended_list(label_studio_env_id=env_id, local_knowledge_id=kno_id)
             # 转换为前端期望的格式
             projects = []
-            for task in tasks:
-                projects.append({
-                    'task_id': task[0],
-                    'name': task[1],
-                    'knowledge_base_id': task[2],
-                    'knowledge_base_name': task[13],
-                    'environment_id': task[4],
-                    'question_set_id': task[3],
-                    'question_set_name': task[14],
-                    'total_chunks': task[7],
-                    'annotated_chunks': task[8],
-                    'task_status': task[9],
-                    'annotation_type': task[12]
-                })
-
+            for task in tasks:          
+                projects.append(ls_crud._view_annotation_task_extended_list_to_json(task))
         return jsonify({
             'success': True,
             'data': projects
@@ -491,7 +477,14 @@ def update_annotation():
             task = ls_crud.annotation_task_get_by_id(task_id)
             if not task:
                 return jsonify({"success": False, "message": "任务不存在"}), 400
-            success = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type,task_status="标注中")
+            success = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type,
+                                                     task_status="标注中")
+            if annotation_type == 'llm':
+                # todo 调用llm模型进行标注，异步
+                pass
+            if annotation_type == 'mlb':
+                # todo 使用ml_backend方式进行标注，异步
+                pass
         if success:
             return jsonify({"success": True, "message": "更新标注方式成功"})
         else:
@@ -500,47 +493,3 @@ def update_annotation():
         logger.error(f"更新标注方式时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
 
-
-@local_knowledge_label_studio_bp.route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
-def get_completed_annotation_tasks():
-    """
-    获取已完成的标注任务列表，用于创建指标任务
-    """
-    try:
-        data = request.get_json()
-        local_knowledge_id = data.get('local_knowledge_id')
-
-        if not local_knowledge_id:
-            return jsonify({"success": False, "message": "缺少local_knowledge_id参数"}), 400
-
-        with LabelStudioCrud() as ls_crud:
-            # 获取状态为'已完成'的标注任务
-            tasks = ls_crud.view_annotation_task_completed_list(local_knowledge_id=local_knowledge_id)
-            
-            # 转换为前端需要的格式
-            task_list = []
-            for task in tasks:
-                # 创建一个字典，映射视图中的字段
-                task_list.append({
-                    'task_id': task[0],
-                    'task_name': task[1],
-                    'local_knowledge_id': task[2],
-                    'question_set_id': task[3],
-                    'label_studio_env_id': task[4],
-                    'knowledge_base_id': task[5],
-                    'label_studio_project_id': task[6],
-                    'total_chunks': task[7],
-                    'annotated_chunks': task[8],
-                    'task_status': task[9],
-                    'task_created_at': task[10].isoformat() if task[10] else None,
-                    'task_updated_at': task[11].isoformat() if task[11] else None,
-                    'annotation_type': task[12],
-                    'knowledge_base_name': task[13],
-                    'question_set_name': task[14]
-                })
-        
-        return jsonify({"success": True, "data": task_list})
-
-    except Exception as e:
-        logger.error(f"获取已完成的标注任务时发生错误: {str(e)}")
-        return jsonify({"success": False, "message": f"获取已完成的标注任务时发生错误: {str(e)}"}), 500
