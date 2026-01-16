@@ -241,17 +241,17 @@ class LabelStudioCrud(PostgreSQLManager):
         result = self.annotation_task_list(task_id=task_id)
         if result:
             return self._annotation_task_to_json(result[0])
+
     def view_annotation_task_extended_list(self, label_studio_env_id=None, local_knowledge_id=None):
         """根据label_studio_env_id和local_knowledge_id查询标注任务扩展视图"""
         exact_match_fields = ['label_studio_env_id', 'local_knowledge_id']
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
-        
+
         data = {}
         for ele in allowed_fileds:
             if locals().get(ele):
                 data[ele] = locals()[ele]
-        
         query, values = self.gen_select_query("ai_annotation_task_extended_view",
                                               exact_match_fields=exact_match_fields,
                                               partial_match_fields=partial_match_fields,
@@ -267,9 +267,9 @@ class LabelStudioCrud(PostgreSQLManager):
         exact_match_fields = ['local_knowledge_id', 'task_status']
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
-        
+
         data = {'local_knowledge_id': local_knowledge_id, 'task_status': '已标注'}
-        
+
         query, values = self.gen_select_query("ai_annotation_task_extended_view",
                                               exact_match_fields=exact_match_fields,
                                               partial_match_fields=partial_match_fields,
@@ -282,9 +282,6 @@ class LabelStudioCrud(PostgreSQLManager):
 
     def _annotation_task_to_json(self, row):
         """将标注任务数据库记录转换为JSON格式"""
-        if not row:
-            return None
-
         return {
             'task_id': row[0] if len(row) > 0 else None,
             'task_name': row[1] if len(row) > 1 else None,
@@ -299,4 +296,42 @@ class LabelStudioCrud(PostgreSQLManager):
             'updated_at': row[10].isoformat() if len(row) > 10 and row[10] else None,
             'knowledge_base_id': row[11] if len(row) > 11 else None,
             'annotation_type': row[12] if len(row) > 12 else None
+        }
+
+    def _view_annotation_task_completed_list_to_json(self, row):
+        return {
+            'task_id': row[0],
+            'task_name': row[1],
+            'local_knowledge_id': row[2],
+            'question_set_id': row[3],
+            'label_studio_env_id': row[4],
+            'knowledge_base_id': row[5],
+            'label_studio_project_id': row[6],
+            'total_chunks': row[7],
+            'annotated_chunks': row[8],
+            'task_status': row[9],
+            'task_created_at': row[10].isoformat(),
+            'task_updated_at': row[11].isoformat(),
+            'annotation_type': row[12],
+            'knowledge_base_name': row[13],
+            'question_set_name': row[14]
+        }
+
+    def _view_annotation_task_extended_list_to_json(self, row):
+        return {
+            'task_id': row[0] if len(row) > 0 else None,
+            'task_name': row[1] if len(row) > 1 else None,
+            'local_knowledge_id': row[2] if len(row) > 2 else None,
+            'question_set_id': row[3] if len(row) > 3 else None,
+            'label_studio_env_id': row[4] if len(row) > 4 else None,
+            'knowledge_base_id': row[5] if len(row) > 5 else None,
+            'label_studio_project_id': row[6] if len(row) > 6 else None,
+            'total_chunks': row[7] if len(row) > 7 else 0,
+            'annotated_chunks': row[8] if len(row) > 8 else 0,
+            'task_status': row[9] if len(row) > 9 else '未开始',
+            'task_created_at': row[10].isoformat() if len(row) > 10 and row[10] and hasattr(row[10], 'isoformat') else None,
+            'task_updated_at': row[11].isoformat() if len(row) > 11 and row[11] and hasattr(row[11], 'isoformat') else None,
+            'annotation_type': row[12] if len(row) > 12 else None,
+            'knowledge_base_name': row[13] if len(row) > 13 else '未知知识库',
+            'question_set_name': row[14] if len(row) > 14 else '未知问题集'
         }
