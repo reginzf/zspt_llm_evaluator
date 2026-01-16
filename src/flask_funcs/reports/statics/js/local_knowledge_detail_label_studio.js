@@ -68,19 +68,15 @@ function getTaskStatusInfo(task) {
             statusClass = 'status-not-started';
             statusText = '未开始';
             break;
-        case '进行中':
+        case '标注中':
         case 'in_progress':
             statusClass = 'status-in-progress';
-            statusText = '进行中';
+            statusText = '标注中';
             break;
         case '已完成':
         case 'completed':
             statusClass = 'status-completed';
             statusText = '已完成';
-            break;
-        case '已同步':
-            statusClass = 'status-completed';
-            statusText = '已同步';
             break;
         default:
             statusClass = 'status-not-started';
@@ -120,8 +116,6 @@ function createAnnotationTaskRow(task, envId = null) {
     const questionSetId = task.question_set_id || 'N/A';
     const taskId = task.task_id  || 'N/A';
     const annotationType = task.annotation_type || '未设置';
-    // 使用label_studio_env_id作为environment_id的来源（因为后端现在返回的是label_studio_env_id）
-    const environmentId = task.label_studio_env_id || 'N/A';
     
     row.innerHTML = `
         <td><div>${taskName}</div><div style="font-size: 0.8em; color: #666;">(ID: ${taskId})</div></td>
@@ -543,12 +537,10 @@ function renderTaskTableForEnvironment(envId, tasks) {
     if (tasks && tasks.length > 0) {
         console.log(`Rendering ${tasks.length} tasks`);
         tasks.forEach(task => {
-            console.log('Processing task:', task);
+
             const row = createAnnotationTaskRow(task, envId); // 使用专用的标注任务创建函数
             if (row) {
                 tableBody.appendChild(row);
-            } else {
-                console.error('Failed to create row for task:', task);
             }
         });
          // 初始化列宽调整功能
@@ -577,6 +569,9 @@ function showCreateTaskModalWithEnv(envId) {
     document.getElementById('taskIdInput').style.display = 'none';
     document.getElementById('taskId').value = '';
     document.getElementById('taskName').value = '';
+    
+    // 隐藏任务状态组，仅在编辑时显示
+    document.getElementById('taskStatusGroup').style.display = 'none';
     
     document.getElementById('taskModal').style.display = 'block';
 }
@@ -671,6 +666,9 @@ function showCreateTaskModal() {
     document.getElementById('taskKnowledgeBaseSelect').innerHTML = '<option value="">加载中...</option>';
     document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
     
+    // 隐藏任务状态组，仅在编辑时显示
+    document.getElementById('taskStatusGroup').style.display = 'none';
+    
     document.getElementById('taskModal').style.display = 'block';
 }
 
@@ -704,6 +702,14 @@ function showEditTaskModal(task) {
         questionSetSelect.innerHTML = `<option value="${task.question_set_id}">${task.question_set_id}</option>`;
         questionSetSelect.disabled = true; // 禁用选择
     }
+    
+    // 显示任务状态组，并设置当前状态
+    const taskStatusGroup = document.getElementById('taskStatusGroup');
+    taskStatusGroup.style.display = 'block';
+    const taskStatusSelect = document.getElementById('taskStatus');
+    // 设置选中的状态值，优先使用task_status，如果没有则尝试status
+    const currentStatus = task.task_status || task.status || '未开始';
+    taskStatusSelect.value = currentStatus;
     
     document.getElementById('taskModal').style.display = 'block';
 }
@@ -742,6 +748,9 @@ function saveTask() {
     if (isEdit) {
         // 更新模式：只需要任务ID和基本信息
         requestData.id = taskId;
+        // 只在编辑模式下添加任务状态
+        const taskStatus = document.getElementById('taskStatus').value;
+        requestData.task_status = taskStatus; // 添加任务状态
     } else {
         // 创建模式：需要所有参数
         requestData.knowledge_base_id = knowledgeBaseId;  // 使用本地知识库ID

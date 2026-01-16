@@ -272,6 +272,14 @@
                             <option value="">请选择知识库</option>
                         </select>
                     </div>
+                    <div id="taskStatusGroup" class="form-group" style="display: none;">
+                        <label for="taskStatus">任务状态</label>
+                        <select id="taskStatus">
+                            <option value="未开始">未开始</option>
+                            <option value="标注中">标注中</option>
+                            <option value="已完成">已完成</option>
+                        </select>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="hideTaskModal()">取消</button>
                         <button type="button" class="btn-confirm" onclick="saveTask()">保存</button>
