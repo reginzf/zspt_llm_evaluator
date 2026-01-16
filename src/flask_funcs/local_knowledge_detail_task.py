@@ -4,6 +4,7 @@ import datetime
 import logging
 from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, ls_user
 from concurrent.futures import ThreadPoolExecutor
+from src.flask_funcs.common_utils import generate_unique_id
 
 # 创建线程池执行器
 executor = ThreadPoolExecutor(max_workers=5)
@@ -16,10 +17,19 @@ local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
     try:
-        cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name)
+
         with MetricTasksCRUD() as mt_crud:
-            success = mt_crud.metric_task_update(task_id, status='完成')
-        if success:
+            report_id = generate_unique_id('rp', 8)
+            success1 = mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
+            cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list,
+                                             file_name)
+            success2 = mt_crud.metric_task_update(task_id, status='完成')
+            success1 = mt_crud.report_update(report_id, status='计算完成')
+        if success1:
+            logging.info(f'创建报告 {task_id} 成功')
+        else:
+            logging.error(f'创建报告 {task_id} 失败')
+        if success2:
             logging.info(f'计算任务 {task_id} 已完成')
         else:
             logging.error(f'更新任务 {task_id} 状态失败')
@@ -27,6 +37,7 @@ def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, que
         logging.error(f'执行计算任务 {task_id} 时发生错误: {str(e)}')
         with MetricTasksCRUD() as mt_crud:
             mt_crud.metric_task_update(task_id, status='失败')
+            mt_crud.report_update(report_id, status='计算失败', error_msg=str(e))
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/create', methods=['POST'])
@@ -100,7 +111,7 @@ def start_calculation():
         # 获取必要的参数
         with MetricTasksCRUD() as mt_crud, LabelStudioCrud() as ls_crud, QuestionsCRUD() as q_crud:
             # 获取任务的信息
-            annotation_task = mt_crud.get_annotation_metric_tasks(task_id)
+            annotation_task = mt_crud.view_get_annotation_metric_tasks(task_id)
             if annotation_task:
                 annotation_task_dict = mt_crud.view_annotation_metric_task_to_json(annotation_task[0])
             else:
@@ -145,30 +156,19 @@ def get_report():
         if not task_id:
             return jsonify({"success": False, "message": "缺少task_id参数"}), 400
 
-        # 获取指标任务信息
         with MetricTasksCRUD() as mt_crud:
-            metric_task = mt_crud.metric_task_get_by_id(task_id)
-        if not metric_task:
-            return jsonify({"success": False, "message": "指标任务不存在"}), 404
-
-        # 检查任务状态是否为完成
-        status = metric_task[2] if len(metric_task) > 2 else None
-        if status != '完成':
-            return jsonify({"success": False, "message": f"任务状态为{status}，无法查看报告"}), 400
-
-        # 获取报告路径
-        report_path = metric_task[4] if len(metric_task) > 4 else None
-        if not report_path:
-            return jsonify({"success": False, "message": "报告尚未生成"}), 404
-
-        # 这里可以返回报告内容或报告路径
-        # TODO: 实现具体的报告获取逻辑
+            task_info = mt_crud.view_get_annotation_metric_tasks(task_id=task_id)
+            if task_info:
+                knowledge_base_id = task_info[0][5]
+            report_list = mt_crud.report_list(task_id=task_id)
+            if report_list:
+                report_dict_list = [mt_crud._report_to_json(report) for report in report_list]
+            else:
+                report_dict_list = []
         return jsonify({
             "success": True,
-            "data": {
-                "report_path": report_path,
-                "status": status
-            }
+            "data": report_dict_list,
+            "knowledgeBaseId": knowledge_base_id
         })
     except Exception as e:
         logger.error(f"获取报告时发生错误: {str(e)}")

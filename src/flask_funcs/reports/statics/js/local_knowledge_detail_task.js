@@ -219,16 +219,41 @@ function loadReportContent(taskId) {
     .then(data => {
         const reportContentDiv = document.getElementById('reportContent');
         if (data.success) {
-            // TODO: 实现具体的报告内容展示逻辑
-            reportContentDiv.innerHTML = `
-                <h4>任务ID: ${taskId}</h4>
-                <p>状态: ${data.data.status}</p>
-                <p>报告路径: ${data.data.report_path || '报告尚未生成'}</p>
-                <div class="report-placeholder">
-                    <p>这里是质量评估报告的详细内容...</p>
-                    <p>包括质量指标、检索效果对比、可视化图表等。</p>
-                </div>
-            `;
+            if (data.data && data.data.length > 0) {
+                // 显示报告列表表格
+                let reportRows = '';
+                data.data.forEach(report => {
+                    reportRows += `
+                        <tr>
+                            <td>
+                                <div class="report-name clickable-report" onclick="openReport('${data.knowledgeBaseId}', '${report.filepath || 'N/A'}')">${report.filepath || 'N/A'}</div>
+                                <div class="report-id">ID: ${report.report_id || 'N/A'}</div>
+                            </td>
+                            <td>${report.search_type || 'N/A'}</td>
+                            <td>${report.status || 'N/A'}</td>
+                            <td>${report.error_msg || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+
+                reportContentDiv.innerHTML = `
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>报告名称/ID</th>
+                                <th>召回方式</th>
+                                <th>状态</th>
+                                <th>错误信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${reportRows}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                reportContentDiv.innerHTML = '<p>暂无报告数据</p>';
+            }
         } else {
             reportContentDiv.innerHTML = `<p>加载报告失败: ${data.message}</p>`;
         }
@@ -238,6 +263,14 @@ function loadReportContent(taskId) {
         const reportContentDiv = document.getElementById('reportContent');
         reportContentDiv.innerHTML = `<p>加载报告内容时发生错误: ${error.message}</p>`;
     });
+}
+
+// 打开报告页面
+function openReport(knowledgeBaseId, filepath) {
+    // 构建报告页面URL
+    const reportUrl = `/report/${knowledgeBaseId}/${filepath}`;
+    // 在新窗口或标签页中打开报告
+    window.open(reportUrl, '_blank');
 }
 
 // 导出报告
