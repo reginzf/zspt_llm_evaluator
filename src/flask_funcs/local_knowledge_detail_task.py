@@ -17,7 +17,6 @@ local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
     try:
-
         with MetricTasksCRUD() as mt_crud:
             report_id = generate_unique_id('rp', 8)
             success1 = mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
@@ -131,9 +130,6 @@ def start_calculation():
             # 生成文件名
             time = datetime.datetime.now().strftime('%Y%m%d%H%M')
             file_name = f'{task_id}_{search_type}_{time}.json'
-            # 更新任务记录中的报告路径
-            success = mt_crud.metric_task_update(task_id=task_id, status='计算中', search_type=search_type,
-                                                 report_path=file_name)
         if success:
             # 使用线程池异步执行计算任务
             executor.submit(cal_metric, task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list,
