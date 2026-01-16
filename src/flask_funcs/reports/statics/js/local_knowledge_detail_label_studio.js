@@ -165,7 +165,7 @@ function hideAnnotationModal() {
 
 // 确认标注类型
 function confirmAnnotationType() {
-    const selectedType = document.querySelector('input[name="annotationType"]:checked').value;
+    const selectedType = document.getElementById('annotationTypeSelect').value;
     const taskId = document.getElementById('currentTaskId').value;
 
     // 使用Label Studio的更新接口更新标注类型

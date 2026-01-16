@@ -239,6 +239,30 @@
                 </div>
             </div>
 
+            <!-- 标注方式选择模态框 -->
+            <div id="annotationModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>选择标注方式</h2>
+                        <span class="close" onclick="hideAnnotationModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="annotationTypeSelect">标注类型</label>
+                            <select id="annotationTypeSelect" class="form-control">
+                                <option value="llm" selected>LLM标注</option>
+                                <option value="manual">人工标注</option>
+                                <option value="mlb">MLB标注</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="hideAnnotationModal()">取消</button>
+                        <button type="button" class="btn-confirm" onclick="confirmAnnotationType()">确定</button>
+                    </div>
+                </div>
+            </div>
+            
             <!-- 任务管理模态框 -->
             <div id="taskModal" class="task-modal">
                 <div class="task-modal-content">
@@ -259,7 +283,7 @@
                     <div class="form-group">
                         <label for="taskEnvironment">Label-Studio环境</label>
                         <input type="text" id="taskEnvironment" readonly>
-                    </div>
+                        </div>
                     <div class="form-group">
                         <label for="taskKnowledgeBaseSelect">知识库 *</label>
                         <select id="taskKnowledgeBaseSelect" onchange="loadQuestionSetsForKnowledgeBase()">
@@ -283,33 +307,6 @@
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="hideTaskModal()">取消</button>
                         <button type="button" class="btn-confirm" onclick="saveTask()">保存</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 标注方式选择模态框 -->
-            <div id="annotationModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>选择标注方式</h2>
-                        <span class="close" onclick="hideAnnotationModal()">&times;</span>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label class="radio-label">
-                                <input type="radio" name="annotationType" value="llm" checked> LLM标注
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="annotationType" value="manual"> 人工标注
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="annotationType" value="mlb"> MLB标注
-                            </label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-cancel" onclick="hideAnnotationModal()">取消</button>
-                        <button type="button" class="btn-confirm" onclick="confirmAnnotationType()">确定</button>
                     </div>
                 </div>
             </div>
