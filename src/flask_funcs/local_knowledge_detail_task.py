@@ -163,7 +163,7 @@ def get_report():
         logger.error(f"获取报告时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"获取报告时发生错误: {str(e)}"}), 500
 
-@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
+@local_knowledge_detail_task_bp .route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
 def get_completed_annotation_tasks():
     """
     获取已完成的标注任务列表，用于创建指标任务

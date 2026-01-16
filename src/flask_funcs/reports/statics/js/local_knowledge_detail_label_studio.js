@@ -573,6 +573,12 @@ function showCreateTaskModalWithEnv(envId) {
     // 隐藏任务状态组，仅在编辑时显示
     document.getElementById('taskStatusGroup').style.display = 'none';
     
+    // 确保选择框处于启用状态
+    const knowledgeBaseSelect = document.getElementById('taskKnowledgeBaseSelect');
+    const questionSetSelect = document.getElementById('taskQuestionSet');
+    knowledgeBaseSelect.disabled = false;
+    questionSetSelect.disabled = false;
+    
     document.getElementById('taskModal').style.display = 'block';
 }
 
@@ -669,6 +675,12 @@ function showCreateTaskModal() {
     // 隐藏任务状态组，仅在编辑时显示
     document.getElementById('taskStatusGroup').style.display = 'none';
     
+    // 确保选择框处于启用状态
+    const knowledgeBaseSelect = document.getElementById('taskKnowledgeBaseSelect');
+    const questionSetSelect = document.getElementById('taskQuestionSet');
+    knowledgeBaseSelect.disabled = false;
+    questionSetSelect.disabled = false;
+    
     document.getElementById('taskModal').style.display = 'block';
 }
 
@@ -716,6 +728,12 @@ function showEditTaskModal(task) {
 
 // 隐藏任务模态框
 function hideTaskModal() {
+    // 重置选择框状态，确保下次打开时是启用的
+    const knowledgeBaseSelect = document.getElementById('taskKnowledgeBaseSelect');
+    const questionSetSelect = document.getElementById('taskQuestionSet');
+    knowledgeBaseSelect.disabled = false;
+    questionSetSelect.disabled = false;
+    
     document.getElementById('taskModal').style.display = 'none';
 }
 
