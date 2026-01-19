@@ -66,19 +66,116 @@
     display: block;
 }
 
-.file-list, .binding-list {
+.file-list-container {
+    margin-top: 15px;
+}
+
+.file-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.file-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    background-color: #f0f0f0;
+}
+
+.file-card .file-info {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.file-card .file-field {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 10px;
+    padding-right: 10px;
+}
+
+.file-card .field-label {
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9em;
+}
+
+.file-card .field-value {
+    color: #333;
+    word-break: break-word;
+}
+
+.file-card .file-actions {
+    flex: 0 0 100%;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    text-align: right;
+}
+
+.file-card .file-actions .action-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 5px;
+    white-space: nowrap;
+}
+
+.file-card .file-actions .delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.file-card .file-actions .edit-btn {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.file-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.file-status.completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.file-status.pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.file-status.in-progress {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.file-status.unknown {
+    background-color: #d6d8d9;
+    color: #383d41;
+}
+
+.binding-list {
     list-style-type: none;
     padding: 0;
 }
 
-.file-item, .binding-item {
+.binding-item {
     padding: 10px;
     border: 1px solid #eee;
     margin-bottom: 10px;
     border-radius: 4px;
 }
 
-.file-actions, .binding-actions {
+.binding-actions {
     margin-top: 10px;
 }
 

@@ -81,33 +81,61 @@ function loadFileList() {
         fileListContainer.innerHTML = '';
         if (data && data.length > 0) {
             data.forEach(file => {
-                const fileItem = document.createElement('li');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
+                const fileCard = document.createElement('div');
+                fileCard.className = 'file-card';
+                fileCard.innerHTML = `
                     <div class="file-info">
-                        <strong>文件名:</strong> ${file.kno_name || file.knol_name}<br>
-                        <strong>描述:</strong> ${file.kno_describe || file.knol_describe || '暂无描述'}<br>
-                        <strong>状态:</strong> 
-                        <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : 'in-progress'}">
-                            ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '进行中' : '未知'}
-                        </span><br>
-                        <strong>路径:</strong> ${file.knol_path || file.kno_path || 'N/A'}<br>
-                        <strong>创建时间:</strong> ${file.created_at || 'N/A'}
-                        <div class="file-actions">
-                            <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}')">删除</button>
-                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}', '${file.kno_describe || file.knol_describe || ''}')">编辑</button>
+                        <div class="file-field">
+                            <div class="field-label">文件名称</div>
+                            <div class="field-value">${file.kno_name || file.knol_name || 'N/A'}</div>
+                        </div>
+                        <div class="file-field">
+                            <div class="field-label">描述</div>
+                            <div class="field-value">${file.kno_describe || file.knol_describe || '暂无描述'}</div>
+                        </div>
+                        <div class="file-field">
+                            <div class="field-label">状态</div>
+                            <div class="field-value">
+                                <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : file.ls_status === 2 ? 'in-progress' : 'unknown'}">
+                                    ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '进行中' : '未知'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="file-field">
+                            <div class="field-label">路径</div>
+                            <div class="field-value">${file.knol_path || file.kno_path || 'N/A'}</div>
+                        </div>
+                        <div class="file-field">
+                            <div class="field-label">创建时间</div>
+                            <div class="field-value">${file.created_at || 'N/A'}</div>
+                        </div>
+                        <div class="file-field">
+                            <div class="field-label">操作</div>
+                            <div class="field-value">
+                                <div class="file-actions">
+                                    <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}')">删除</button>
+                                    <button class="action-btn edit-btn" onclick="editFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}', '${file.kno_describe || file.knol_describe || ""}')">编辑</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
-                fileListContainer.appendChild(fileItem);
+                fileListContainer.appendChild(fileCard);
             });
         } else {
-            fileListContainer.innerHTML = '<li class="no-data">暂无文件</li>';
+            const noDataDiv = document.createElement('div');
+            noDataDiv.className = 'no-data';
+            noDataDiv.innerHTML = '<div style="text-align: center; padding: 20px;">暂无文件</div>';
+            fileListContainer.appendChild(noDataDiv);
         }
     })
     .catch(error => {
         console.error('加载文件列表时出错:', error);
-        fileListContainer.innerHTML = '<li class="error">加载文件列表失败</li>';
+        fileListContainer.innerHTML = '';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.innerHTML = '<div style="text-align: center; padding: 20px;">加载文件列表失败</div>';
+        fileListContainer.appendChild(errorDiv);
     });
 }
 
