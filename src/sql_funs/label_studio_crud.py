@@ -268,7 +268,7 @@ class LabelStudioCrud(PostgreSQLManager):
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
 
-        data = {'local_knowledge_id': local_knowledge_id, 'task_status': '已标注'}
+        data = {'local_knowledge_id': local_knowledge_id, 'task_status': '已完成'}
 
         query, values = self.gen_select_query("ai_annotation_task_extended_view",
                                               exact_match_fields=exact_match_fields,
