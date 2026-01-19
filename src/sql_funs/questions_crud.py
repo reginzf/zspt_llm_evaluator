@@ -61,7 +61,9 @@ class QuestionsCRUD(PostgreSQLManager):
             "question_name": question_config_tuple[1],
             "knowledge_id": question_config_tuple[2],
             "question_set_type": question_config_tuple[5],
-            "question_count": question_config_tuple[6]
+            "question_count": question_config_tuple[6],
+            "created_at": question_config_tuple[3].isoformat(),
+            "updated_at": question_config_tuple[4].isoformat(),
         }
 
     def _create_question(self, table_name: str, question_id: str, question_type: str, question_content: str,
