@@ -162,13 +162,12 @@
 .task-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 15px;
+    margin-top: 0;
     table-layout: fixed; /* 启用固定表格布局以支持列宽调整 */
 }
 
 .task-table th,
 .task-table td {
-    padding: 12px;
     text-align: left;
     border-bottom: 1px solid #ddd;
     word-wrap: break-word; /* 允许内容换行 */
@@ -279,10 +278,9 @@
 }
 
 .task-list {
-    margin-top: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    display: none; /* 默认隐藏，展开时显示 */
+    margin-top: 0;
+    display: block; /* 默认显示 */
+    overflow: hidden; /* 防止内部边框溢出 */
 }
 
 .task-list-header {

@@ -70,68 +70,55 @@
     margin-top: 15px;
 }
 
-.file-card {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
-    background-color: #f9f9f9;
+/* 表格样式 */
+.file-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.file-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    background-color: #f0f0f0;
+.file-table th,
+.file-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border: 1px solid #ddd;
 }
 
-.file-card .file-info {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
-
-.file-card .file-field {
-    flex: 1;
-    min-width: 200px;
-    margin-bottom: 10px;
-    padding-right: 10px;
-}
-
-.file-card .field-label {
+.file-table th {
+    background-color: #f8f9fa;
     font-weight: bold;
     color: #555;
-    font-size: 0.9em;
 }
 
-.file-card .field-value {
-    color: #333;
-    word-break: break-word;
+.file-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
 }
 
-.file-card .file-actions {
-    flex: 0 0 100%;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #eee;
-    text-align: right;
+.file-table tbody tr:hover {
+    background-color: #f5f5f5;
 }
 
-.file-card .file-actions .action-btn {
+.file-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.file-actions .action-btn {
     padding: 4px 8px;
     border: none;
     border-radius: 3px;
     cursor: pointer;
     font-size: 0.8rem;
-    margin-left: 5px;
     white-space: nowrap;
 }
 
-.file-card .file-actions .delete-btn {
+.file-actions .delete-btn {
     background-color: #dc3545;
     color: white;
 }
 
-.file-card .file-actions .edit-btn {
+.file-actions .edit-btn {
     background-color: #ffc107;
     color: #212529;
 }
@@ -201,10 +188,6 @@
 .bind-status-unbinding { color: #8B4513; }
 .bind-status-unbounded { color: #6f42c1; }
 .bind-status-unknown { color: #333; }
-
-.file-status.completed { color: #28a745; }
-.file-status.pending { color: #8B4513; }
-.file-status.in-progress { color: #007bff; }
 
 .modal {
     display: none;

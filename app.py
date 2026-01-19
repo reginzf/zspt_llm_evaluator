@@ -36,5 +36,5 @@ app.static_folder = statics_dir
 # Flask会自动处理/static/路径下的文件
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', debug=True)
+    app.run('0.0.0.0', port=5001,debug=True)
     # app.run('0.0.0.0')

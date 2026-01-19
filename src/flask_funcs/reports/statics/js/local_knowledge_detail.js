@@ -80,48 +80,50 @@ function loadFileList() {
     .then(data => {
         fileListContainer.innerHTML = '';
         if (data && data.length > 0) {
+            // 创建表格
+            const table = document.createElement('table');
+            table.className = 'file-table';
+            
+            // 创建表头
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th>文件名称</th>
+                    <th>描述</th>
+                    <th>状态</th>
+                    <th>路径</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+            
+            // 创建表体
+            const tbody = document.createElement('tbody');
             data.forEach(file => {
-                const fileCard = document.createElement('div');
-                fileCard.className = 'file-card';
-                fileCard.innerHTML = `
-                    <div class="file-info">
-                        <div class="file-field">
-                            <div class="field-label">文件名称</div>
-                            <div class="field-value">${file.kno_name || file.knol_name || 'N/A'}</div>
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${file.kno_name || file.knol_name || 'N/A'}</td>
+                    <td>${file.kno_describe || file.knol_describe || '暂无描述'}</td>
+                    <td>
+                        <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : file.ls_status === 2 ? 'in-progress' : 'unknown'}">
+                            ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '进行中' : '未知'}
+                        </span>
+                    </td>
+                    <td>${file.knol_path || file.kno_path || 'N/A'}</td>
+                    <td>${file.created_at || 'N/A'}</td>
+                    <td>
+                        <div class="file-actions">
+                            <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}')">删除</button>
+                            <button class="action-btn edit-btn" onclick="editFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}', '${file.kno_describe || file.knol_describe || ""}')">编辑</button>
                         </div>
-                        <div class="file-field">
-                            <div class="field-label">描述</div>
-                            <div class="field-value">${file.kno_describe || file.knol_describe || '暂无描述'}</div>
-                        </div>
-                        <div class="file-field">
-                            <div class="field-label">状态</div>
-                            <div class="field-value">
-                                <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : file.ls_status === 2 ? 'in-progress' : 'unknown'}">
-                                    ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '进行中' : '未知'}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="file-field">
-                            <div class="field-label">路径</div>
-                            <div class="field-value">${file.knol_path || file.kno_path || 'N/A'}</div>
-                        </div>
-                        <div class="file-field">
-                            <div class="field-label">创建时间</div>
-                            <div class="field-value">${file.created_at || 'N/A'}</div>
-                        </div>
-                        <div class="file-field">
-                            <div class="field-label">操作</div>
-                            <div class="field-value">
-                                <div class="file-actions">
-                                    <button class="action-btn delete-btn" onclick="deleteFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}')">删除</button>
-                                    <button class="action-btn edit-btn" onclick="editFile('${file.knol_id || file.kno_id}', '${file.kno_name || file.knol_name}', '${file.kno_describe || file.knol_describe || ""}')">编辑</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    </td>
                 `;
-                fileListContainer.appendChild(fileCard);
+                tbody.appendChild(row);
             });
+            
+            table.appendChild(tbody);
+            fileListContainer.appendChild(table);
         } else {
             const noDataDiv = document.createElement('div');
             noDataDiv.className = 'no-data';
