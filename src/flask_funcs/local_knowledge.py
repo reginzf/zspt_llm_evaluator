@@ -45,6 +45,7 @@ def local_knowledge():
 @local_knowledge_bp.route('/local_knowledge/create', methods=['POST'])
 def local_knowledge_create():
     """创建本地知识库"""
+    knowledge_path = None
     try:
         data = request.get_json()
         kno_name = data.get('kno_name')
@@ -52,12 +53,9 @@ def local_knowledge_create():
 
         if not kno_name or not kno_name.strip():
             return jsonify({'success': False, 'message': '知识库名称不能为空'}), 400
-
-        dir_filename = kno_name.strip()
-
         # 生成唯一ID作为知识库ID
         kno_id = generate_unique_id(prefix="kno_", length=8)
-
+        dir_filename = f"{kno_name.strip()}_{kno_id}"
         # 创建知识库目录
         knowledge_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, dir_filename)
 
@@ -77,7 +75,6 @@ def local_knowledge_create():
                 kno_path=dir_filename,  # 存储目录名（已去除首尾空格）
                 ls_status=1  # 状态为1，表示未开始
             )
-
             if success:
                 return jsonify({
                     'success': True,
@@ -92,7 +89,6 @@ def local_knowledge_create():
     except Exception as e:
         logger.error(f"创建知识库时发生错误: {str(e)}")
         # 如果出现异常，确保清理已创建的目录
-        knowledge_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, kno_name.strip()) if kno_name else None
         if knowledge_path and os.path.exists(knowledge_path):
             shutil.rmtree(knowledge_path)
         return jsonify({'success': False, 'message': f'创建知识库时发生错误: {str(e)}'}), 500
