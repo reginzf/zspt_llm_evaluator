@@ -178,12 +178,8 @@
 
 .question-actions {
     width: 20%;
-    display: flex;
-    flex-direction: row;
     gap: 5px;
-    flex-wrap: nowrap; /* 防止换行，保持在同一行 */
     align-items: center;
-    justify-content: flex-start; /* 左对齐按钮 */
 }
 
 .question-actions button {
@@ -195,7 +191,7 @@
     margin-right: 5px;
     white-space: nowrap;
     display: inline-block;
-    min-width: 60px; /* 确保按钮有足够的宽度 */
+    min-width: 40px; /* 确保按钮有足够的宽度 */
     text-align: center;
 }
 

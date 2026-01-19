@@ -151,18 +151,17 @@ function renderQuestionList(questions, containerElement, questionSetType) {  // 
     
     let html = `
         <div class="question-list-section">
-            <div class="question-table-container">
-                <table class="question-table">
-                    <thead>
-                        <tr>
-                            <th>问题类型</th>
-                            <th>问题ID</th>
-                            <th>问题正文</th>
-                            <th>问题切片</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <table class="question-table" style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th>问题类型</th>
+                        <th>问题ID</th>
+                        <th>问题正文</th>
+                        <th>问题切片</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
     
     questions.forEach(question => {
@@ -172,26 +171,25 @@ function renderQuestionList(questions, containerElement, questionSetType) {  // 
         const chunks = Array.isArray(question.chunk_ids) ? question.chunk_ids.join(', ') : (question.chunk_ids || '无关联切片');
         
         html += `
-                    <tr class="question-row">
-                        <td class="question-type" data-label="问题类型">
-                            <span class="question-type-tag ${type}">${getTypeDisplayName(type)}</span>
-                        </td>
-                        <td class="question-id" data-label="问题ID">${questionId}</td>
-                        <td class="question-content" data-label="问题正文">${content}</td>
-                        <td class="question-chunks" data-label="问题切片">${chunks}</td>
-                        <td class="question-actions" data-label="操作">
-                            <button class="question-detail-btn" onclick="viewQuestionDetail('${question.question_id}', '${questionSetType}')">详情</button>
-                            <button class="question-edit-btn" onclick="editQuestion('${question.question_id}', '${questionSetType}')">编辑</button>
-                            <button class="question-delete-btn" onclick="deleteQuestion('${question.question_id}', '${questionSetType}')">删除</button>
-                        </td>
-                    </tr>
+                <tr class="question-row">
+                    <td class="question-type" data-label="问题类型">
+                        <span class="question-type-tag ${type}">${getTypeDisplayName(type)}</span>
+                    </td>
+                    <td class="question-id" data-label="问题ID">${questionId}</td>
+                    <td class="question-content" data-label="问题正文">${content}</td>
+                    <td class="question-chunks" data-label="问题切片">${chunks}</td>
+                    <td class="question-actions" data-label="操作">
+                        <button class="question-detail-btn" onclick="viewQuestionDetail('${question.question_id}', '${questionSetType}')">详情</button>
+                        <button class="question-edit-btn" onclick="editQuestion('${question.question_id}', '${questionSetType}')">编辑</button>
+                        <button class="question-delete-btn" onclick="deleteQuestion('${question.question_id}', '${questionSetType}')">删除</button>
+                    </td>
+                </tr>
         `;
     });
     
     html += `
-                    </tbody>
-                </table>
-            </div>
+                </tbody>
+            </table>
         </div>
     `;
     

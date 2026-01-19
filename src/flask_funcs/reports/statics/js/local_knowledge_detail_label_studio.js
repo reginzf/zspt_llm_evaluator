@@ -288,27 +288,23 @@ function updateEnvironmentDisplay(data) {
             rows += `
                 <tr id="taskManagementRow-${env.label_studio_id}" class="task-management-row" style="display: none;">
                     <td colspan="4">
-                        <div class="task-management-area" style="margin-top: 15px; border: 1px solid #ddd; padding: 15px; background-color: #f9f9f9;">
-                            <div class="task-management">
-                                <table class="task-table">
-                                    <thead>
-                                        <tr>
-                                            <th>任务名称</th>
-                                            <th>知识库</th>
-                                            <th>问题集</th>
-                                            <th>标注进度</th>
-                                            <th>状态</th>
-                                            <th>操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="taskTableBody-${env.label_studio_id}">
-                                        <tr>
-                                            <td colspan="6" style="text-align: center;">加载中...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <table class="task-table" style="margin-top: 15px;">
+                            <thead>
+                                <tr>
+                                    <th>任务名称</th>
+                                    <th>知识库</th>
+                                    <th>问题集</th>
+                                    <th>标注进度</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="taskTableBody-${env.label_studio_id}">
+                                <tr>
+                                    <td colspan="6" style="text-align: center;">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </td>
                 </tr>
             `;
