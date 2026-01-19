@@ -14,49 +14,55 @@
     </div>
     <div class="knowledge-list">
         {% if knowledge_data %}
-        <table class="knowledge-table">
+        <table class="knowledge-table table-with-resizable-cols">
             <thead>
-                <tr>
-                    <th>名称</th>
-                    <th>描述</th>
-                    <th>状态</th>
-                    <th>创建时间</th>
-                    <th>绑定的知识库数量</th>
-                    <th>操作</th>
-                </tr>
+            <tr>
+                <th class="resizable-col">名称</th>
+                <th class="resizable-col">描述</th>
+                <th class="resizable-col">状态</th>
+                <th class="resizable-col">创建时间</th>
+                <th class="resizable-col">绑定的知识库数量</th>
+                <th class="resizable-col">操作</th>
+            </tr>
             </thead>
             <tbody>
-                {% for item in knowledge_data %}
-                <tr>
-                    <td>{{ item.kno_name }}</td>
-                    <td>{{ item.kno_describe or '暂无描述' }}</td>
-                    <td>
-                        {% if item.ls_status == 0 %}
-                            已完成
-                        {% elif item.ls_status == 1 %}
-                            未开始
-                        {% elif item.ls_status == 2 %}
-                            进行中
-                        {% else %}
-                            未知
-                        {% endif %}
-                    </td>
-                    <td>{{ item.created_at or '未知' }}</td>
-                    <td class="binding-count" data-kno-id="{{ item.kno_id }}">加载中...</td>
-                    <td>
-                        <button class="action-btn detail-btn" onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">详情</button>
-                        <button class="action-btn edit-btn" onclick="editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">编辑</button>
-                        <button class="action-btn delete-btn" onclick="deleteKnowledge(event, '{{ item.kno_id }}')">删除</button>
-                    </td>
-                </tr>
-                {% endfor %}
+            {% for item in knowledge_data %}
+            <tr>
+                <td>{{ item.kno_name }}/{{ item.kno_id }}</td>
+                <td>{{ item.kno_describe or '暂无描述' }}</td>
+                <td>
+                    {% if item.ls_status == 0 %}
+                    已完成
+                    {% elif item.ls_status == 1 %}
+                    未开始
+                    {% elif item.ls_status == 2 %}
+                    进行中
+                    {% else %}
+                    未知
+                    {% endif %}
+                </td>
+                <td>{{ item.created_at or '未知' }}</td>
+                <td class="binding-count" data-kno-id="{{ item.kno_id }}">加载中...</td>
+                <td>
+                    <button class="action-btn detail-btn"
+                            onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">详情
+                    </button>
+                    <button class="action-btn edit-btn"
+                            onclick="editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">
+                        编辑
+                    </button>
+                    <button class="action-btn delete-btn" onclick="deleteKnowledge(event, '{{ item.kno_id }}')">删除
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
             </tbody>
         </table>
         {% else %}
         <p>暂无本地知识库数据</p>
         {% endif %}
     </div>
-    
+
     <!-- 创建知识库对话框 -->
     <div id="createKnowledgeDialog" class="modal">
         <div class="modal-content">
@@ -71,7 +77,8 @@
                 </div>
                 <div class="form-group">
                     <label for="knowledgeDescription">知识库描述</label>
-                    <textarea id="knowledgeDescription" class="form-control" placeholder="请输入知识库描述" rows="3"></textarea>
+                    <textarea id="knowledgeDescription" class="form-control" placeholder="请输入知识库描述"
+                              rows="3"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -85,7 +92,7 @@
 
 <script>
     // 页面加载完成后获取绑定数量
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         loadBindingCounts();
     });
 

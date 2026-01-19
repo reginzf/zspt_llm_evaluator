@@ -49,6 +49,58 @@ h1 {
 
 .knowledge-table {
     margin-top: 0;
+    width: 100%;
+    table-layout: fixed; /* 启用固定表格布局以支持列宽调整 */
+}
+
+.table-with-resizable-cols {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.table-with-resizable-cols th {
+    position: relative;
+    user-select: none; /* 防止文字选择干扰拖拽 */
+}
+
+/* 列宽调整器 */
+.table-with-resizable-cols th .column-resizer {
+    display: inline-block;
+    width: 6px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    cursor: col-resize;
+    background-color: transparent; /* 初始透明 */
+    border-right: 1px solid #ddd; /* 边界线 */
+}
+
+.table-with-resizable-cols th .column-resizer:hover {
+    background-color: #667eea; /* 悬停时可见 */
+}
+
+/* 确保表格内容换行 */
+.table-with-resizable-cols td,
+.table-with-resizable-cols th {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    word-wrap: break-word; /* 允许内容换行 */
+}
+
+/* 表格悬停效果 */
+.table-with-resizable-cols tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 调整拖拽时的光标样式 */
+div.resizing {
+    cursor: col-resize !important;
+}
+
+.column-resizer {
+    cursor: col-resize;
 }
 
 .action-btn {

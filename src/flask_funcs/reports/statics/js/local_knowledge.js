@@ -304,4 +304,59 @@ function closeBindDialog() {
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function () {
     console.log('本地知识库页面已加载');
+    initColumnResizing();
 });
+
+// 初始化表格列宽调整功能
+function initColumnResizing() {
+    // 为所有带可调整列宽的表格的表头添加列宽调整器
+    const tables = document.querySelectorAll('.table-with-resizable-cols');
+    
+    tables.forEach(table => {
+        const headers = table.querySelectorAll('th');
+        
+        headers.forEach((header, index) => {
+            // 检查是否已经添加了调整器
+            if (!header.querySelector('.column-resizer')) {
+                const resizer = document.createElement('div');
+                resizer.className = 'column-resizer';
+                
+                // 为最后一个列不添加调整器
+                if (index < headers.length - 1) {
+                    header.appendChild(resizer);
+                    
+                    let startX, startWidth;
+                    
+                    resizer.addEventListener('mousedown', function(e) {
+                        startX = e.pageX;
+                        startWidth = header.offsetWidth;
+                        
+                        document.documentElement.classList.add('resizing');
+                        
+                        e.preventDefault();
+                        
+                        const mouseMoveHandler = function(e) {
+                            const diff = e.pageX - startX;
+                            const newWidth = startWidth + diff;
+                            
+                            if (newWidth > 50) { // 最小宽度50px
+                                header.style.width = newWidth + 'px';
+                                header.style.minWidth = newWidth + 'px';
+                                header.style.maxWidth = newWidth + 'px';
+                            }
+                        };
+                        
+                        const mouseUpHandler = function() {
+                            document.documentElement.classList.remove('resizing');
+                            document.removeEventListener('mousemove', mouseMoveHandler);
+                            document.removeEventListener('mouseup', mouseUpHandler);
+                        };
+                        
+                        document.addEventListener('mousemove', mouseMoveHandler);
+                        document.addEventListener('mouseup', mouseUpHandler);
+                    });
+                }
+            }
+        });
+    });
+}
