@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModel
 import numpy as np
 import json
 
-from env_config_init import QUESTION_JSON, settings
+from env_config_init import  settings
 
 app = Flask(__name__)
 
@@ -24,8 +24,6 @@ class MyModel(LabelStudioMLBase):
         self.model_path = settings.MODEL_PATH
         self.SIMILARITY_THRESHOLD = settings.SIMILARITY_THRESHOLD
 
-        # 加载标签配置
-        self._load_label_config()
 
         # 加载 tokenizer 和模型
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
@@ -40,11 +38,11 @@ class MyModel(LabelStudioMLBase):
         logger.info(f"Label categories: {list(self.LABEL_CONFIG.keys())}")
 
         # 预计算所有标签的 embeddings
-        self._precompute_label_embeddings()
 
-    def _load_label_config(self):
+
+    def _load_label_config(self,questions_json):
         """从 JSON 文件加载标签配置"""
-        config_data = QUESTION_JSON
+        config_data = questions_json
         # 转换配置文件格式
         self.LABEL_CONFIG = {}
         for item in config_data.get('datas', []):
@@ -58,6 +56,7 @@ class MyModel(LabelStudioMLBase):
 
         logger.info(f"Loaded {len(self.LABEL_CONFIG)} label categories from config")
         logger.debug(f"Label config: {json.dumps(self.LABEL_CONFIG, ensure_ascii=False, indent=2)}")
+        self._precompute_label_embeddings()
 
     def _get_embedding(self, texts):
         """
