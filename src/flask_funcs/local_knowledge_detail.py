@@ -242,16 +242,13 @@ def local_knowledge_sync():
     """同步本地知识库到知识库"""
     try:
         data = request.get_json()
-
         # 验证必要参数
         required_fields = ['local_kno_id', 'knowledge_id']
         missing_field = validate_required_fields(data, required_fields)
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
-
         local_kno_id = data['local_kno_id']
         knowledge_id = data['knowledge_id']
-
         logger.info(f"开始同步本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
         with LocalKnowledgeCrud() as l_crud, Environment_Crud() as e_crud, KnowledgePathCrud() as kp_crud, KnowledgeCrud() as k_crud:
@@ -293,8 +290,7 @@ def local_knowledge_sync():
                 logger.error(f"获取知识库目录树失败: {res}")
                 return jsonify({'success': False, 'message': '获取知识库目录树失败'}), 500
             content_code_result = jsonpath.jsonpath(
-                res,
-                f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]''')
+                res, f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]''')
 
             if not content_code_result:
                 logger.error(f"未找到目录 {local_knowledge_info['kno_path']} 的content_code")
@@ -379,10 +375,10 @@ def local_knowledge_sync():
             else:
                 logger.info("成功插入知识库路径信息")
             # 更新ai_knowledge表
-            doc_records = know_client.knowledge_doc_list(knowledge_id, contentCode=content_code,size=100)
+            doc_records = know_client.knowledge_doc_list(knowledge_id, contentCode=content_code, size=100)
             for doc_record in doc_records['data']['records']:
                 k_crud.knowledge_insert(doc_record['docId'], doc_record['docName'], doc_record['fileFormat'],
-                                        doc_record['description'],doc_record['docName'], content_code,knowledge_id)
+                                        doc_record['description'], doc_record['docName'], content_code, knowledge_id)
             logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
 
         return jsonify({

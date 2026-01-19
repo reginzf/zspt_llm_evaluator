@@ -171,10 +171,8 @@ def get_completed_annotation_tasks():
     try:
         data = request.get_json()
         local_knowledge_id = data.get('local_knowledge_id')
-
         if not local_knowledge_id:
             return jsonify({"success": False, "message": "缺少local_knowledge_id参数"}), 400
-
         with LabelStudioCrud() as ls_crud:
             tasks = ls_crud.view_annotation_task_completed_list(local_knowledge_id=local_knowledge_id)
             task_list = []
