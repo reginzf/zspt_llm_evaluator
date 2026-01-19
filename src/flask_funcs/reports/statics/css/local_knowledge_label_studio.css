@@ -194,12 +194,12 @@
     right: 0;
     top: 0;
     cursor: col-resize;
-    background-color: #ddd;
-    border-right: 1px solid #f8f9fa;
+    background-color: transparent; /* 初始透明 */
+    border-right: 1px solid #ddd; /* 与表头边框颜色一致 */
 }
 
 .task-table th .column-resizer:hover {
-    background-color: #667eea;
+    background-color: #667eea; /* 悬停时可见 */
 }
 
 .task-actions {
@@ -530,12 +530,12 @@
     right: 0;
     top: 0;
     cursor: col-resize;
-    background-color: #ddd;
-    border-right: 1px solid #f8f9fa;
+    background-color: transparent; /* 初始透明 */
+    border-right: 1px solid #ddd; /* 与表头边框颜色一致 */
 }
 
 .task-table th .column-resizer:hover {
-    background-color: #667eea;
+    background-color: #667eea; /* 悬停时可见 */
 }
 
 /* 响应式设计 */

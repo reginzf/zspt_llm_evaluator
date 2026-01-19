@@ -32,6 +32,7 @@
     padding: 12px 15px;
     text-align: left;
     border: 1px solid #ddd;
+    vertical-align: middle;
 }
 
 .task-table th {
@@ -99,37 +100,36 @@
     display: inline-block;
 }
 
-/* 操作按钮样式 */
+/* 操作按钮样式 - 参考 file-actions */
 .task-actions-cell {
-    display: flex;
     gap: 5px;
+    padding:12px 15px ;
 }
 
-.task-action-btn {
+.task-actions-cell .task-action-btn {
     padding: 4px 8px;
-    border: none;
     border-radius: 3px;
     cursor: pointer;
     font-size: 0.8rem;
-    margin-right: 5px;
+    white-space: nowrap;
 }
 
-.annotate-btn {
+.task-actions-cell .annotate-btn {
     background-color: #ffc107;
     color: #212529;
 }
 
-.calculate-btn {
+.task-actions-cell .calculate-btn {
     background-color: #6f42c1;
     color: white;
 }
 
-.report-btn {
+.task-actions-cell .report-btn {
     background-color: #28a745;
     color: white;
 }
 
-.task-action-btn:disabled {
+.task-actions-cell .task-action-btn:disabled {
     background-color: #6c757d;
     color: #fff;
     cursor: not-allowed;
@@ -212,6 +212,7 @@
     padding: 12px 15px;
     text-align: left;
     border: 1px solid #ddd;
+    vertical-align: middle;
 }
 
 .report-table th {
