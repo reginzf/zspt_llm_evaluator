@@ -278,20 +278,27 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
 
 def label_by_prediction(ls_user, project, question_json):
     """
-
-    :param project_id:
-    :param task_ids:
-    :return:
+    为项目中的所有任务创建预测标签
+    
+    Args:
+        ls_user: Label Studio 用户实例
+        project: Label Studio 项目实例
+        question_json: 问题JSON配置
+    
+    Returns:
+        list: 预测结果列表
     """
-    prediction_c = LabelStudioPredictionCreator(ls_user,question_json)
+    prediction_creator = LabelStudioPredictionCreator(ls_user, question_json)
     tasks = project.get_tasks()
+    
     predictions = []
     for task in tasks:
         try:
-            res = prediction_c.create_prediction_for_task(task, project)
-            predictions.append(res)
+            result = prediction_creator.create_prediction_for_task(task, project)
+            if result:
+                predictions.append(result)
         except Exception as e:
-            logger.error(f"处理任务 {task.id} 时发生错误: {str(e)}")
-            # todo 添加错误处理逻辑
-            continue
+            logger.error(f"处理任务 {task.id} 时发生错误: {str(e)}", exc_info=True)
+            # TODO: 添加错误处理逻辑
+    
     return predictions

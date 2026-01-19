@@ -5,12 +5,22 @@ from src.flask_funcs.common_utils import validate_required_fields, generate_uniq
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
     KnowledgePathCrud
 from src.zlpt_temp import ls_create_project, ls_create_tasks, know_client, LabelStudioLogin, label_by_prediction
+from concurrent.futures import ThreadPoolExecutor
 
+# 创建线程池执行器
+executor = ThreadPoolExecutor(max_workers=5)
 # 创建logger
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_label_studio_bp = Blueprint('local_knowledge_label_studio', __name__)
+
+
+def _label_by_prediction(ls_user, project, task, question_json):
+    res = label_by_prediction(ls_user, project, question_json)
+    logger.info(f"预测任务结束返回: {res}")
+    with LabelStudioCrud() as ls_crud:
+        ls_crud.annotation_task_update(task_id=task['task_id'], annotated_chunks=len(res), task_status='已完成')
 
 
 def _get_label_studio_client(ls_crud, label_studio_env_id):
@@ -504,12 +514,13 @@ def update_annotation():
                     return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
                 label_studio_project_id = ls_crud.annotation_task_get_by_id(task_id)['label_studio_project_id']
                 project = ls_user.get_project(label_studio_project_id)
+
+                question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id=task['question_set_id'])
                 if annotation_type == 'mlb':
-                    # 为所有任务进行预测，然后人工生成预测
-                    # 获取问题
-                    question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id=task['question_set_id'])
-                    label_by_prediction(ls_user, project, question_json)
-                # todo 调用llm模型进行标注，异步
+                    executor.submit(_label_by_prediction, ls_user, project, task, question_json)
+                elif annotation_type == 'llm':
+                    pass
+                    # todo 按llm模型预测方式进行标注
             else:
                 # 使用手动方式标注，直接返回
                 pass
