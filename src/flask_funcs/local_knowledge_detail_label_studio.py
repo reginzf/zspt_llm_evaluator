@@ -4,13 +4,28 @@ import logging
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
     KnowledgePathCrud
-from src.zlpt_temp import ls_create_project, ls_create_tasks, know_client, ls_user
+from src.zlpt_temp import ls_create_project, ls_create_tasks, know_client, LabelStudioLogin, label_by_prediction
 
 # 创建logger
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_label_studio_bp = Blueprint('local_knowledge_label_studio', __name__)
+
+
+def _get_label_studio_client(ls_crud, label_studio_env_id):
+    """
+    根据label_studio_env_id获取Label Studio客户端实例
+    提取公共逻辑以避免重复代码
+    """
+    ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_env_id)
+    if ls_info:
+        ls_info = ls_crud._label_studio_to_json(ls_info[0])
+        ls_user = LabelStudioLogin(url=ls_info['label_studio_url'], api_key=ls_info['label_studio_api_key'],
+                                   label_studio_id=label_studio_env_id)
+        return ls_user
+    else:
+        return None
 
 
 @local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['POST'])
@@ -317,6 +332,9 @@ def sync_annotation_project():
             label_studio_project_id = task_data.get('label_studio_project_id')
             knowledge_base_id = task_data.get('knowledge_base_id')
 
+            ls_user = _get_label_studio_client(ls_crud, label_studio_env_id)
+            if not ls_user:
+                return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
             # 如果没project_id则创建project
             if not label_studio_project_id:
                 question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
@@ -449,7 +467,7 @@ def get_tasks_by_environment():
             tasks = ls_crud.view_annotation_task_extended_list(label_studio_env_id=env_id, local_knowledge_id=kno_id)
             # 转换为前端期望的格式
             projects = []
-            for task in tasks:          
+            for task in tasks:
                 projects.append(ls_crud._view_annotation_task_extended_list_to_json(task))
         return jsonify({
             'success': True,
@@ -472,18 +490,28 @@ def update_annotation():
 
         if not task_id or not annotation_type:
             return jsonify({"success": False, "message": "缺少必要参数"}), 400
-        with LabelStudioCrud() as ls_crud:
+        with LabelStudioCrud() as ls_crud, QuestionsCRUD() as q_crud:
             # 检查任务是否存在
             task = ls_crud.annotation_task_get_by_id(task_id)
             if not task:
                 return jsonify({"success": False, "message": "任务不存在"}), 400
             success = ls_crud.annotation_task_update(task_id=task_id, annotation_type=annotation_type,
                                                      task_status="标注中")
-            if annotation_type == 'llm':
+            if annotation_type in ['mlb', 'llm']:
+                label_studio_env_id = task['label_studio_env_id']
+                ls_user = _get_label_studio_client(ls_crud, label_studio_env_id)
+                if not ls_user:
+                    return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
+                label_studio_project_id = ls_crud.annotation_task_get_by_id(task_id)['label_studio_project_id']
+                project = ls_user.get_project(label_studio_project_id)
+                if annotation_type == 'mlb':
+                    # 为所有任务进行预测，然后人工生成预测
+                    # 获取问题
+                    question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id=task['question_set_id'])
+                    label_by_prediction(ls_user, project, question_json)
                 # todo 调用llm模型进行标注，异步
-                pass
-            if annotation_type == 'mlb':
-                # todo 使用ml_backend方式进行标注，异步
+            else:
+                # 使用手动方式标注，直接返回
                 pass
         if success:
             return jsonify({"success": True, "message": "更新标注方式成功"})
@@ -492,4 +520,3 @@ def update_annotation():
     except Exception as e:
         logger.error(f"更新标注方式时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
-

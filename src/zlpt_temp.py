@@ -15,7 +15,8 @@ from src.zlpt.api.project import Project
 from src.label_studio_api import label_studio_client
 from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
 from src.label_studio_api.task import get_tasks_with_specific_choice
-
+from src.label_studio_api.label_studio_client import LabelStudioLogin
+from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.pub_funs import save_json_file, load_json_file
 
@@ -34,7 +35,10 @@ __all__ = [
     "zlpt_get_chunk_all_by_doc_id",
     "ls_create_project",
     "ls_create_tasks",
-    "cal_metric_by_chunk_id_fullmatch"
+    "cal_metric_by_chunk_id_fullmatch",
+    "LabelStudioLogin",
+    "label_by_prediction"
+
 ]
 CHUNK_ID_PATH = '$.data.records..chunk_id'
 CHUNK_TEXT_PATH = '$.data.records..chunk_text'
@@ -270,3 +274,24 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
 
     save_json_file(metric_all, str(file_path))
     logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
+
+
+def label_by_prediction(ls_user, project, question_json):
+    """
+
+    :param project_id:
+    :param task_ids:
+    :return:
+    """
+    prediction_c = LabelStudioPredictionCreator(ls_user,question_json)
+    tasks = project.get_tasks()
+    predictions = []
+    for task in tasks:
+        try:
+            res = prediction_c.create_prediction_for_task(task, project)
+            predictions.append(res)
+        except Exception as e:
+            logger.error(f"处理任务 {task.id} 时发生错误: {str(e)}")
+            # todo 添加错误处理逻辑
+            continue
+    return predictions

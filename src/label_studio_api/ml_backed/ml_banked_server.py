@@ -33,11 +33,7 @@ class MyModel(LabelStudioMLBase):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()
-
         logger.info(f"Model loaded successfully, using device: {self.device}")
-        logger.info(f"Label categories: {list(self.LABEL_CONFIG.keys())}")
-
-        # 预计算所有标签的 embeddings
 
 
     def _load_label_config(self,questions_json):

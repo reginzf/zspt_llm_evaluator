@@ -21,24 +21,6 @@ def create_tasks(project, json_datas, step=10):
     return res
 
 
-def get_all_tasks(project):
-    """
-    获取所有任务
-    :param project:
-    :return:
-    """
-    page = 1
-    size = 30
-    tasks = []
-    result = project.get_tasks(page=page, size=size)
-    total = result['total']
-    tasks.extend(result['tasks'])
-    while total > len(tasks):
-        page += 1
-        result = project.get_tasks(page=page, size=size)
-        tasks.extend(result['tasks'])
-
-
 def get_tasks_with_specific_choice(project, target_choice):
     """
     获取包含特定choice的所有任务
