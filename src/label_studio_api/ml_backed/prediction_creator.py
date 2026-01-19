@@ -20,7 +20,7 @@ class LabelStudioPredictionCreator:
     用于将MyModel的预测结果上传到Label Studio
     """
 
-    def __init__(self, label_studio_client: Client):
+    def __init__(self, label_studio_client: Client,question_json):
         """
         初始化预测创建器
 
@@ -30,7 +30,7 @@ class LabelStudioPredictionCreator:
         """
         self.client = label_studio_client
         self.model = model
-
+        self.model._load_label_config(question_json)
         logger.info("LabelStudioPredictionCreator initialized")
 
     def create_prediction_for_task(
