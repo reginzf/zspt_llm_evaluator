@@ -166,6 +166,23 @@ class CreateTables(PostgreSQLManager):
         }
         return self.create_table("ai_local_knowledge_list", columns)
 
+    def create_local_knowledge_file_upload_table(self) -> bool:
+        """创建本地知识库文件上传记录表"""
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "knol_id": "VARCHAR(100) NOT NULL",  # 本地知识库文件ID，关联ai_local_knowledge_list表
+            "knowledge_base_id": "VARCHAR(100) NOT NULL",  # 知识库ID，关联ai_knowledge_base表
+            "upload_status": "INTEGER DEFAULT 1",  # 上传状态: 0-已上传, 1-未上传, 2-上传中
+            "upload_time": "TIMESTAMP DEFAULT NULL",  # 上传时间
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "FOREIGN KEY (knol_id)": "REFERENCES ai_local_knowledge_list(knol_id) ON DELETE CASCADE",  # 关联本地知识库文件
+            "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE CASCADE",  # 关联知识库
+            "UNIQUE (knol_id, knowledge_base_id)": ""  # 确保同一个文件在一个知识库中只能有一个记录
+        }
+
+        return self.create_table("ai_local_knowledge_file_upload", columns)
+
     def create_knowledge_bind_table(self) -> bool:
         """创建知识库绑定关系表"""
         columns = {
@@ -259,6 +276,7 @@ class CreateTables(PostgreSQLManager):
         self.create_annotation_tasks_table()  # 新增标注任务表
         self.create_metric_tasks_table()  # 新增指标任务表
         self.create_report_table()
+        self.create_local_knowledge_file_upload_table()
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 BIND_STATUS_MAP = {
@@ -269,33 +270,112 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         try:
             return self.execute_query(query, params)
         except Exception as e:
-            self.logger.error(f"查询本地知识库及其绑定信息时发生错误: {e}")
+            logger.error(f"查询本地知识库及其绑定信息时发生错误: {e}")
             raise e
 
-    def get_local_knowledge_files(self, kno_id):
+
+    # 为 ai_local_knowledge_file_upload 表添加 CRUD 方法
+    def local_knowledge_file_upload_insert(self, knol_id: str, knowledge_base_id: str, upload_status: int = 1, upload_time=None):
         """
-        获取本地知识库下的所有文件信息
-        :param kno_id: 本地知识库ID
-        :return: 文件列表
+        插入本地知识库文件上传记录
+        :param knol_id: 本地知识库文件ID
+        :param knowledge_base_id: 知识库ID
+        :param upload_status: 上传状态 (0-已上传, 1-未上传, 2-上传中)
+        :param upload_time: 上传时间
+        :return: 成功返回True，失败返回False
         """
-        # 由于需要特定的WHERE条件(knol_id IS NOT NULL)，我们直接构建查询语句
-        query = """
-              SELECT knol_id,
-                     knol_name,
-                     knol_describe,
-                     knol_path,
-                     file_sync_status,
-                     file_created_at,
-                     file_updated_at
-              FROM v_local_knowledge_comprehensive
-              WHERE kno_id = %s
-                AND knol_id IS NOT NULL
-              """
+        from datetime import datetime
+        
+        data = {
+            "knol_id": knol_id,
+            "knowledge_base_id": knowledge_base_id,
+            "upload_status": upload_status
+        }
+        
+        if upload_time is None:
+            upload_time = datetime.now()
+        data["upload_time"] = upload_time
+        
+        return self.insert("ai_local_knowledge_file_upload", data=data)
+
+    def local_knowledge_file_upload_update(self, knol_id: str, knowledge_base_id: str, upload_status: int = None, upload_time=None):
+        """
+        更新本地知识库文件上传记录
+        :param knol_id: 本地知识库文件ID
+        :param knowledge_base_id: 知识库ID
+        :param upload_status: 上传状态 (0-已上传, 1-未上传, 2-上传中)
+        :param upload_time: 上传时间
+        :return: 成功返回True，失败返回False
+        """
+        data = {}
+        if upload_status is not None:
+            data["upload_status"] = upload_status
+        if upload_time is None and upload_status is not None:  # 如果upload_time为None但upload_status不是None（即状态发生变化），则更新时间为当前时间
+            data["upload_time"] = datetime.now()
+        elif upload_time is not None:
+            data["upload_time"] = upload_time
+        
+        if not data:
+            return False
+        
         try:
-            return self.execute_query(query, (kno_id,))
+            result = self.update("ai_local_knowledge_file_upload", data, knol_id=knol_id, knowledge_base_id=knowledge_base_id)
+            return result
         except Exception as e:
-            self.logger.error(f"查询本地知识库文件信息时发生错误: {e}")
-            raise e
+            logger.error(f"更新本地知识库文件上传记录失败: {e}")
+            return False
+
+    def local_knowledge_file_upload_delete(self, knol_id: str, knowledge_base_id: str):
+        """
+        删除本地知识库文件上传记录
+        :param knol_id: 本地知识库文件ID
+        :param knowledge_base_id: 知识库ID
+        :return: 成功返回True，失败返回False
+        """
+        try:
+            result = self.delete("ai_local_knowledge_file_upload", knol_id=knol_id, knowledge_base_id=knowledge_base_id)
+            return result
+        except Exception as e:
+            logger.error(f"删除本地知识库文件上传记录失败: {e}")
+            return False
+
+    def get_local_knowledge_file_upload(self, order_by: str = None, limit: int = None, **kwargs) -> Optional[List[Tuple]]:
+        """
+        获取本地知识库文件上传记录
+        支持按 knol_id、knowledge_base_id、upload_status 等字段查询
+        支持排序和限制结果数量
+        """
+        exact_match_fields = ['knol_id', 'knowledge_base_id', 'upload_status']
+        partial_match_fields = []
+        allowed_fileds = ['knol_id', 'knowledge_base_id', 'upload_status', 'upload_time', 'created_at', 'updated_at']
+        query, params = self.gen_select_query('ai_local_knowledge_file_upload', 
+                                              order_by=order_by, 
+                                              limit=limit,
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, 
+                                              **kwargs)
+        
+        logger.info(f"执行查询: {query}")
+        return self.execute_query(query, params)
+
+    def _local_knowledge_file_upload_to_json(self, upload_record: Tuple):
+        """
+        将本地知识库文件上传记录转换为JSON格式
+        :param upload_record: 数据库记录元组
+        :return: JSON格式的字典
+        """
+        if upload_record is not None:
+            return {
+                "id": upload_record[0],
+                "knol_id": upload_record[1],
+                "knowledge_base_id": upload_record[2],
+                "upload_status": upload_record[3],
+                "upload_time": upload_record[4].isoformat() if upload_record[4] and hasattr(upload_record[4], 'isoformat') else None,
+                "created_at": upload_record[5].isoformat() if upload_record[5] and hasattr(upload_record[5], 'isoformat') else None,
+                "updated_at": upload_record[6].isoformat() if upload_record[6] and hasattr(upload_record[6], 'isoformat') else None
+            }
+        return None
 
 
 if __name__ == '__main__':
