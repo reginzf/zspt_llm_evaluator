@@ -169,18 +169,3 @@ class LabelStudioPredictionCreator:
             logger.info(f"{task_id}创建预测失败")
 
 
-def main():
-    from src.lzpt_ls_operate import login_label_studio
-
-    project_name = 'OSPFv2_600_0'
-    client = login_label_studio()
-    project: Project = client.get_projects(title=project_name)[0]
-    prediction_c = LabelStudioPredictionCreator(client)
-    task_data = project.get_task(164)
-    print(task_data)
-    res = prediction_c.create_prediction_for_task(task_data, project)
-    print(res)
-
-
-if __name__ == "__main__":
-    main()
