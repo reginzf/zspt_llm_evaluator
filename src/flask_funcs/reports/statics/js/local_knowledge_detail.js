@@ -107,7 +107,7 @@ function loadFileList() {
                     <td>${file.kno_describe || file.knol_describe || '暂无描述'}</td>
                     <td>
                         <span class="file-status ${file.ls_status === 0 ? 'completed' : file.ls_status === 1 ? 'pending' : file.ls_status === 2 ? 'in-progress' : 'unknown'}">
-                            ${file.ls_status === 0 ? '已完成' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '进行中' : '未知'}
+                            ${file.ls_status === 0 ? '已同步' : file.ls_status === 1 ? '未开始' : file.ls_status === 2 ? '同步中' : '未知'}
                         </span>
                     </td>
                     <td>${file.knol_path || file.kno_path || 'N/A'}</td>
