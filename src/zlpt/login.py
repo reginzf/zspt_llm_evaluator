@@ -17,11 +17,11 @@ class LoginManager:
     # 单例实例字典，以base_url和username作为key
     _instances = {}
     _lock = threading.Lock()  # 线程锁，确保线程安全
-    
+
     def __new__(cls, base_url, username, password=None, domain="default"):
         # 使用base_url和username作为key
         key = (base_url, username)
-        
+
         # 检查实例是否存在
         if key not in cls._instances:
             with cls._lock:
@@ -30,12 +30,12 @@ class LoginManager:
                     # 创建新实例
                     instance = super(LoginManager, cls).__new__(cls)
                     cls._instances[key] = instance
-                    
+
                     # 初始化实例属性
                     instance._initialized = False
-                    
+
         return cls._instances[key]
-    
+
     def __init__(self, base_url, username, password=None, domain="default"):
         # 防止重复初始化
         if self._initialized:
@@ -46,7 +46,7 @@ class LoginManager:
                 # 重新执行登录过程
                 self._perform_login(username, password, domain)
             return
-        
+
         # 从代码中提取的公钥片段
         self.key1 = settings.KEY1
         self.key2_addition = settings.KEY2_ADD
@@ -57,7 +57,7 @@ class LoginManager:
         self.domain = domain
         self.ticket = None
         self.auth_token = None
-        
+
         # 初始化session
         self.session = requests.Session()
         # 初始化header
@@ -65,36 +65,36 @@ class LoginManager:
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
-        
+
         # 记录实例创建时间
         self._creation_time = datetime.now()
-        
+
         # 如果提供了密码，执行登录
         if password is not None:
             self._perform_login(username, password, domain)
-        
+
         # 启动定时检查线程
         self._timer_thread = threading.Thread(target=self._check_and_refresh, daemon=True)
         self._timer_thread.start()
-        
+
         self._initialized = True
-        
+
     def _perform_login(self, username, password, domain):
         """执行登录和获取认证密钥的过程"""
         self.login(username, password, domain)
         self.get_auth_key()
-        
+
     def _check_and_refresh(self):
         """定时检查并刷新认证信息"""
         while True:
             # 每分钟检查一次
             time.sleep(60)
-            
+
             # 检查是否超过4小时
             elapsed_time = datetime.now() - self._creation_time
             if elapsed_time > timedelta(hours=4):
                 self._refresh_auth()  # 执行刷新操作
-                
+
     def _refresh_auth(self):
         """刷新认证信息"""
         if self.password is not None:
@@ -226,15 +226,15 @@ if __name__ == "__main__":
     username = "nrgtest"
     password = "Admin@123"
     domain = "default"
-    
+
     login_manager = LoginManager(base_url, username, password, domain)
-    
+
     # 测试登录（请替换为实际的用户名和密码）
     # 执行登录
     response = login_manager.login_unsafe(username, password)
     # 获取auth_token
     print(response)
-    
+
     # 保持主线程运行，以便观察定时刷新功能
     try:
         while True:

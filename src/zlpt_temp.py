@@ -312,7 +312,6 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
 
         # 转换环境信息为字典格式
         env_data = crud._environment_list_to_json(env_result[0])
-
         # 创建并返回登录管理器实例
         zlpt_user = LoginManager(
             env_data['zlpt_base_url'],
@@ -320,8 +319,8 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
             env_data['password'],
             env_data['domain']
         )
-
         return zlpt_user
+
     finally:
         # 如果函数内部创建了数据库连接，则在此关闭
         if should_disconnect:
