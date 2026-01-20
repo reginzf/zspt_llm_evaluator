@@ -262,6 +262,135 @@ class LocalKnowledgeCrud(PostgreSQLManager):
                                               allowed_fileds=allowed_fileds, **kwargs)
         return self.execute_query(query, params)
 
+    def get_local_knowledge_comprehensive(self, kno_id=None, knol_id=None, knowledge_id=None):
+        """
+        获取本地知识库综合信息
+        :param kno_id: 本地知识库ID
+        :param knol_id: 本地知识库文件ID
+        :param knowledge_id: 知识库ID
+        :return: 查询结果
+        """
+        # 构建查询条件
+        query_params = {}
+        if kno_id:
+            query_params['kno_id'] = kno_id
+        if knol_id:
+            query_params['knol_id'] = knol_id
+        if knowledge_id:
+            query_params['knowledge_id'] = knowledge_id
+        
+        exact_match_fields = ['kno_id', 'knol_id', 'knowledge_id']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        # 使用视图查询，需要自定义查询语句
+        if query_params:
+            query, params = self.gen_select_query('ai_local_knowledge_comprehensive_view',
+                                                exact_match_fields=exact_match_fields,
+                                                partial_match_fields=partial_match_fields,
+                                                allowed_fileds=allowed_fileds, 
+                                                **query_params)
+        else:
+            # 如果没有参数，只使用基础查询
+            query = "SELECT * FROM ai_local_knowledge_comprehensive_view WHERE 1=1"
+            params = ()
+
+        try:
+            return self.execute_query(query, params)
+        except Exception as e:
+            self.logger.error(f"查询本地知识库综合信息时发生错误: {e}")
+            raise e
+
+
+    def _local_knowledge_comprehensive_to_json(self, row):
+        """
+        将数据库查询结果转换为JSON格式
+        :param row: 数据库查询结果行
+        :return: JSON格式的字典
+        """
+        # 获取列名（需要根据实际视图结构调整）
+        keys = [
+            'kno_id', 'kno_name', 'kno_describe', 'kno_path', 'local_knowledge_status',
+            'knol_id', 'knol_name', 'knol_describe', 'knol_path', 'file_sync_status',
+            'knowledge_id', 'knowledge_name', 'chunk_size', 'chunk_overlap', 'sliceidentifier', 'visiblerange',
+            'knowledge_bind_status', 'label_studio_bind_status'
+        ]
+        return dict(zip(keys, row))
+
+    def get_local_knowledge_with_bindings(self, kno_id):
+        """
+        获取本地知识库及其绑定信息
+        :param kno_id: 本地知识库ID
+        :return: 包含绑定信息的综合信息
+        """
+        query_params = {'kno_id': kno_id}
+        exact_match_fields = ['kno_id']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        query, params = self.gen_select_query('ai_local_knowledge_comprehensive_view', 
+                                            exact_match_fields=exact_match_fields,
+                                            partial_match_fields=partial_match_fields,
+                                            allowed_fileds=allowed_fileds, 
+                                            **query_params)
+        
+        try:
+            return self.execute_query(query, params)
+        except Exception as e:
+            self.logger.error(f"查询本地知识库及其绑定信息时发生错误: {e}")
+            raise e
+
+    def get_local_knowledge_files(self, kno_id):
+        """
+        获取本地知识库下的所有文件信息
+        :param kno_id: 本地知识库ID
+        :return: 文件列表
+        """
+        # 由于需要特定的WHERE条件(knol_id IS NOT NULL)，我们直接构建查询语句
+        query = """
+              SELECT knol_id,
+                     knol_name,
+                     knol_describe,
+                     knol_path,
+                     file_sync_status,
+                     file_created_at,
+                     file_updated_at
+              FROM v_local_knowledge_comprehensive
+              WHERE kno_id = %s
+                AND knol_id IS NOT NULL
+              """
+        try:
+            return self.execute_query(query, (kno_id,))
+        except Exception as e:
+            self.logger.error(f"查询本地知识库文件信息时发生错误: {e}")
+            raise e
+
+    def get_local_knowledge_sync_info(self, local_kno_id, knowledge_id):
+        """
+        获取用于同步操作的信息
+        :param local_kno_id: 本地知识库ID
+        :param knowledge_id: 知识库ID
+        :return: 同步所需的信息
+        """
+        query_params = {
+            'local_kno_id': local_kno_id,
+            'knowledge_id': knowledge_id
+        }
+        exact_match_fields = ['local_kno_id', 'knowledge_id']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        
+        query, params = self.gen_select_query('ai_local_knowledge_sync_view', 
+                                            exact_match_fields=exact_match_fields,
+                                            partial_match_fields=partial_match_fields,
+                                            allowed_fileds=allowed_fileds, 
+                                            **query_params)
+        
+        try:
+            return self.execute_query(query, params)
+        except Exception as e:
+            self.logger.error(f"查询本地知识库同步信息时发生错误: {e}")
+            raise e
 
 if __name__ == '__main__':
     l_k_c = LocalKnowledgeCrud()
