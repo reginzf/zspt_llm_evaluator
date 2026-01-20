@@ -7,7 +7,7 @@ class CreateViews(PostgreSQLManager):
         self.create_annotation_metric_tasks_view()
         self.create_annotation_task_extended_view()
         self.create_local_knowledge_comprehensive_view()
-        self.create_local_knowledge_sync_view()
+
 
     def create_annotation_metric_tasks_view(self):
         """创建标注任务与指标任务关联视图"""
@@ -103,31 +103,6 @@ class CreateViews(PostgreSQLManager):
 
         self.execute_query(view_query)
 
-    def create_local_knowledge_sync_view(self):
-        """创建用于同步操作的专门视图"""
-
-        view_query = """
-                     CREATE VIEW ai_local_knowledge_sync_view AS
-                     SELECT lk.kno_id           as local_kno_id,
-                            lk.kno_name         as local_kno_name,
-                            lk.kno_path         as local_kno_path,
-                            lkl.knol_id,
-                            lkl.knol_name,
-                            lkl.knol_path,
-                            lkl.ls_status       as file_ls_status,
-                            kb.knowledge_id,
-                            kb.knowledge_name,
-                            kb.chunk_size,
-                            kb.chunk_overlap,
-                            kb_bind.bind_status as knowledge_bind_status
-                     FROM ai_local_knowledge lk
-                              LEFT JOIN ai_local_knowledge_list lkl ON lk.kno_id = lkl.kno_id
-                              LEFT JOIN ai_knowledge_bind kb_bind ON lk.kno_id = kb_bind.kno_id
-                              LEFT JOIN ai_knowledge_base kb ON kb_bind.knowledge_id = kb.knowledge_id
-                     WHERE kb_bind.bind_status = 2; 
-                     """
-
-        self.execute_query(view_query)
 
 
 if __name__ == '__main__':
