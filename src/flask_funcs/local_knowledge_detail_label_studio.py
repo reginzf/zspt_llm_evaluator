@@ -4,7 +4,8 @@ import logging
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
     KnowledgePathCrud
-from src.zlpt_temp import ls_create_project, ls_create_tasks, know_client, LabelStudioLogin, label_by_prediction
+from src.zlpt_temp import ls_create_project, ls_create_tasks, LabelStudioLogin, label_by_prediction, zlpt_login, \
+    KnowledgeBase
 from concurrent.futures import ThreadPoolExecutor
 
 # 创建线程池执行器
@@ -363,6 +364,8 @@ def sync_annotation_project():
             if doc_ids:
                 doc_ids = [doc_id[0] for doc_id in doc_ids]
             # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
+            zlpt_user = zlpt_login(None, None, knowledge_base_id)
+            know_client = KnowledgeBase(zlpt_user)
             task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
             # 将对应task_id设置为已同步
             result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)

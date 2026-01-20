@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields
-from src.zlpt_temp import zlpt_create_knowledge_base
+from src.zlpt_temp import zlpt_create_knowledge_base, zlpt_login
 from src.zlpt.login import LoginManager
 from src.zlpt.api.knowledge_base import KnowledgeBase
 
@@ -50,13 +50,9 @@ def knowledge_base_create():
         chunk_overlap = data['chunk_overlap']
         zlpt_base_id = data['zlpt_base_id']
         with Environment_Crud() as crud:
-            # 查询对应登录数据
-            result = crud.environment_list(zlpt_base_id=zlpt_base_id)
-            if result:
-                result = crud._environment_list_to_json(result[0])
-            else:
-                return jsonify({'success': False, 'message': '环境不存在'}), 400
-            zlpt_user = LoginManager(result['zlpt_base_url'], result['username'], result['password'], result['domain'])
+            zlpt_user = zlpt_login(zlpt_base_id, crud)
+            if not zlpt_user:
+                return jsonify({'success': False, 'message': '知识库创建失败'}), 400
             know_client = KnowledgeBase(zlpt_user)
             zlpt_base_name = zlpt_create_knowledge_base(know_client, knowledge_name, chunk_size, chunk_overlap, )
             res = know_client.knowledge_list(knowledgeBaseName=zlpt_base_name)

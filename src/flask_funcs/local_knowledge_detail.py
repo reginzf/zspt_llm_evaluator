@@ -9,7 +9,7 @@ from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud
 
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
-from src.zlpt_temp import know_client, zlpt_upload_files
+from src.zlpt_temp import zlpt_upload_files, zlpt_login, KnowledgeBase
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -256,9 +256,10 @@ def local_knowledge_sync():
         sync_data = _prepare_sync_data(local_kno_id, knowledge_id)
         if isinstance(sync_data, tuple):  # 错误情况
             return sync_data
-
+        zlpt_user = zlpt_login(None, None, knowledge_id)
+        know_client = KnowledgeBase(zlpt_user)
         # 上传文件到知识库
-        upload_result = _upload_files_to_knowledge_base(sync_data)
+        upload_result = _upload_files_to_knowledge_base(sync_data, know_client)
         if not upload_result:
             logger.error("文件上传失败")
             return jsonify({'success': False, 'message': '文件上传失败'}), 500
@@ -267,7 +268,7 @@ def local_knowledge_sync():
         _update_local_file_status(sync_data['local_files'])
 
         # 更新数据库记录
-        _update_database_records(sync_data)
+        _update_database_records(sync_data, know_client)
 
         logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
         return jsonify({
@@ -331,7 +332,8 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             # 检查并创建目录（如果根目录中不存在对应目录）
             existing_names = [ele['kno_path_name'] for ele in knowledge_path_tree]
             logger.info(f"现有目录名称: {existing_names}")
-
+            zlpt_user = zlpt_login(knowledge_base_info['zlpt_base_id'], e_crud)
+            know_client = KnowledgeBase(zlpt_user)
             if local_knowledge_info['kno_path'] not in existing_names:
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 不存在，创建中...")
                 create_dir_result = know_client.knowledge_content_add_or_update(
@@ -377,7 +379,7 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
         raise
 
 
-def _upload_files_to_knowledge_base(sync_data):
+def _upload_files_to_knowledge_base(sync_data, know_client):
     """上传文件到知识库"""
     logger.info(f"开始上传文件到知识库，文件数量: {len(sync_data['file_path_all'])}")
     upload_result = zlpt_upload_files(
@@ -404,7 +406,7 @@ def _update_local_file_status(local_files):
                 logger.info(f"成功更新文件 {file[1]} 状态为 0")
 
 
-def _update_database_records(sync_data):
+def _update_database_records(sync_data, know_client):
     """更新数据库记录，包括知识路径表和知识表"""
     with KnowledgePathCrud() as kp_crud_inner, KnowledgeCrud() as k_crud:
         k_p_result = kp_crud_inner.get_knowledge_path_list(kno_path_id=sync_data['content_code'])

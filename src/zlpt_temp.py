@@ -19,17 +19,13 @@ from src.label_studio_api.label_studio_client import LabelStudioLogin
 from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.pub_funs import save_json_file, load_json_file
-
+from src.sql_funs import Environment_Crud
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "login_zlpt",
-    "know_client",
-    "project_client",
-    "retrieve_client",
-    "zlpt_user",
+    "zlpt_login",
     "zlpt_create_knowledge_base",
     "zlpt_upload_files",
     "zlpt_get_chunk_all_by_doc_id",
@@ -44,27 +40,6 @@ CHUNK_ID_PATH = '$.data.records..chunk_id'
 CHUNK_TEXT_PATH = '$.data.records..chunk_text'
 
 
-def login_zlpt():
-    """
-    登录紫鸾平台并获取认证密钥
-
-    Returns:
-        LoginManager: 已登录的登录管理器实例
-    """
-    logger.info("开始登录紫鸾平台")
-    login_manager = LoginManager(settings.ZLPT_BASE_URL)
-    # 登陆平台
-    try:
-        login_manager.login(settings.USERNAME, settings.PASSWORD, settings.DOMAIN)
-        login_manager.get_auth_key()
-        logger.info("紫鸾平台登录成功")
-    except Exception as e:
-        logger.error(f"紫鸾平台登录失败: {e}")
-        raise e
-    # 切换项目
-    return login_manager
-
-
 def login_label_studio():
     """
      获取Label Studio客户端实例
@@ -75,10 +50,6 @@ def login_label_studio():
     return label_studio_client
 
 
-zlpt_user = login_zlpt()
-know_client = KnowledgeBase(zlpt_user)
-project_client = Project(zlpt_user)
-retrieve_client = Retrieve(zlpt_user)
 ls_user = login_label_studio()
 
 
@@ -213,7 +184,8 @@ def _process_question_chunk_data(
         search_type: str,
         extract_zlpt_chunk_fn: Callable[[Dict], Any],
         extract_labeled_chunk_fn: Callable[[List[Dict]], Any],
-        compute_metrics_fn: Callable[[Any, Any], Dict]
+        compute_metrics_fn: Callable[[Any, Any], Dict],
+        retrieve_client
 ) -> Dict:
     """处理单个问题的 chunk 数据并计算指标"""
     try:
@@ -243,7 +215,7 @@ def _get_project(ls_user, project_id: str):
 
 
 def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_type: str,
-                                     questions: List[Dict[str, Any]], file_name: str
+                                     questions: List[Dict[str, Any]], file_name: str, retrieve_client
                                      ):
     def extract_zlpt_chunk_ids(data):
         return jsonpath(data, CHUNK_ID_PATH) or []
@@ -267,7 +239,8 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
             search_type=search_type,
             extract_zlpt_chunk_fn=extract_zlpt_chunk_ids,
             extract_labeled_chunk_fn=extract_labeled_chunk_ids,
-            compute_metrics_fn=calculate_chunk_recall_metrics
+            compute_metrics_fn=calculate_chunk_recall_metrics,
+            retrieve_client=retrieve_client
         )
         metrics['type'] = question['question_type']
         metric_all[question['question_content']] = metrics
@@ -290,7 +263,7 @@ def label_by_prediction(ls_user, project, question_json):
     """
     prediction_creator = LabelStudioPredictionCreator(ls_user, question_json)
     tasks = project.get_tasks()
-    
+
     predictions = []
     for task in tasks:
         try:
@@ -300,5 +273,56 @@ def label_by_prediction(ls_user, project, question_json):
         except Exception as e:
             logger.error(f"处理任务 {task.id} 时发生错误: {str(e)}", exc_info=True)
             # TODO: 添加错误处理逻辑
-    
+
     return predictions
+
+
+def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
+    """
+    初始化 ZLPT 登录管理器
+    
+    Args:
+        zlpt_base_id: ZLPT 基础 ID
+        crud: 数据库操作实例
+        knowledge_base_id: 知识库 ID
+    
+    Returns:
+        LoginManager 实例或 False（表示失败）
+    """
+    should_disconnect = False
+
+    # 如果没有提供crud实例，则创建一个新的连接
+    if crud is None:
+        crud = Environment_Crud()
+        crud.connect()
+        should_disconnect = True
+
+    try:
+        # 如果提供了知识库ID，则从中获取zlpt_base_id
+        if knowledge_base_id:
+            kb_result = crud.get_knowledge_base(knowledge_id=knowledge_base_id)
+            if not kb_result:
+                return False
+            zlpt_base_id = kb_result[0][11]
+
+        # 获取环境列表信息
+        env_result = crud.environment_list(zlpt_base_id=zlpt_base_id)
+        if not env_result:
+            return False
+
+        # 转换环境信息为字典格式
+        env_data = crud._environment_list_to_json(env_result[0])
+
+        # 创建并返回登录管理器实例
+        zlpt_user = LoginManager(
+            env_data['zlpt_base_url'],
+            env_data['username'],
+            env_data['password'],
+            env_data['domain']
+        )
+
+        return zlpt_user
+    finally:
+        # 如果函数内部创建了数据库连接，则在此关闭
+        if should_disconnect:
+            crud.disconnect()
