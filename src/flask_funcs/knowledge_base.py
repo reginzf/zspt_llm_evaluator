@@ -3,7 +3,9 @@ from flask import Blueprint, request, jsonify
 import logging
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields
-from src.zlpt_temp import zlpt_create_knowledge_base, know_client
+from src.zlpt_temp import zlpt_create_knowledge_base
+from src.zlpt.login import LoginManager
+from src.zlpt.api.knowledge_base import KnowledgeBase
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -46,16 +48,26 @@ def knowledge_base_create():
         knowledge_name = data['knowledge_name']
         chunk_size = data['chunk_size']
         chunk_overlap = data['chunk_overlap']
-        lspt_base_name = zlpt_create_knowledge_base(know_client, knowledge_name, chunk_size, chunk_overlap, )
-        res = know_client.knowledge_list(knowledgeBaseName=lspt_base_name)
-        # 查询是否创建成功
-        kno_id = jsonpath.jsonpath(res, '$.data..knowledgeId')[0]
-        data['knowledge_id'] = kno_id
-        # 查询root_id
-        res = know_client.knowledge_content_tree(knowledgeId=kno_id)
-        root_id = jsonpath.jsonpath(res, '$.data[?(@.plevel==0)]')[0]['contentCode']
-        data["kno_root_id"] = root_id
+        zlpt_base_id = data['zlpt_base_id']
         with Environment_Crud() as crud:
+            # 查询对应登录数据
+            result = crud.environment_list(zlpt_base_id=zlpt_base_id)
+            if result:
+                result = crud._environment_list_to_json(result[0])
+            else:
+                return jsonify({'success': False, 'message': '环境不存在'}), 400
+            zlpt_user = LoginManager(result['zlpt_base_url'], result['username'], result['password'], result['domain'])
+            know_client = KnowledgeBase(zlpt_user)
+            zlpt_base_name = zlpt_create_knowledge_base(know_client, knowledge_name, chunk_size, chunk_overlap, )
+            res = know_client.knowledge_list(knowledgeBaseName=zlpt_base_name)
+            # 查询是否创建成功
+            kno_id = jsonpath.jsonpath(res, '$.data..knowledgeId')[0]
+            data['knowledge_id'] = kno_id
+            # 查询root_id
+            res = know_client.knowledge_content_tree(knowledgeId=kno_id)
+            root_id = jsonpath.jsonpath(res, '$.data[?(@.plevel==0)]')[0]['contentCode']
+            data["kno_root_id"] = root_id
+
             logger.info(f'插入数据为：{data}')
             result = crud.knowledge_base_insert(**data)
             if result:
@@ -69,7 +81,6 @@ def knowledge_base_create():
     except Exception as e:
         logger.error(f"创建知识库时发生错误: {str(e)}")
         raise e
-        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @knowledge_base_bp.route('/knowledge_base/update/<knowledge_id>', methods=['PUT'])
