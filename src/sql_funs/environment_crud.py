@@ -55,7 +55,8 @@ class Environment_Crud(PostgreSQLManager):
                 "password": environment[7],
                 "domain": environment[8],
                 "created_at": environment[9],
-                "updated_at": environment[10]
+                "updated_at": environment[10],
+                "zlpt_id": environment[11],
             }
         return None
 
