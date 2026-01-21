@@ -21,7 +21,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.insert("ai_metric_tasks", data=data)
 
     def metric_task_update(self, task_id: str, status: str = None,
-                           search_type: str = None,report_path=None):
+                           search_type: str = None, report_path=None):
         """
         更新指标任务
         """
@@ -77,7 +77,6 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               **query_params)
         return self.execute_query(query, params)
 
-
     def _metric_task_to_json(self, row):
         """将指标任务数据库记录转换为JSON格式"""
         if not row:
@@ -116,8 +115,6 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               **query_params)
         return self.execute_query(query, params)
 
-
-
     def view_annotation_metric_task_to_json(self, row):
         """将标注任务与指标任务关联视图记录转换为JSON格式"""
         if not row:
@@ -142,8 +139,8 @@ class MetricTasksCRUD(PostgreSQLManager):
             'metric_status': row[13] if len(row) > 13 else None,
             'search_type': row[14] if len(row) > 14 else None,
 
-            'metric_created_at': row[15].isoformat(),
-            'metric_updated_at': row[16].isoformat(),
+            'metric_created_at': row[15].isoformat() if row[15] else None,
+            'metric_updated_at': row[16].isoformat() if row[16] else None,
         }
 
     # 报告表相关操作方法
@@ -190,8 +187,8 @@ class MetricTasksCRUD(PostgreSQLManager):
 
     def report_list(self, report_id: str = None, search_type: str = None, filepath: str = None, task_id: str = None,
                     status: str = None, error_msg: str = None, order_by: str = None, limit: int = None, **kwargs) -> \
-    Optional[
-        List[Tuple]]:
+            Optional[
+                List[Tuple]]:
         """
         获取报告列表
         支持按条件查询
