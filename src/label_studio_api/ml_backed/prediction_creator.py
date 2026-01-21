@@ -11,7 +11,7 @@ from label_studio_sdk import Client
 from label_studio_sdk._legacy import Project
 from utils.logger import logger
 # 导入MyModel
-from src.label_studio_api.ml_backed.ml_banked_server import model
+from src.label_studio_api.ml_backed.ml_banked_server import model,MyModel
 
 
 class LabelStudioPredictionCreator:
@@ -29,7 +29,7 @@ class LabelStudioPredictionCreator:
             model: MyModel实例，如果为None则创建新实例
         """
         self.client = label_studio_client
-        self.model = model
+        self.model = MyModel()
         self.model._load_label_config(question_json)
         logger.info("LabelStudioPredictionCreator initialized")
 

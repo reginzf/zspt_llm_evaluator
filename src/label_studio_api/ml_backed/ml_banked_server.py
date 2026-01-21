@@ -6,6 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 
 import numpy as np
 import json
+from threading import Lock
 
 from env_config_init import  settings
 
@@ -17,8 +18,30 @@ class MyModel(LabelStudioMLBase):
     使用 bge-base-zh-v1.5 本地模型进行文本分类预测
     通过计算输入文本与标签文本的相似度来进行分类
     """
+    
+    # 单例模式相关属性
+    _instances = {}
+    _lock = Lock()
+
+    def __new__(cls, **kwargs):
+        # 获取用于标识实例的参数
+        model_path = getattr(settings, 'MODEL_PATH', None)
+        similarity_threshold = getattr(settings, 'SIMILARITY_THRESHOLD', 0.5)
+        
+        # 创建唯一键
+        key = (model_path, similarity_threshold)
+        
+        # 线程安全的单例实现
+        with cls._lock:
+            if key not in cls._instances:
+                cls._instances[key] = super(MyModel, cls).__new__(cls)
+            return cls._instances[key]
 
     def __init__(self, **kwargs):
+        # 防止重复初始化
+        if hasattr(self, '_initialized'):
+            return
+            
         super(MyModel, self).__init__(**kwargs)
 
         self.model_path = settings.MODEL_PATH
@@ -34,7 +57,9 @@ class MyModel(LabelStudioMLBase):
         self.model.to(self.device)
         self.model.eval()
         logger.info(f"Model loaded successfully, using device: {self.device}")
-
+        
+        # 标记已初始化
+        self._initialized = True
 
     def _load_label_config(self,questions_json):
         """从 JSON 文件加载标签配置"""
@@ -196,7 +221,7 @@ class MyModel(LabelStudioMLBase):
 
 
 # 创建模型实例
-model = MyModel()
+
 
 
 @app.route('/predict', methods=['POST'])
@@ -260,3 +285,4 @@ def get_config():
 if __name__ == '__main__':
     logger.info("Starting ML Backend Server...")
     app.run(host='0.0.0.0', port=9090, debug=True)
+    model = MyModel()
