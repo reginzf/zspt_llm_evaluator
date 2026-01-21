@@ -12,20 +12,20 @@ from src.zlpt.login import LoginManager
 from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve, SLICEIDENTIFIER
 from src.zlpt.api.project import Project
 
-from src.label_studio_api import label_studio_client
 from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
 from src.label_studio_api.task import get_tasks_with_specific_choice
 from src.label_studio_api.label_studio_client import LabelStudioLogin
 from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
 from utils.pub_funs import save_json_file, load_json_file
-from src.sql_funs import Environment_Crud
+from src.sql_funs import Environment_Crud, LabelStudioCrud
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "zlpt_login",
+    "ls_login",
     "zlpt_create_knowledge_base",
     "zlpt_upload_files",
     "zlpt_get_chunk_all_by_doc_id",
@@ -38,19 +38,6 @@ __all__ = [
 ]
 CHUNK_ID_PATH = '$.data.records..chunk_id'
 CHUNK_TEXT_PATH = '$.data.records..chunk_text'
-
-
-def login_label_studio():
-    """
-     获取Label Studio客户端实例
-
-     Returns:
-         label_studio_client: Label Studio客户端实例
-     """
-    return label_studio_client
-
-
-ls_user = login_label_studio()
 
 
 def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size, chunk_overlap):
@@ -325,3 +312,13 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
         # 如果函数内部创建了数据库连接，则在此关闭
         if should_disconnect:
             crud.disconnect()
+
+
+def ls_login(url, api, label_studio_id):
+    if label_studio_id:
+        with LabelStudioCrud() as ls_crud:
+            ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_id)
+            if ls_info:
+                return LabelStudioLogin(url=ls_info[0][1], api_key=ls_info[0][2], label_studio_id=label_studio_id)
+    else:
+        return LabelStudioLogin(url, api, label_studio_id)

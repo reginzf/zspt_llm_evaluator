@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from src.sql_funs import MetricTasksCRUD, LabelStudioCrud, QuestionsCRUD
 import datetime
 import logging
-from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, ls_user, zlpt_login, Retrieve
+from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, zlpt_login, Retrieve, ls_login
 from concurrent.futures import ThreadPoolExecutor
 from src.flask_funcs.common_utils import generate_unique_id
 
@@ -39,6 +39,7 @@ def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, que
         with MetricTasksCRUD() as mt_crud:
             mt_crud.metric_task_update(task_id, status='失败')
             mt_crud.report_update(report_id, status='计算失败', error_msg=str(e))
+        raise e
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/create', methods=['POST'])
@@ -103,7 +104,7 @@ def start_calculation():
         if not task_id or not search_type:
             return jsonify({"success": False, "message": "缺少必要参数"}), 400
         # 获取必要的参数
-        with MetricTasksCRUD() as mt_crud, LabelStudioCrud() as ls_crud, QuestionsCRUD() as q_crud:
+        with MetricTasksCRUD() as mt_crud, QuestionsCRUD() as q_crud:
             # 获取任务的信息
             annotation_task = mt_crud.view_get_annotation_metric_tasks(task_id)
             if annotation_task:
@@ -127,6 +128,7 @@ def start_calculation():
             file_name = f'{task_id}_{search_type}_{time}.json'
         if success:
             # 使用线程池异步执行计算任务
+            ls_user = ls_login(None, None, annotation_task_dict['label_studio_env_id'])
             executor.submit(cal_metric, task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list,
                             file_name)
             return jsonify({"success": True, "message": "质量计算已启动"})
