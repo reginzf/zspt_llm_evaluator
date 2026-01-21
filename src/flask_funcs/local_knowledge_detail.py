@@ -265,7 +265,7 @@ def local_knowledge_sync():
             return jsonify({'success': False, 'message': '文件上传失败'}), 500
 
         # 更新本地文件状态
-        _update_local_file_status(sync_data['local_files'])
+        _update_local_file_status(sync_data['local_files'], sync_data['uploaded_files'], knowledge_id)
 
         # 更新数据库记录
         _update_database_records(sync_data, know_client)
@@ -284,10 +284,10 @@ def local_knowledge_sync():
 def _prepare_sync_data(local_kno_id, knowledge_id):
     """准备同步数据，包括本地知识库信息、文件列表、目标知识库配置等"""
     try:
-        with LocalKnowledgeCrud() as comprehensive_crud, KnowledgePathCrud() as kp_crud, Environment_Crud() as e_crud:
+        with LocalKnowledgeCrud() as lk_crud, KnowledgePathCrud() as kp_crud, Environment_Crud() as e_crud:
             # 获取本地知识库信息
             logger.info(f"获取本地知识库信息: {local_kno_id}")
-            local_knowledge_comprehensive = comprehensive_crud.get_local_knowledge_with_bindings(local_kno_id)
+            local_knowledge_comprehensive = lk_crud.get_local_knowledge_with_bindings(local_kno_id)
             if not local_knowledge_comprehensive:
                 return jsonify({'success': False, 'message': f'未找到本地知识库: {local_kno_id}'}), 404
 
@@ -303,16 +303,18 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
 
             # 获取本地知识库的文件列表
             logger.info(f"获取本地知识库 {local_kno_id} 的文件列表")
-            local_files = comprehensive_crud.get_local_knowledge_file_list(kno_id=local_kno_id, ls_status=1)
+            local_files = lk_crud.get_local_knowledge_file_list(kno_id=local_kno_id)
             logger.info(f"获取到 {len(local_files)} 个本地文件")
-
+            # 获取已经上传的文件列表
+            uploaded_files = lk_crud.get_local_knowledge_file_upload(knowledge_base_id=knowledge_id)
+            uploaded_files = [file[1] for file in uploaded_files]
             # 构建文件路径列表
             file_path_all = []
             for file in local_files:
-                file_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, local_knowledge_info['kno_path'], file[2])
-                file_path_all.append(file_path)
+                if file[2] not in uploaded_files:
+                    file_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, local_knowledge_info['kno_path'], file[2])
+                    file_path_all.append(file_path)
             logger.info(f"构建文件路径列表: {file_path_all}")
-
             # 获取知识库配置信息
             logger.info(f"获取知识库 {knowledge_id} 的配置信息")
             knowledge_base_list = e_crud.get_knowledge_base(knowledge_id=knowledge_id)
@@ -368,6 +370,7 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             return {
                 'local_knowledge_info': local_knowledge_info,
                 'local_files': local_files,
+                'uploaded_files': uploaded_files,
                 'file_path_all': file_path_all,
                 'knowledge_base_info': knowledge_base_info,
                 'content_code': content_code,
@@ -394,16 +397,18 @@ def _upload_files_to_knowledge_base(sync_data, know_client):
     return upload_result
 
 
-def _update_local_file_status(local_files):
+def _update_local_file_status(local_files, uploaded_files, knowledge_id):
     """更新本地文件状态为已同步"""
     logger.info("开始更新本地文件状态")
     with LocalKnowledgeCrud() as l_crud:
         for file in local_files:
-            update_result = l_crud.local_knowledge_list_update(file[1], ls_status=0)  # 状态0表示已同步
-            if not update_result:
-                logger.warning(f"更新文件 {file[1]} 状态失败")
-            else:
-                logger.info(f"成功更新文件 {file[1]} 状态为 0")
+            if file[2] not in uploaded_files:
+                update_result = l_crud.local_knowledge_list_update(file[1], ls_status=0)  # 状态0表示已同步
+                l_crud.local_knowledge_file_upload_insert(file[1], knowledge_id, 0)
+                if not update_result:
+                    logger.warning(f"更新文件 {file[1]} 状态失败")
+                else:
+                    logger.info(f"成功更新文件 {file[1]} 状态为 0")
 
 
 def _update_database_records(sync_data, know_client):
