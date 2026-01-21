@@ -3,7 +3,7 @@ import logging
 
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
-    KnowledgePathCrud
+    KnowledgePathCrud,MetricTasksCRUD
 from src.zlpt_temp import ls_create_project, ls_create_tasks, LabelStudioLogin, label_by_prediction, zlpt_login, \
     KnowledgeBase
 from concurrent.futures import ThreadPoolExecutor
@@ -20,8 +20,9 @@ local_knowledge_label_studio_bp = Blueprint('local_knowledge_label_studio', __na
 def _label_by_prediction(ls_user, project, task, question_json):
     res = label_by_prediction(ls_user, project, question_json)
     logger.info(f"预测任务结束返回: {res}")
-    with LabelStudioCrud() as ls_crud:
+    with LabelStudioCrud() as ls_crud,MetricTasksCRUD() as mt_crud:
         ls_crud.annotation_task_update(task_id=task['task_id'], annotated_chunks=len(res), task_status='已完成')
+        mt_crud.metric_task_create(task['task_id'],'未开始')
 
 
 def _get_label_studio_client(ls_crud, label_studio_env_id):
