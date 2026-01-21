@@ -3,9 +3,9 @@ import logging
 
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
-    KnowledgePathCrud,MetricTasksCRUD
+    KnowledgePathCrud, MetricTasksCRUD
 from src.zlpt_temp import ls_create_project, ls_create_tasks, LabelStudioLogin, label_by_prediction, zlpt_login, \
-    KnowledgeBase
+    KnowledgeBase, ls_login
 from concurrent.futures import ThreadPoolExecutor
 
 # 创建线程池执行器
@@ -20,24 +20,10 @@ local_knowledge_label_studio_bp = Blueprint('local_knowledge_label_studio', __na
 def _label_by_prediction(ls_user, project, task, question_json):
     res = label_by_prediction(ls_user, project, question_json)
     logger.info(f"预测任务结束返回: {res}")
-    with LabelStudioCrud() as ls_crud,MetricTasksCRUD() as mt_crud:
+    with LabelStudioCrud() as ls_crud, MetricTasksCRUD() as mt_crud:
         ls_crud.annotation_task_update(task_id=task['task_id'], annotated_chunks=len(res), task_status='已完成')
-        mt_crud.metric_task_create(task['task_id'],'未开始')
+        mt_crud.metric_task_create(task['task_id'], '未开始')
 
-
-def _get_label_studio_client(ls_crud, label_studio_env_id):
-    """
-    根据label_studio_env_id获取Label Studio客户端实例
-    提取公共逻辑以避免重复代码
-    """
-    ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_env_id)
-    if ls_info:
-        ls_info = ls_crud._label_studio_to_json(ls_info[0])
-        ls_user = LabelStudioLogin(url=ls_info['label_studio_url'], api_key=ls_info['label_studio_api_key'],
-                                   label_studio_id=label_studio_env_id)
-        return ls_user
-    else:
-        return None
 
 
 @local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['POST'])
@@ -344,7 +330,7 @@ def sync_annotation_project():
             label_studio_project_id = task_data.get('label_studio_project_id')
             knowledge_base_id = task_data.get('knowledge_base_id')
 
-            ls_user = _get_label_studio_client(ls_crud, label_studio_env_id)
+            ls_user = ls_login(None, None, label_studio_env_id, ls_crud)
             if not ls_user:
                 return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
             # 如果没project_id则创建project
@@ -513,7 +499,7 @@ def update_annotation():
                                                      task_status="标注中")
             if annotation_type in ['mlb', 'llm']:
                 label_studio_env_id = task['label_studio_env_id']
-                ls_user = _get_label_studio_client(ls_crud, label_studio_env_id)
+                ls_user = ls_login(None, None, label_studio_env_id, ls_crud)
                 if not ls_user:
                     return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
                 label_studio_project_id = ls_crud.annotation_task_get_by_id(task_id)['label_studio_project_id']

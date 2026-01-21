@@ -314,11 +314,18 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
             crud.disconnect()
 
 
-def ls_login(url, api, label_studio_id):
+def ls_login(url, api, label_studio_id, crud=None):
+    ls_info = None
     if label_studio_id:
-        with LabelStudioCrud() as ls_crud:
-            ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_id)
-            if ls_info:
-                return LabelStudioLogin(url=ls_info[0][1], api_key=ls_info[0][2], label_studio_id=label_studio_id)
+        if crud:
+            ls_info = crud.label_studio_list(label_studio_id=label_studio_id)
+        else:
+            with LabelStudioCrud() as ls_crud:
+                ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_id)
+        if ls_info:
+            return LabelStudioLogin(url=ls_info[0][1], api_key=ls_info[0][2], label_studio_id=label_studio_id)
+        else:
+            logger.info(f"未找到ID为{label_studio_id}的Label Studio信息")
+            return False
     else:
         return LabelStudioLogin(url, api, label_studio_id)
