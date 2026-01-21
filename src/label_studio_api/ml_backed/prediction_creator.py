@@ -11,7 +11,7 @@ from label_studio_sdk import Client
 from label_studio_sdk._legacy import Project
 from utils.logger import logger
 # 导入MyModel
-from src.label_studio_api.ml_backed.ml_banked_server import model,MyModel
+from src.label_studio_api.ml_backed.ml_banked_server import MyModel
 
 
 class LabelStudioPredictionCreator:
