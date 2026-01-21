@@ -261,6 +261,15 @@
     color: #5a67d8;
 }
 
+/* 错误信息样式 - 处理长文本 */
+.report-table td:nth-child(4) {  /* 第4列是错误信息列 */
+    max-width: 200px;  /* 设置最大宽度 */
+    word-wrap: break-word;  /* 允许长单词换行 */
+    word-break: break-word;  /* 在任意字符间换行 */
+    overflow-wrap: break-word;  /* 确保长内容能换行 */
+    white-space: normal;  /* 允许正常的换行 */
+}
+
 /* 模态框样式 */
 .modal {
     display: none;
@@ -283,9 +292,15 @@
     max-width: 500px;
 }
 
+/* 使用更具体的选择器和 !important 确保样式优先级 */
+#reportModal .modal-content.large {
+    width: 90% !important;  /* 增加宽度 */
+    max-width: 1400px !important;  /* 设置更大的最大宽度 */
+}
+
 .modal-content.large {
-    width: 80%;  /* 增加宽度 */
-    max-width: 1200px;  /* 设置更大的最大宽度 */
+    width: 90% !important;  /* 增加宽度 */
+    max-width: 1400px !important;  /* 设置更大的最大宽度 */
 }
 
 /* 下拉内容样式 - 用于计算方式选择 */

@@ -525,6 +525,7 @@ tr:hover {
     background-color: rgba(0,0,0,0.5);
 }
 
+/* 通用模态框内容样式，使用基础样式 */
 .modal-content {
     background-color: white;
     margin: 10% auto;
@@ -533,6 +534,22 @@ tr:hover {
     border-radius: 8px;
     width: 50%;
     max-width: 500px;
+}
+
+/* 针对特定用途的模态框，使用更具体的ID选择器来提高优先级 */
+#reportModal .modal-content {
+    width: 90%;
+    max-width: 1400px;
+}
+
+#annotationModal .modal-content {
+    width: 30%;
+    max-width: 400px;
+}
+
+#calculationModal .modal-content {
+    width: 30%;
+    max-width: 400px;
 }
 
 .modal-header {

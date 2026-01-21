@@ -200,12 +200,45 @@
     background-color: rgba(0,0,0,0.4);
 }
 
+/* 为不同的模态框使用更具体的选择器以避免冲突 */
+#questionModal .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 5px;
+}
+
+#environmentModal .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 60%;
+    max-width: 600px;
+    border-radius: 5px;
+}
+
+#taskModal .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 50%;
+    max-width: 500px;
+    border-radius: 5px;
+}
+
+/* 通用模态框内容样式，使用较低优先级 */
 .modal-content {
     background-color: #fefefe;
     margin: 15% auto;
     padding: 20px;
     border: 1px solid #888;
     width: 50%;
+    max-width: 500px;
     border-radius: 5px;
 }
 
