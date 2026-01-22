@@ -4,9 +4,12 @@ import logging
 from src.flask_funcs.common_utils import validate_required_fields, generate_unique_id
 from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, QuestionsCRUD, KnowledgeCrud, \
     KnowledgePathCrud, MetricTasksCRUD
-from src.zlpt_temp import ls_create_project, ls_create_tasks, LabelStudioLogin, label_by_prediction, zlpt_login, \
+from src.zlpt_temp import ls_create_project, ls_create_tasks, label_by_prediction, zlpt_login, \
     KnowledgeBase, ls_login
 from concurrent.futures import ThreadPoolExecutor
+
+# 导入LLM标注功能
+from src.llm.llm_interface import llm_annotation_interface
 
 # 创建线程池执行器
 executor = ThreadPoolExecutor(max_workers=5)
@@ -23,7 +26,6 @@ def _label_by_prediction(ls_user, project, task, question_json):
     with LabelStudioCrud() as ls_crud, MetricTasksCRUD() as mt_crud:
         ls_crud.annotation_task_update(task_id=task['task_id'], annotated_chunks=len(res), task_status='已完成')
         mt_crud.metric_task_create(task['task_id'], '未开始')
-
 
 
 @local_knowledge_label_studio_bp.route('/local_knowledge_detail/label_studio/get_environments', methods=['POST'])
@@ -509,8 +511,8 @@ def update_annotation():
                 if annotation_type == 'mlb':
                     executor.submit(_label_by_prediction, ls_user, project, task, question_json)
                 elif annotation_type == 'llm':
-                    pass
-                    # todo 按llm模型预测方式进行标注
+                    # 使用LLM进行自动标注
+                    executor.submit(_llm_annotation_process, ls_user, project, task, question_json)
             else:
                 # 使用手动方式标注，直接返回
                 pass
@@ -521,3 +523,52 @@ def update_annotation():
     except Exception as e:
         logger.error(f"更新标注方式时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
+
+
+def _llm_annotation_process(ls_user, project, task, question_json):
+    """
+    LLM标注处理函数
+    """
+    from label_studio_sdk import Client
+    from label_studio_sdk._legacy import Project
+    ls_user: Client
+    project: Project
+    project.create_annotation()
+    try:
+        logger.info(f"开始LLM标注任务: {task['task_id']}")
+
+        # 获取领域配置
+        domain_config = {
+            "knowledge_domain": "网络协议",
+            "domain_description": "网络协议相关知识",
+            "required_background": ["网络基础知识", "协议分析能力"],
+            "required_skills": ["技术文档理解能力", "问题分类和匹配能力"]
+        }
+
+        # 执行LLM标注
+        # 这里需要获取知识切片内容，然后逐个进行标注
+        # 获取任务相关的知识切片（这里需要从数据库获取）
+        tasks = project.get_tasks()
+        for task in tasks:
+            task_id = task.get('id')
+            text_data = task['data'].get('text', '')
+            result = llm_annotation_interface.annotate_single_slice(
+                domain_config=domain_config,
+                questions_config=question_json,
+                slice_text=text_data
+            )
+            if result != "无匹配" and isinstance(result, dict):
+                # todo 根据result还原标注结果
+                # todo 在label studio上进行标注或者创建预测
+                pass
+
+            # 更新任务状态为已完成
+            with LabelStudioCrud() as ls_crud:
+                ls_crud.annotation_task_update(task_id=task['task_id'], task_status='标注完成')
+
+            logger.info(f"LLM标注任务完成: {task['task_id']}")
+    except Exception as e:
+        logger.error(f"LLM标注过程发生错误: {str(e)}")
+        # 更新任务状态为错误
+        with LabelStudioCrud() as ls_crud:
+            ls_crud.annotation_task_update(task_id=task['task_id'], task_status='标注错误')
