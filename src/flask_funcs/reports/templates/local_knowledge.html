@@ -87,6 +87,42 @@
             </div>
         </div>
     </div>
+
+    <!-- 编辑知识库对话框 -->
+    <div id="editKnowledgeDialog" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑知识库</h3>
+                <span class="close" onclick="closeEditKnowledgeDialog()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editKnoDescribe">描述</label>
+                    <input type="text" id="editKnoDescribe" class="form-control" placeholder="请输入知识库描述">
+                </div>
+                <div class="form-group">
+                    <label for="editKnowledgeDomain">知识域名</label>
+                    <input type="text" id="editKnowledgeDomain" class="form-control" placeholder="请输入知识域名">
+                </div>
+                <div class="form-group">
+                    <label for="editDomainDescription">知识域描述</label>
+                    <input type="text" id="editDomainDescription" class="form-control" placeholder="请输入知识域描述">
+                </div>
+                <div class="form-group">
+                    <label for="editRequiredBackground">背景知识</label>
+                    <input type="text" id="editRequiredBackground" class="form-control" placeholder="请输入背景知识，用逗号分隔">
+                </div>
+                <div class="form-group">
+                    <label for="editRequiredSkills">标注LLM能力</label>
+                    <input type="text" id="editRequiredSkills" class="form-control" placeholder="请输入标注LLM能力，用逗号分隔">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="submitEditKnowledge()">确定</button>
+                <button class="btn btn-secondary" onclick="closeEditKnowledgeDialog()">取消</button>
+            </div>
+        </div>
+    </div>
 </div>
 <script src="{{ js_url }}"></script>
 
