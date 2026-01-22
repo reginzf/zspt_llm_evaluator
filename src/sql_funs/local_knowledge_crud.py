@@ -2,6 +2,7 @@ from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
 from datetime import datetime
+import json
 
 logger = logging.getLogger(__name__)
 BIND_STATUS_MAP = {
@@ -28,7 +29,9 @@ class LocalKnowledgeCrud(PostgreSQLManager):
         })
 
     def local_knowledge_update(self, kno_id: str, kno_name: str = None, kno_describe: str = None,
-                               kno_path: str = None, knol_id: str = None, ls_status: int = None):
+                               kno_path: str = None, knol_id: str = None, ls_status: int = None,
+                               knowledge_domain: str = None, domain_description: str = None,
+                               required_background: List[str] = None, required_skills: List[str] = None):
         """
         更新本地知识库信息
         """
@@ -36,6 +39,13 @@ class LocalKnowledgeCrud(PostgreSQLManager):
             key: value for key, value in locals().items()
             if key not in ['self', 'kno_id', 'knol_id'] and value is not None
         }
+        
+        # 处理列表类型的字段，转换为JSON字符串
+        if 'required_background' in data and isinstance(data['required_background'], list):
+            data['required_background'] = json.dumps(data['required_background'], ensure_ascii=False)
+        if 'required_skills' in data and isinstance(data['required_skills'], list):
+            data['required_skills'] = json.dumps(data['required_skills'], ensure_ascii=False)
+            
         if not data:
             return False
 

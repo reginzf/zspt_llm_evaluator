@@ -3,14 +3,12 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify, render_template_string
 import os
 import logging
-import uuid
+
 import shutil
 from env_config_init import settings
-from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
-from src.sql_funs.environment_crud import Environment_Crud
-from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
-from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
-    generate_unique_id
+from src.sql_funs import LocalKnowledgeCrud
+
+from src.flask_funcs.common_utils import     generate_unique_id
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -94,7 +92,7 @@ def local_knowledge_create():
         return jsonify({'success': False, 'message': f'创建知识库时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_bp.route('/local_knowledge/edit', methods=['PUT'])
+@local_knowledge_bp.route('/local_knowledge/edit', methods=['POST'])  # 改为POST方法
 def edit_local_knowledge():
     """更新本地知识库信息"""
     try:
@@ -102,24 +100,35 @@ def edit_local_knowledge():
         kno_id = data.get('kno_id')
         kno_name = data.get('kno_name')
         kno_describe = data.get('kno_describe')
+        knowledge_domain = data.get('knowledge_domain')  # 新增字段
+        domain_description = data.get('domain_description')  # 新增字段
+        required_background = data.get('required_background', [])  # 新增字段，默认为空列表
+        required_skills = data.get('required_skills', [])  # 新增字段，默认为空列表
 
         if not kno_id:
-            return jsonify({'success': False, 'message': '缺少知识库ID'}), 400
+            return jsonify({'success': False, 'message': '缺少必要参数 kno_id'}), 400
+
+        # 构建更新数据字典
+        update_data = {
+            'kno_name': kno_name,
+            'kno_describe': kno_describe,
+            'knowledge_domain': knowledge_domain,
+            'domain_description': domain_description,
+            'required_background': required_background,
+            'required_skills': required_skills
+        }
+        # 过滤掉None值
+        update_data = {k: v for k, v in update_data.items() if v is not None}
 
         with LocalKnowledgeCrud() as crud:
-            # 更新知识库描述
-            success = crud.local_knowledge_update(
-                kno_id=kno_id,
-                kno_name=kno_name,
-                kno_describe=kno_describe
-            )
+            success = crud.local_knowledge_update(kno_id, **update_data)
 
-            if success:
-                return jsonify({'success': True, 'message': '知识库更新成功'})
-            else:
-                return jsonify({'success': False, 'message': '知识库更新失败'}), 500
+        if success:
+            return jsonify({'success': True, 'message': '知识库更新成功'})
+        else:
+            return jsonify({'success': False, 'message': '知识库更新失败'})
+
     except Exception as e:
-        logger.error(f"更新知识库时发生错误: {str(e)}")
         return jsonify({'success': False, 'message': f'更新知识库时发生错误: {str(e)}'}), 500
 
 
@@ -229,3 +238,5 @@ def delete_local_knowledge_file(knol_id):
     except Exception as e:
         logger.error(f"删除文件时发生错误: {str(e)}")
         return jsonify({'status': 'error', 'message': f'删除文件时发生错误: {str(e)}'}), 500
+
+

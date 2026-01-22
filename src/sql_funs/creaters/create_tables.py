@@ -148,8 +148,15 @@ class CreateTables(PostgreSQLManager):
             "kno_describe": "TEXT",  # 描述
             "kno_path": "VARCHAR(500)",  # 相对于ai_local_knowledge_list的相对路径
             "ls_status": "INTEGER DEFAULT 1",  # label-studio中是否完成了标准  0 已完成 1 未开始 2 进行中
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "knowledge_domain": "VARCHAR(200)",  # 知识域名
+            "domain_description": "TEXT",  # 知识域描述
+            "required_background": "JSONB DEFAULT '[]'::jsonb",  # 背景知识(JSONB类型存储List[str])
+            "required_skills": "JSONB DEFAULT '[]'::jsonb",  # 标注LLM能力(JSONB类型存储List[str])
+
         }
-        return self._create_table_with_common_fields("ai_local_knowledge", columns)
+        return self.create_table("ai_local_knowledge", columns)
 
     def create_local_knowledge_list(self) -> bool:
         columns = {

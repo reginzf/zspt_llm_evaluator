@@ -60,34 +60,98 @@ function closeUploadDialog() {
 
 function editKnowledge(event, knoId, knoName, currentDescribe) {
     event.stopPropagation(); // 防止事件冒泡
-    const newDescribe = prompt('请输入新的描述:', currentDescribe);
-    if (newDescribe !== null) {
-        // 发送更新请求
-        fetch('/local_knowledge/edit', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                kno_id: knoId,
-                kno_name: knoName,
-                kno_describe: newDescribe
-            })
+    
+    // 创建一个包含所有字段的表单对话框
+    const formHTML = `
+        <div id="editKnowledgeForm" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <h3>编辑知识库</h3>
+            <div style="margin-bottom: 10px;">
+                <label>描述:</label>
+                <input type="text" id="editKnoDescribe" value="${currentDescribe}" style="width: 100%; padding: 5px; margin-top: 5px;" />
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>知识域名:</label>
+                <input type="text" id="editKnowledgeDomain" placeholder="请输入知识域名" style="width: 100%; padding: 5px; margin-top: 5px;" />
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>知识域描述:</label>
+                <input type="text" id="editDomainDescription" placeholder="请输入知识域描述" style="width: 100%; padding: 5px; margin-top: 5px;" />
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>背景知识 (用逗号分隔):</label>
+                <input type="text" id="editRequiredBackground" placeholder="如: 网络基础知识,TCP/IP协议栈" style="width: 100%; padding: 5px; margin-top: 5px;" />
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>标注LLM能力 (用逗号分隔):</label>
+                <input type="text" id="editRequiredSkills" placeholder="如: 网络协议分析能力,技术文档理解能力" style="width: 100%; padding: 5px; margin-top: 5px;" />
+            </div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button onclick="cancelEditKnowledge()" style="padding: 5px 15px; margin-right: 10px;">取消</button>
+                <button onclick="submitEditKnowledge('${knoId}', '${knoName}')" style="padding: 5px 15px; background-color: #007bff; color: white;">确定</button>
+            </div>
+        </div>
+        <div id="overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+    `;
+    
+    // 添加表单到页面
+    document.body.insertAdjacentHTML('beforeend', formHTML);
+}
+
+function submitEditKnowledge(knoId, knoName) {
+    // 获取表单值
+    const knoDescribe = document.getElementById('editKnoDescribe').value;
+    const knowledgeDomain = document.getElementById('editKnowledgeDomain').value;
+    const domainDescription = document.getElementById('editDomainDescription').value;
+    const requiredBackgroundInput = document.getElementById('editRequiredBackground').value;
+    const requiredSkillsInput = document.getElementById('editRequiredSkills').value;
+    
+    // 将输入的字符串转换为数组
+    const requiredBackground = requiredBackgroundInput ? requiredBackgroundInput.split(',').map(item => item.trim()) : [];
+    const requiredSkills = requiredSkillsInput ? requiredSkillsInput.split(',').map(item => item.trim()) : [];
+    
+    // 发送更新请求
+    fetch('/local_knowledge/edit', {
+        method: 'POST',  // 改为POST方法
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            kno_id: knoId,
+            kno_name: knoName,
+            kno_describe: knoDescribe,
+            knowledge_domain: knowledgeDomain,
+            domain_description: domainDescription,
+            required_background: requiredBackground,
+            required_skills: requiredSkills
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('知识库更新成功');
-                    location.reload();
-                } else {
-                    alert('知识库更新失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('更新知识库时出错:', error);
-                alert('更新过程中发生错误: ' + error.message);
-            });
-    }
+    })
+        .then(response => response.json())
+        .then(data => {
+            // 移除表单
+            document.getElementById('editKnowledgeForm').remove();
+            document.getElementById('overlay').remove();
+            
+            if (data.success) {
+                alert('知识库更新成功');
+                location.reload();
+            } else {
+                alert('知识库更新失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            // 移除表单
+            document.getElementById('editKnowledgeForm').remove();
+            document.getElementById('overlay').remove();
+            
+            console.error('更新知识库时出错:', error);
+            alert('更新过程中发生错误: ' + error.message);
+        });
+}
+
+function cancelEditKnowledge() {
+    // 移除表单
+    document.getElementById('editKnowledgeForm').remove();
+    document.getElementById('overlay').remove();
 }
 
 // 删除知识库功能
