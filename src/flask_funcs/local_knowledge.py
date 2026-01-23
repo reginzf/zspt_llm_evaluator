@@ -52,7 +52,7 @@ def local_knowledge_create():
         if not kno_name or not kno_name.strip():
             return jsonify({'success': False, 'message': '知识库名称不能为空'}), 400
         # 生成唯一ID作为知识库ID
-        kno_id = generate_unique_id(prefix="kno_", length=8)
+        kno_id = generate_unique_id(prefix="kno", length=8)
         dir_filename = f"{kno_name.strip()}_{kno_id}"
         # 创建知识库目录
         knowledge_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, dir_filename)
