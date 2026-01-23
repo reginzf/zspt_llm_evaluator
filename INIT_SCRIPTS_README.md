@@ -1,17 +1,21 @@
 # 项目初始化脚本说明
 
-本项目提供了两个初始化脚本，分别适用于不同的操作系统环境：
+本项目提供了四个初始化脚本，分别适用于不同的操作系统环境：
 
 ## 脚本介绍
 
-### init_project.ps1
+### init_project.ps1 / init_project_ascii.ps1
 - **适用系统**：Windows PowerShell
 - **功能**：自动化完成项目环境配置和初始化
+- **依赖文件**：使用 [requirements.txt](file:///D:/pyworkplace/git_place/ai-ken/requirements.txt)（包含`psycopg2-binary`）
 - **使用方式**：在PowerShell中执行
 
-### init_project.sh  
+### init_project.sh / init_project_ascii.sh  
 - **适用系统**：Linux/macOS bash
 - **功能**：自动化完成项目环境配置和初始化
+- **依赖文件**：
+  - CentOS系统：使用 [requirements_centos.txt](file:///D:/pyworkplace/git_place/ai-ken/requirements_centos.txt)（包含`psycopg2`）
+  - 其他Linux/macOS系统：使用 [requirements.txt](file:///D:/pyworkplace/git_place/ai-ken/requirements.txt)（包含`psycopg2-binary`）
 - **使用方式**：在终端中执行
 
 ## 使用方法
@@ -39,10 +43,10 @@ chmod +x init_project.sh
 
 ## 功能说明
 
-1. **环境检查**：验证Python版本（3.8+）及必要文件
+1. **环境检查**：验证Python版本（3.10+）及必要文件
 2. **交互式配置**：引导用户输入数据库、路径、API等配置信息
 3. **虚拟环境设置**：创建并激活Python虚拟环境
-4. **依赖安装**：根据requirements_centos.txt安装所需包
+4. **依赖安装**：根据操作系统和环境安装所需包
 5. **配置文件生成**：创建configs/settings.toml配置文件
 6. **数据库初始化**：运行数据库创建脚本
 
@@ -71,3 +75,4 @@ chmod +x init_project.sh
 3. 数据库服务需提前安装并启动
 4. API密钥需要从相应平台获取
 5. 模型文件需要从指定位置下载
+6. 脚本会根据操作系统智能选择适当的依赖文件

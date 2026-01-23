@@ -27,14 +27,15 @@ check_environment() {
     major=$(echo "$python_version" | cut -d. -f1)
     minor=$(echo "$python_version" | cut -d. -f2)
     
-    if [[ $major -lt 3 ]] || [[ $major -eq 3 && $minor -lt 8 ]]; then
-        echo -e "${RED}需要Python 3.8+，当前: $python_version${NC}"
+    if [[ $major -lt 3 ]] || [[ $major -eq 3 && $minor -lt 10 ]]; then
+        echo -e "${RED}需要Python 3.10+，当前: $python_version${NC}"
         exit 1
     fi
     
     echo -e "${GREEN} Python $python_version${NC}"
     
     # 检查项目文件
+    # 在Linux/CentOS上，使用requirements_centos.txt
     [ -f "requirements_centos.txt" ] || { echo -e "${RED}未找到requirements_centos.txt${NC}"; exit 1; }
     [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"; }
 }
@@ -96,8 +97,40 @@ setup_venv() {
 
 install_deps() {
     echo -e "${BLUE}安装依赖...${NC}"
-    pip install --upgrade pip
-    pip install -r requirements_centos.txt
+    
+    # 检测操作系统类型
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # 在Linux上检测是否为CentOS
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            if [[ "$NAME" == *"CentOS"* ]]; then
+                echo -e "${BLUE}检测到CentOS系统，使用CentOS优化的依赖文件${NC}"
+                pip install --upgrade pip
+                pip install -r requirements_centos.txt
+            else
+                # 非CentOS Linux系统，使用通用requirements.txt
+                echo -e "${BLUE}检测到非CentOS Linux系统，使用通用依赖文件${NC}"
+                pip install --upgrade pip
+                pip install -r requirements.txt
+            fi
+        else
+            # 无法确定Linux发行版，使用通用requirements.txt
+            echo -e "${BLUE}无法确定Linux发行版，使用通用依赖文件${NC}"
+            pip install --upgrade pip
+            pip install -r requirements.txt
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS系统，使用通用requirements.txt
+        echo -e "${BLUE}检测到macOS系统，使用通用依赖文件${NC}"
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    else
+        # 其他系统（如WSL），使用通用requirements.txt
+        echo -e "${BLUE}检测到其他系统类型，使用通用依赖文件${NC}"
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    fi
+    
     echo -e "${GREEN} 依赖安装完成${NC}"
 }
 

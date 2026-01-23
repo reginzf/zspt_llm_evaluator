@@ -35,6 +35,7 @@ check_environment() {
     echo -e "${GREEN} Python $python_version${NC}"
     
     # Check project files
+    # On Linux/CentOS systems, use requirements_centos.txt
     [ -f "requirements_centos.txt" ] || { echo -e "${RED}requirements_centos.txt not found${NC}"; exit 1; }
     [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}Warning: No database scripts directory${NC}"; }
 }
@@ -96,8 +97,40 @@ setup_venv() {
 
 install_deps() {
     echo -e "${BLUE}Installing dependencies...${NC}"
-    pip install --upgrade pip
-    pip install -r requirements_centos.txt
+    
+    # Detect operating system type
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # On Linux, detect if it's CentOS
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            if [[ "$NAME" == *"CentOS"* ]]; then
+                echo -e "${BLUE}Detected CentOS system, using CentOS-optimized requirements${NC}"
+                pip install --upgrade pip
+                pip install -r requirements_centos.txt
+            else
+                # Non-CentOS Linux system, use general requirements.txt
+                echo -e "${BLUE}Detected non-CentOS Linux system, using general requirements${NC}"
+                pip install --upgrade pip
+                pip install -r requirements.txt
+            fi
+        else
+            # Cannot determine Linux distribution, use general requirements.txt
+            echo -e "${BLUE}Cannot determine Linux distribution, using general requirements${NC}"
+            pip install --upgrade pip
+            pip install -r requirements.txt
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS system, use general requirements.txt
+        echo -e "${BLUE}Detected macOS system, using general requirements${NC}"
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    else
+        # Other systems (like WSL), use general requirements.txt
+        echo -e "${BLUE}Detected other system type, using general requirements${NC}"
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    fi
+    
     echo -e "${GREEN} Dependencies installed${NC}"
 }
 

@@ -41,8 +41,9 @@ function Check-Environment {
     }
     
     # Check project files
-    if (-not (Test-Path "requirements_centos.txt")) {
-        Write-Custom "requirements_centos.txt not found" "Red"
+    # On Windows, prefer requirements.txt which includes psycopg2-binary
+    if (-not (Test-Path "requirements.txt")) {
+        Write-Custom "requirements.txt not found" "Red"
         exit 1
     }
     
@@ -156,8 +157,8 @@ function Install-Deps {
     # Upgrade pip
     python -m pip install --upgrade pip
     
-    # Install dependencies
-    python -m pip install -r requirements_centos.txt
+    # For Windows, use requirements.txt which already contains psycopg2-binary
+    python -m pip install -r requirements.txt
     
     Write-Custom " Dependencies installed" "Green"
 }
@@ -192,8 +193,15 @@ DEEPSEEK_API_BASE = "$($Global:Config.DEEPSEEK_API_BASE)"
 MODEL_NAME = "$($Global:Config.MODEL_NAME)"
 "@
     
+    # Ensure configs directory exists before saving using full path
+    $configDir = Join-Path $PWD "configs"
+    if (!(Test-Path $configDir)) {
+        New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+    }
+    
     # Save configuration file with explicit UTF8 encoding
-    [System.IO.File]::WriteAllText("configs\settings.toml", $configContent, [System.Text.Encoding]::UTF8)
+    $configPath = Join-Path $configDir "settings.toml"
+    [System.IO.File]::WriteAllText($configPath, $configContent, [System.Text.Encoding]::UTF8)
     Write-Custom " Configuration file created" "Green"
 }
 
