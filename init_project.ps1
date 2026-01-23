@@ -41,8 +41,8 @@ function Check-Environment {
     }
     
     # 检查项目文件
-    if (-not (Test-Path "requirements.txt")) {
-        Write-Custom "未找到requirements.txt" "Red"
+    if (-not (Test-Path "requirements_centos.txt")) {
+        Write-Custom "未找到requirements_centos.txt" "Red"
         exit 1
     }
     
