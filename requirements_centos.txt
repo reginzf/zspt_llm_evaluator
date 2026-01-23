@@ -1,0 +1,60 @@
+# Requirements for CentOS deployment with Python 3.11
+# Based on the original requirements.txt but adjusted for CentOS compatibility
+
+# Core Flask and web framework
+Flask==2.3.3
+Werkzeug==2.3.7
+Jinja2==3.1.2
+click==8.1.7
+itsdangerous==2.1.2
+
+# Database connectivity
+SQLAlchemy==1.4.54
+psycopg2==2.9.9          # Using psycopg2 instead of psycopg2-binary for better CentOS compatibility
+PyMySQL==1.1.1
+
+# HTTP clients and async support
+requests==2.32.5
+httpx==0.27.0
+aiohttp==3.13.2
+
+# OpenAI client for LLM integration
+openai==1.109.1
+tiktoken==0.7.0           # Updated to newer version for Python 3.11 compatibility
+
+# Data processing and utilities
+pandas==2.1.4             # Slightly older version for better compatibility
+numpy==1.26.3             # Slightly older version for better compatibility
+python-dotenv==1.0.0      # Stable version
+
+# Label Studio SDK
+label-studio-sdk==0.0.40
+
+# Async task queue
+celery==5.3.4
+redis==5.0.1              # Using redis for broker support
+
+# Type checking and validation
+pydantic==2.5.3
+typing-extensions==4.9.0
+
+# Security and authentication
+PyJWT==2.8.0
+cryptography==41.0.8
+
+# Utilities
+tqdm==4.66.1
+colorama==0.4.6           # For cross-platform colored output
+anyio==4.2.0
+idna==3.6
+certifi==2024.2.2
+
+# JSON handling
+orjson==3.9.10            # Alternative fast JSON library
+
+# YAML support
+PyYAML==6.0.1
+
+# Development dependencies (optional for production)
+pytest==7.4.4
+pytest-mock==3.12.0

@@ -553,7 +553,6 @@ def _llm_annotation_process( project, task, question_json, local_knowledge_id):
         
         # 获取项目中的所有任务
         ls_tasks = project.get_tasks()
-        ls_tasks = ls_tasks[:10]
         # 遍历项目中的每个任务，对每个任务执行LLM标注
         annotated_count = 0
         for ls_task in ls_tasks:
@@ -628,7 +627,6 @@ def _llm_annotation_process( project, task, question_json, local_knowledge_id):
                             # score表示模型置信度，可选参数
                             model_version="LLM_Auto_Annotator_v1"
                         )
-                        
                         if prediction_result:
                             logger.info(f"为任务 {task_id} 成功创建了LLM预测，预测ID: {prediction_result.get('id')}")
                             annotated_count += 1
