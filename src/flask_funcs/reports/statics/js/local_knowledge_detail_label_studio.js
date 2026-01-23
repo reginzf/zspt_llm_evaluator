@@ -219,7 +219,25 @@ function loadEnvironmentStatus() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            updateEnvironmentDisplay(data.data);  // data.data 现在包含 environments 和 bound_environments
+            // 只显示绑定的环境
+            if (data.data.bound_environments && Array.isArray(data.data.bound_environments) && data.data.bound_environments.length > 0) {
+                // 创建一个新的数据结构，只包含绑定的环境
+                const boundData = {
+                    environments: data.data.bound_environments.map(boundEnv => {
+                        // 找到对应环境的完整信息
+                        const fullEnv = data.data.environments.find(env => env.label_studio_id === boundEnv.label_studio_id);
+                        return fullEnv || boundEnv;
+                    }),
+                    bound_environments: data.data.bound_environments
+                };
+                updateEnvironmentDisplay(boundData);
+            } else {
+                // 如果没有绑定的环境，只传递空的environments数组
+                updateEnvironmentDisplay({
+                    environments: [],
+                    bound_environments: null
+                });
+            }
             // 在更新完环境显示后初始化列宽调整功能
             setTimeout(initTableColumnResizing, 100);
         } else {
