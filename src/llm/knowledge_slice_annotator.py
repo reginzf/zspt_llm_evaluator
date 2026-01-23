@@ -193,13 +193,23 @@ class KnowledgeSliceAnnotator:
         if not slice_text or not slice_text.strip():
             return "无匹配"
 
-        # 构建系统提示
+        # 构建系统提示，包含所有问题列表
+        questions_str_parts = []
+        for question_type, question_list in self.questions_index.items():
+            questions_str = "\n".join([f"{i}. {q}" for i, q in enumerate(question_list)])
+            questions_str_parts.append(f"问题类型: {question_type}\n问题列表:\n{questions_str}\n")
+        
+        all_questions_str = "\n".join(questions_str_parts)
+
         system_prompt = f"""你是一个专业的知识标注助手，负责将知识切片与预定义的问题进行匹配。
         
 知识领域：{self.domain_config.get('knowledge_domain', '')}
 领域描述：{self.domain_config.get('domain_description', '')}
 背景要求：{', '.join(self.domain_config.get('required_background', []))}
 技能要求：{', '.join(self.domain_config.get('required_skills', []))}
+
+所有可用问题列表：
+{all_questions_str}
 
 匹配规则：
 1. 仔细分析知识切片的内容和意图
@@ -209,20 +219,9 @@ class KnowledgeSliceAnnotator:
 5. 一次性返回所有匹配的问题索引，格式为：{{"factual": [0, 2], "contextual": [1], "conceptual": [], "reasoning": [0, 1, 2], "application": [1]}}
 6. 只返回JSON格式结果，不要返回任何解释"""
 
-        # 构建用户提示
-        questions_str_parts = []
-        for question_type, question_list in self.questions_index.items():
-            questions_str = "\n".join([f"{i}. {q}" for i, q in enumerate(question_list)])
-            questions_str_parts.append(f"问题类型: {question_type}\n问题列表:\n{questions_str}\n")
-        
-        all_questions_str = "\n".join(questions_str_parts)
-
         user_prompt = f"""请分析以下知识切片，并返回与之匹配的问题索引：
 知识切片：
 {slice_text}
-
-所有问题列表：
-{all_questions_str}
 
 请严格按照以下JSON格式返回，对每种类型返回匹配的问题索引列表（从0开始）：
 {{"factual": [index1, index2], "contextual": [index3], "conceptual": [], "reasoning": [index1, index2], "application": [index4]}}
