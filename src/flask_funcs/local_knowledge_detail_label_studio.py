@@ -512,7 +512,17 @@ def update_annotation():
                     executor.submit(_label_by_prediction, ls_user, project, task, question_json)
                 elif annotation_type == 'llm':
                     # 使用LLM进行自动标注
-                    executor.submit(_llm_annotation_process, ls_user, project, task, question_json)
+                    # 查询domain信息
+                    logger.info(f"查询标注任务扩展列表，task_id: {task_id}")
+                    task_extended_list = ls_crud.view_annotation_task_extended_list(task_id=task_id)
+                    logger.info(f"获取到的扩展任务列表: {task_extended_list}")
+                    if task_extended_list and len(task_extended_list) > 0:
+                        local_knowledge_id = task_extended_list[0][2]
+                        logger.info(f"提取的local_knowledge_id: {local_knowledge_id}")
+                    else:
+                        logger.error(f"未找到任务扩展信息，task_id: {task_id}")
+                        return jsonify({"success": False, "message": "未找到任务扩展信息"}), 400
+                    executor.submit(_llm_annotation_process,  project, task, question_json, local_knowledge_id)
             else:
                 # 使用手动方式标注，直接返回
                 pass
@@ -525,48 +535,117 @@ def update_annotation():
         return jsonify({"success": False, "message": f"更新标注方式时发生错误: {str(e)}"}), 500
 
 
-def _llm_annotation_process(ls_user, project, task, question_json):
+def _llm_annotation_process( project, task, question_json, local_knowledge_id):
     """
     LLM标注处理函数
     """
-    from label_studio_sdk import Client
-    from label_studio_sdk._legacy import Project
-    ls_user: Client
-    project: Project
-    project.create_annotation()
     try:
         logger.info(f"开始LLM标注任务: {task['task_id']}")
-
         # 获取领域配置
-        domain_config = {
-            "knowledge_domain": "网络协议",
-            "domain_description": "网络协议相关知识",
-            "required_background": ["网络基础知识", "协议分析能力"],
-            "required_skills": ["技术文档理解能力", "问题分类和匹配能力"]
-        }
-
-        # 执行LLM标注
-        # 这里需要获取知识切片内容，然后逐个进行标注
-        # 获取任务相关的知识切片（这里需要从数据库获取）
-        tasks = project.get_tasks()
-        for task in tasks:
-            task_id = task.get('id')
-            text_data = task['data'].get('text', '')
+        with LocalKnowledgeCrud() as lk_crud:
+            kno_info = lk_crud.get_local_knowledge(kno_id=local_knowledge_id)[0]
+            domain_config = {
+                "knowledge_domain": kno_info[8],
+                "domain_description": kno_info[9],
+                "required_background": kno_info[10],
+                "required_skills": kno_info[11]
+            }
+        
+        # 获取项目中的所有任务
+        ls_tasks = project.get_tasks()
+        ls_tasks = ls_tasks[:10]
+        # 遍历项目中的每个任务，对每个任务执行LLM标注
+        annotated_count = 0
+        for ls_task in ls_tasks:
+            # 处理任务ID - ls_task可能是一个对象或字典
+            if hasattr(ls_task, 'id'):
+                task_id = ls_task.id
+            else:
+                task_id = ls_task.get('id')
+            
+            # 处理任务数据 - ls_task可能是一个对象或字典
+            if hasattr(ls_task, 'data'):
+                text_data = getattr(ls_task, 'data', {}).get('text', '')
+            else:
+                text_data = ls_task.get('data', {}).get('text', '')
+            
+            logger.info(f"正在处理任务 {task_id}，文本长度: {len(text_data)}")
+            
             result = llm_annotation_interface.annotate_single_slice(
                 domain_config=domain_config,
                 questions_config=question_json,
                 slice_text=text_data
             )
+            
+            logger.info(f"LLM返回结果: {result}")
+            
             if result != "无匹配" and isinstance(result, dict):
-                # todo 根据result还原标注结果
-                # todo 在label studio上进行标注或者创建预测
-                pass
+                logger.info(f"处理LLM结果: {result}")
+                # 根据LLM返回的结果创建标注
+                annotations = []
+                
+                # 遍历LLM返回的结果，创建标注对象
+                for question_type, selected_indices in result.items():
+                    logger.info(f"处理问题类型: {question_type}, 选中索引: {selected_indices}")
+                    if isinstance(selected_indices, list):
+                        # 从question_json的datas中获取该类型问题的完整列表
+                        # question_json结构为{"doc_name": "...", "datas": [{"type": "...", "questions": [...]}]}
+                        question_type_data = next((item for item in question_json.get('datas', []) if item['type'] == question_type), None)
+                        logger.info(f"找到问题类型数据: {question_type_data}")
+                        if question_type_data and 'questions' in question_type_data:
+                            selected_questions = []
+                            for idx in selected_indices:
+                                logger.info(f"处理索引: {idx}, 问题总数: {len(question_type_data['questions'])}")
+                                if isinstance(idx, int) and idx < len(question_type_data['questions']):
+                                    selected_questions.append(question_type_data['questions'][idx])
+                                else:
+                                    logger.warning(f"无效的索引或超出范围: {idx}")
+                            
+                            # 创建标注结果
+                            if selected_questions:
+                                annotation_result = {
+                                    "value": {
+                                        "choices": selected_questions
+                                    },
+                                    "id": f"llm_{question_type}_{task_id}",
+                                    "from_name": question_type,
+                                    "to_name": "text",
+                                    "type": "choices",
+                                    "origin": "prediction"
+                                }
+                                annotations.append(annotation_result)
+                                logger.info(f"创建标注结果: {annotation_result}")
+                
+                # 如果有标注结果，则在Label Studio中创建预测
+                if annotations:
+                    logger.info(f"准备创建预测，预测数量: {len(annotations)}")
+                    # 直接使用project对象创建预测
+                    try:
+                        # 创建预测
+                        prediction_result = project.create_prediction(
+                            task_id=task_id,
+                            result=annotations,
+                            # score表示模型置信度，可选参数
+                            model_version="LLM_Auto_Annotator_v1"
+                        )
+                        
+                        if prediction_result:
+                            logger.info(f"为任务 {task_id} 成功创建了LLM预测，预测ID: {prediction_result.get('id')}")
+                            annotated_count += 1
+                        else:
+                            logger.error(f"为任务 {task_id} 创建LLM预测失败")
+                    except Exception as e:
+                        logger.error(f"为任务 {task_id} 创建LLM预测时发生异常: {str(e)}")
+                else:
+                    logger.info(f"任务 {task_id} 没有有效预测结果")
+            else:
+                logger.info(f"跳过任务 {task_id}，LLM结果无效: {result}")
 
-            # 更新任务状态为已完成
-            with LabelStudioCrud() as ls_crud:
-                ls_crud.annotation_task_update(task_id=task['task_id'], task_status='标注完成')
+        # 更新任务状态为已完成
+        with LabelStudioCrud() as ls_crud:
+            ls_crud.annotation_task_update(task_id=task['task_id'], annotated_chunks=annotated_count, task_status='已完成')
 
-            logger.info(f"LLM标注任务完成: {task['task_id']}")
+        logger.info(f"LLM标注任务完成: {task['task_id']}，共标注了 {annotated_count} 个任务")
     except Exception as e:
         logger.error(f"LLM标注过程发生错误: {str(e)}")
         # 更新任务状态为错误
