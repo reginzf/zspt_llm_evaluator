@@ -39,7 +39,7 @@ class QuestionsCRUD(PostgreSQLManager):
         """
         return self.delete("ai_question_config", question_id=question_id)
 
-    def question_config_list(self, knowledge_id: str = None, order_by: str = None, limit: int = None, **kwargs) -> \
+    def question_config_list(self, order_by: str = None, limit: int = None, **kwargs) -> \
             Optional[List[Tuple]]:
         """
         获取问题集配置列表
