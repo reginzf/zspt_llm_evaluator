@@ -8,7 +8,6 @@ SQL_USER = 'labelstudio'
 SQL_PASSWORD = 'Labelstudio123'
 # 测试知识
 KNOWLEDGE_LOCAL_PATH = 'D:\pyworkplace\git_place\ai-ken\tests'
-CAL_BY = 'CHUNK_ID' # CHUNK_ID 按chunk_id进行计算，TEXT 按text进行语义计算
 # 当使用text计算时的参数
 OVERLAP_THRESHOLD = 0.8   # 字符串重叠阈值
 SIMILARITY_THRESHOLD = 0.7  # 语义相似度阈值
