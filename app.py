@@ -1,3 +1,5 @@
+import argparse
+
 from flask import Flask
 from src.flask_funcs import home_bp, environment_bp, report_list_bp, static_bp, knowledge_doc_bp, local_knowledge_bp, \
     local_knowledge_detail_bp, label_studio_env_bp, local_knowledge_question_bp
@@ -36,5 +38,15 @@ app.static_folder = statics_dir
 # Flask会自动处理/static/路径下的文件
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', port=5001,debug=True)
-    # app.run('0.0.0.0')
+    # 创建命令行参数解析器
+    parser = argparse.ArgumentParser(description='AI-KEN Application')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host address (default: 0.0.0.0)')
+    parser.add_argument('--port', type=int, default=5001, help='Port number (default: 5001)')
+    parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode (default: False)')
+    
+    args = parser.parse_args()
+    
+    print(f'Starting server on {args.host}:{args.port}')
+    print(f'Debug mode: {args.debug}')
+    
+    app.run(args.host, port=args.port, debug=args.debug)
