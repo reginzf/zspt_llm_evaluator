@@ -242,9 +242,9 @@ class LabelStudioCrud(PostgreSQLManager):
         if result:
             return self._annotation_task_to_json(result[0])
 
-    def view_annotation_task_extended_list(self, label_studio_env_id=None, local_knowledge_id=None):
+    def view_annotation_task_extended_list(self, label_studio_env_id=None, local_knowledge_id=None,task_id=None):
         """根据label_studio_env_id和local_knowledge_id查询标注任务扩展视图"""
-        exact_match_fields = ['label_studio_env_id', 'local_knowledge_id']
+        exact_match_fields = ['label_studio_env_id', 'local_knowledge_id','task_id']
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
 
