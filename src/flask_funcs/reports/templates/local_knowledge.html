@@ -19,6 +19,7 @@
             <tr>
                 <th class="resizable-col">名称</th>
                 <th class="resizable-col">描述</th>
+                <th class="resizable-col">知识域</th>
                 <th class="resizable-col">状态</th>
                 <th class="resizable-col">创建时间</th>
                 <th class="resizable-col">绑定的知识库数量</th>
@@ -30,6 +31,14 @@
             <tr>
                 <td>{{ item.kno_name }}/{{ item.kno_id }}</td>
                 <td>{{ item.kno_describe or '暂无描述' }}</td>
+                <td class="knowledge-domain-cell" 
+                    data-knowledge-domain="{{ item.knowledge_domain | default('', true) }}" 
+                    data-domain-description="{{ item.domain_description | default('', true) }}" 
+                    data-required-background="{{ item.required_background | tojson | urlencode }}" 
+                    data-required-skills="{{ item.required_skills | tojson | urlencode }}" 
+                    style="cursor: pointer; color: #667eea; text-decoration: underline;">
+                    {{ item.knowledge_domain or '暂无知识域' }}
+                </td>
                 <td>
                     {% if item.ls_status == 0 %}
                     已完成
@@ -48,7 +57,14 @@
                             onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">详情
                     </button>
                     <button class="action-btn edit-btn"
-                            onclick="editKnowledge(event, '{{ item.kno_id }}', '{{ item.kno_name }}', '{{ item.kno_describe }}')">
+                            data-kno-id="{{ item.kno_id }}"
+                            data-kno-name="{{ item.kno_name }}"
+                            data-kno-describe="{{ item.kno_describe | default('', true) }}"
+                            data-knowledge-domain="{{ item.knowledge_domain | default('', true) }}"
+                            data-domain-description="{{ item.domain_description | default('', true) }}"
+                            data-required-background="{{ item.required_background | tojson | urlencode }}"
+                            data-required-skills="{{ item.required_skills | tojson | urlencode }}"
+                            onclick="editKnowledge(event, this.getAttribute('data-kno-id'), this.getAttribute('data-kno-name'), this.getAttribute('data-kno-describe'), this.getAttribute('data-knowledge-domain'), this.getAttribute('data-domain-description'), decodeURIComponent(this.getAttribute('data-required-background')), decodeURIComponent(this.getAttribute('data-required-skills')))">
                         编辑
                     </button>
                     <button class="action-btn delete-btn" onclick="deleteKnowledge(event, '{{ item.kno_id }}')">删除
@@ -131,36 +147,38 @@
     document.addEventListener('DOMContentLoaded', function () {
         loadBindingCounts();
     });
-
-    // 加载所有知识库的绑定数量
-    function loadBindingCounts() {
-        const bindingCountElements = document.querySelectorAll('.binding-count');
-        bindingCountElements.forEach(element => {
-            const knoId = element.getAttribute('data-kno-id');
-            fetch(`/local_knowledge/bindings/${knoId}`, {
-                method: 'GET'
-            })
-                .then(response => response.json())
-                .then(data => {
-                    let count = 0;
-                    if (data && data.count !== undefined) {
-                        // 如果返回包含count的对象
-                        count = data.count;
-                    } else if (data && !Array.isArray(data)) {
-                        // 如果返回单个对象，计为1
-                        count = 1;
-                    } else if (Array.isArray(data)) {
-                        // 如果返回数组，计算长度
-                        count = data.length;
-                    }
-                    element.textContent = count;
-                })
-                .catch(error => {
-                    console.error('加载绑定数量时出错:', error);
-                    element.textContent = '获取失败';
-                });
-        });
-    }
+    
+    // 为知识域单元格添加点击事件监听器
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('knowledge-domain-cell')) {
+            const cell = event.target;
+            const knowledgeDomain = cell.getAttribute('data-knowledge-domain');
+            const domainDescription = cell.getAttribute('data-domain-description');
+            const requiredBackgroundStr = decodeURIComponent(cell.getAttribute('data-required-background'));
+            const requiredSkillsStr = decodeURIComponent(cell.getAttribute('data-required-skills'));
+            
+            // 解析JSON数据
+            let requiredBackground = [];
+            let requiredSkills = [];
+            
+            try {
+                requiredBackground = JSON.parse(requiredBackgroundStr);
+            } catch(e) {
+                console.warn('Failed to parse requiredBackground:', e);
+                requiredBackground = [];
+            }
+            
+            try {
+                requiredSkills = JSON.parse(requiredSkillsStr);
+            } catch(e) {
+                console.warn('Failed to parse requiredSkills:', e);
+                requiredSkills = [];
+            }
+            
+            // 调用显示详情函数
+            showDomainDetails(event, knowledgeDomain, domainDescription, requiredBackground, requiredSkills);
+        }
+    });
 </script>
 
 </body>

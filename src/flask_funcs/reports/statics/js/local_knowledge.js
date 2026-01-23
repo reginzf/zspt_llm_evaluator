@@ -58,21 +58,37 @@ function closeUploadDialog() {
 }
 
 
-function editKnowledge(event, knoId, knoName, currentDescribe) {
+function editKnowledge(event, knoId, knoName, currentDescribe, knowledgeDomain, domainDescription, requiredBackgroundStr, requiredSkillsStr) {
     event.stopPropagation(); // 防止事件冒泡
     
     // 保存当前知识库信息到全局变量
     window.currentKnoId = knoId;
     window.currentKnoName = knoName;
     
-    // 设置表单初始值
-    document.getElementById('editKnoDescribe').value = currentDescribe || '';
+    // 解析JSON数据
+    let requiredBackground = [];
+    let requiredSkills = [];
     
-    // 清空其他输入框
-    document.getElementById('editKnowledgeDomain').value = '';
-    document.getElementById('editDomainDescription').value = '';
-    document.getElementById('editRequiredBackground').value = '';
-    document.getElementById('editRequiredSkills').value = '';
+    try {
+        requiredBackground = JSON.parse(decodeURIComponent(requiredBackgroundStr));
+    } catch(e) {
+        console.warn('Failed to parse requiredBackground:', e);
+        requiredBackground = [];
+    }
+    
+    try {
+        requiredSkills = JSON.parse(decodeURIComponent(requiredSkillsStr));
+    } catch(e) {
+        console.warn('Failed to parse requiredSkills:', e);
+        requiredSkills = [];
+    }
+    
+    // 设置表单初始值 - 使用实际值或空字符串
+    document.getElementById('editKnoDescribe').value = currentDescribe || '';
+    document.getElementById('editKnowledgeDomain').value = knowledgeDomain || '';
+    document.getElementById('editDomainDescription').value = domainDescription || '';
+    document.getElementById('editRequiredBackground').value = requiredBackground && requiredBackground.length > 0 ? requiredBackground.join(', ') : '';
+    document.getElementById('editRequiredSkills').value = requiredSkills && requiredSkills.length > 0 ? requiredSkills.join(', ') : '';
     
     // 显示编辑对话框
     document.getElementById('editKnowledgeDialog').style.display = 'block';
@@ -405,5 +421,94 @@ function initColumnResizing() {
                 }
             }
         });
+    });
+}
+
+// 显示知识域详细信息
+function showDomainDetails(event, knowledgeDomain, domainDescription, requiredBackground, requiredSkills) {
+    event.stopPropagation(); // 防止事件冒泡
+    
+    // 确保数组类型的参数正确处理
+    let backgroundArray = requiredBackground;
+    let skillsArray = requiredSkills;
+    
+    // 如果是字符串，则尝试解析为数组
+    if(typeof requiredBackground === 'string') {
+        try {
+            backgroundArray = JSON.parse(requiredBackground);
+        } catch(e) {
+            // 如果不是有效的JSON，将其作为单个项目处理
+            backgroundArray = [requiredBackground];
+        }
+    }
+    
+    if(typeof requiredSkills === 'string') {
+        try {
+            skillsArray = JSON.parse(requiredSkills);
+        } catch(e) {
+            // 如果不是有效的JSON，将其作为单个项目处理
+            skillsArray = [requiredSkills];
+        }
+    }
+    
+    // 确保是数组类型
+    backgroundArray = Array.isArray(backgroundArray) ? backgroundArray : [];
+    skillsArray = Array.isArray(skillsArray) ? skillsArray : [];
+    
+    // 使用字符串拼接构建HTML
+    var detailsHTML = '<div id="domainDetailsDialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; z-index: 1001; box-shadow: 0 4px 8px rgba(0,0,0,0.2); max-width: 600px; max-height: 80vh; overflow-y: auto;">' +
+        '<div style="margin-bottom: 15px;">' +
+            '<h3 style="color: #667eea; margin: 0 0 10px 0;">知识域详细信息</h3>' +
+            '<div style="margin-bottom: 10px;"><strong>知识域名:</strong> ' + (knowledgeDomain || '暂无') + '</div>' +
+            '<div style="margin-bottom: 10px;"><strong>知识域描述:</strong> ' + (domainDescription || '暂无') + '</div>' +
+            '<div style="margin-bottom: 10px;"><strong>背景知识:</strong> ' + (backgroundArray.length > 0 ? backgroundArray.join(', ') : '暂无') + '</div>' +
+            '<div style="margin-bottom: 15px;"><strong>标注LLM能力:</strong> ' + (skillsArray.length > 0 ? skillsArray.join(', ') : '暂无') + '</div>' +
+        '</div>' +
+        '<div style="text-align: right;">' +
+            '<button onclick="closeDomainDetailsDialog()" style="padding: 5px 15px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">关闭</button>' +
+        '</div>' +
+    '</div>' +
+    '<div id="detailsOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;" onclick="closeDomainDetailsDialog()"></div>';
+    
+    // 添加对话框到页面
+    document.body.insertAdjacentHTML('beforeend', detailsHTML);
+}
+
+// 关闭知识域详细信息对话框
+function closeDomainDetailsDialog() {
+    const dialog = document.getElementById('domainDetailsDialog');
+    const overlay = document.getElementById('detailsOverlay');
+    
+    if (dialog) dialog.remove();
+    if (overlay) overlay.remove();
+}
+
+// 加载所有知识库的绑定数量
+function loadBindingCounts() {
+    const bindingCountElements = document.querySelectorAll('.binding-count');
+    bindingCountElements.forEach(element => {
+        const knoId = element.getAttribute('data-kno-id');
+        fetch(`/local_knowledge/bindings/${knoId}`, {
+            method: 'GET'
+        })
+            .then(response => response.json())
+            .then(data => {
+                let count = 0;
+                if (data && data.count !== undefined) {
+                    // 如果返回包含count的对象
+                    count = data.count;
+                } else if (data && !Array.isArray(data)) {
+                    // 如果返回单个对象，计为1
+                    count = 1;
+                } else if (Array.isArray(data)) {
+                    // 如果返回数组，计算长度
+                    count = data.length;
+                }
+                element.textContent = count;
+            })
+            .catch(error => {
+                console.error('加载绑定数量时出错:', error);
+                element.textContent = '获取失败';
+            });
     });
 }

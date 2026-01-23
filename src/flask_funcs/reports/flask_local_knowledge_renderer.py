@@ -101,7 +101,11 @@ class LocalKnowledgeRendererFlask(FlaskHTMLRenderer):
                 'kno_path': row[4] if len(row) > 4 else '',  # kno_path
                 'ls_status': row[5] if len(row) > 5 else 1,  # ls_status，默认为1
                 'created_at': row[6] if len(row) > 6 else row[5] if len(row) > 5 else None,  # created_at
-                'updated_at': row[7] if len(row) > 7 else None,  # updated_at
+                'updated_at': row[7] if len(row) > 7 else row[6] if len(row) > 6 else None,  # updated_at
+                'knowledge_domain': row[8] if len(row) > 8 else '',  # knowledge_domain
+                'domain_description': row[9] if len(row) > 9 else '',  # domain_description
+                'required_background': row[10] if len(row) > 10 else [],  # required_background
+                'required_skills': row[11] if len(row) > 11 else [],  # required_skills
                 'type': 'database'  # 标记为数据库数据
             }
             knowledge_data.append(temp)
