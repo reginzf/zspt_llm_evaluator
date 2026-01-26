@@ -1,2 +1,3 @@
 /.venv/
 /src/label_studio_api/ml_backed/logs/
+configs/settings.toml
