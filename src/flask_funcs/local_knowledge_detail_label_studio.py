@@ -435,8 +435,8 @@ def get_available_questionsets():
         with QuestionsCRUD() as crud:
             result = crud.question_config_list(knowledge_id=knowledge_id)
 
+            question_sets = []  # 初始化为空列表
             if result:
-                question_sets = []
                 for qs in result:
                     question_sets.append({
                         'question_id': qs[0],

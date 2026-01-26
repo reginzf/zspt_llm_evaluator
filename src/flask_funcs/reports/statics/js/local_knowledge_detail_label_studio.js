@@ -631,14 +631,11 @@ function loadBoundKnowledgeBases(envId) {
 
 // 当选择知识库时，加载问题集列表
 function loadQuestionSetsForKnowledgeBase() {
-    // 从知识库选择框获取选中的值
-    const selectedKnowledgeBaseId = document.getElementById('taskKnowledgeBaseSelect').value;
-    
-    // 如果选择了知识库ID，使用选中的ID，否则使用当前本地知识库ID作为备用
-    const knowledgeBaseId = selectedKnowledgeBaseId;
+    // 根据规范，使用当前本地知识库ID，而不是绑定知识库的ID
+    const knowledgeBaseId = currentKnoId;
     
     if (!knowledgeBaseId) {
-        document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
+        document.getElementById('taskQuestionSet').innerHTML = '<option value="">请先选择知识库</option>';
         return;
     }
     
