@@ -304,7 +304,10 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
             env_data['zlpt_base_url'],
             env_data['username'],
             env_data['password'],
-            env_data['domain']
+            env_data['domain'],
+            env_data['key1'],
+            env_data['key2_add'],
+            env_data['pk']
         )
         return zlpt_user
 

@@ -3,7 +3,6 @@ import requests
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 import urllib3
-from env_config_init import settings
 from utils.logger import logger
 import threading
 import time
@@ -18,7 +17,7 @@ class LoginManager:
     _instances = {}
     _lock = threading.Lock()  # 线程锁，确保线程安全
 
-    def __new__(cls, base_url, username, password=None, domain="default"):
+    def __new__(cls, base_url, username, password=None, domain="default",k1=None,k2_add=None,pk=None):
         # 使用base_url和username作为key
         key = (base_url, username)
 
@@ -36,7 +35,7 @@ class LoginManager:
 
         return cls._instances[key]
 
-    def __init__(self, base_url, username, password=None, domain="default"):
+    def __init__(self, base_url, username, password=None, domain="default",k1=None,k2_add=None,pk=None):
         # 防止重复初始化
         if self._initialized:
             # 如果密码不同，更新密码
@@ -48,9 +47,9 @@ class LoginManager:
             return
 
         # 从代码中提取的公钥片段
-        self.key1 = settings.KEY1
-        self.key2_addition = settings.KEY2_ADD
-        self.p = settings.PK
+        self.key1 = k1
+        self.key2_addition = k2_add
+        self.p = pk
         self.base_url = base_url
         self.username = username
         self.password = password

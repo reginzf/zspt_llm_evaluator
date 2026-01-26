@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 
-def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
+def cal_metric(zlpt_user,task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
     try:
         with MetricTasksCRUD() as mt_crud:
-            zlpt_user = zlpt_login(None, None, knowledge_base_id)
+            # zlpt_user = zlpt_login(None, None, knowledge_base_id)
             retrieve_client = Retrieve(zlpt_user)
             report_id = generate_unique_id('rp', 8)
             success1 = mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
@@ -35,6 +35,7 @@ def cal_metric(task_id, ls_user, project_id, knowledge_base_id, search_type, que
         else:
             logging.error(f'更新任务 {task_id} 状态失败')
     except Exception as e:
+        raise e
         logging.error(f'执行计算任务 {task_id} 时发生错误: {str(e)}')
         with MetricTasksCRUD() as mt_crud:
             mt_crud.metric_task_update(task_id, status='失败')
@@ -129,7 +130,8 @@ def start_calculation():
         if success:
             # 使用线程池异步执行计算任务
             ls_user = ls_login(None, None, annotation_task_dict['label_studio_env_id'])
-            executor.submit(cal_metric, task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list,
+            zlpt_user = zlpt_login(None, None, knowledge_base_id)
+            executor.submit(cal_metric, zlpt_user,task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list,
                             file_name)
             return jsonify({"success": True, "message": "质量计算已启动"})
         else:
