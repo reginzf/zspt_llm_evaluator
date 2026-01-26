@@ -54,7 +54,33 @@ install_python() {
 check_environment() {
     echo -e "${BLUE}Checking environment...${NC}"
     
-    # Check if Python3 is available
+    # Check if Python3.10 is already available first
+    if command -v python3.10 &> /dev/null; then
+        python_version=$(python3.10 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+')
+        if [[ -n "$python_version" ]]; then
+            # Extract major and minor version numbers
+            major=$(echo "$python_version" | cut -d. -f1)
+            minor=$(echo "$python_version" | cut -d. -f2)
+            
+            if [[ $major -ge 3 && $minor -ge 10 ]]; then
+                echo -e "${GREEN} Found suitable Python $python_version${NC}"
+                echo -e "${GREEN} Python $python_version${NC}"
+                
+                # Check project files in the current working directory
+                if [ ! -f "requirements_centos.txt" ]; then
+                    echo -e "${RED}requirements_centos.txt not found in current directory $(pwd)${NC}"
+                    exit 1
+                fi
+                
+                if [ ! -d "src/sql_funs/creaters" ]; then
+                    echo -e "${YELLOW}Warning: No database scripts directory${NC}"
+                fi
+                return  # Exit the function early since we found a suitable Python version
+            fi
+        fi
+    fi
+    
+    # Check if general Python3 is available
     if ! command -v python3 &> /dev/null; then
         echo -e "${RED}Python3 not installed${NC}"
         install_python

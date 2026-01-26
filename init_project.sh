@@ -54,13 +54,33 @@ install_python() {
 check_environment() {
     echo -e "${BLUE}检查环境...${NC}"
     
-    # Check if Python3 is available
+    # 首先检查 Python3.10 是否已经可用
+    if command -v python3.10 &> /dev/null; then
+        python_version=$(python3.10 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+')
+        if [[ -n "$python_version" ]]; then
+            # 提取主版本号和次版本号
+            major=$(echo "$python_version" | cut -d. -f1)
+            minor=$(echo "$python_version" | cut -d. -f2)
+            
+            if [[ $major -ge 3 && $minor -ge 10 ]]; then
+                echo -e "${GREEN} 找到合适的 Python $python_version${NC}"
+                echo -e "${GREEN} Python $python_version${NC}"
+                
+                # 检查项目文件
+                [ -f "requirements_centos.txt" ] || { echo -e "${RED}未找到requirements_centos.txt${NC}"; exit 1; }
+                [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"; }
+                return  # 提前退出函数，因为我们已经找到合适的Python版本
+            fi
+        fi
+    fi
+    
+    # 检查是否已安装 Python3
     if ! command -v python3 &> /dev/null; then
         echo -e "${RED}Python3未安装${NC}"
         install_python
     fi
     
-    # Function to get Python version
+    # 获取Python版本的函数
     get_python_version() {
         python3 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+' || python --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+'
     }
@@ -71,7 +91,7 @@ check_environment() {
         exit 1
     fi
     
-    # Extract major and minor version numbers
+    # 提取主版本号和次版本号
     major=$(echo "$python_version" | cut -d. -f1)
     minor=$(echo "$python_version" | cut -d. -f2)
     
@@ -80,12 +100,12 @@ check_environment() {
         echo -e "${YELLOW}尝试安装Python 3.10...${NC}"
         install_python
         
-        # Check if python3.10 is now available
+        # 检查 python3.10 是否现在可用
         if command -v python3.10 &> /dev/null; then
             echo -e "${GREEN}Using Python 3.10${NC}"
             python_version=$(python3.10 --version | grep -oP 'Python \K[0-9]+\.[0-9]+')
         else
-            # Check if the default python3 has been updated
+            # 检查默认的 python3 是否已更新
             updated_version=$(get_python_version)
             updated_major=$(echo "$updated_version" | cut -d. -f1)
             updated_minor=$(echo "$updated_version" | cut -d. -f2)
