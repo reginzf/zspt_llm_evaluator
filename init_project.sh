@@ -8,28 +8,94 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Function to install Python 3.10 on different systems
+install_python() {
+    echo -e "${YELLOW}Installing Python 3.10...${NC}"
+    
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case $NAME in
+            *"Ubuntu"*|*"Debian"*)
+                echo -e "${BLUE}Detected Ubuntu/Debian system${NC}"
+                sudo apt update
+                sudo apt install -y software-properties-common
+                sudo add-apt-repository -y ppa:deadsnakes/ppa
+                sudo apt update
+                sudo apt install -y python3.10 python3.10-venv python3.10-dev
+                ;;
+            *"CentOS"*|*"Red Hat"*|*"Fedora"*)
+                echo -e "${BLUE}Detected Red Hat/CentOS/Fedora system${NC}"
+                if command -v dnf &> /dev/null; then
+                    sudo dnf install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget
+                else
+                    sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget
+                fi
+                
+                # Download and compile Python 3.10
+                cd /tmp
+                wget https://www.python.org/ftp/python/3.10.15/Python-3.10.15.tgz
+                tar xzf Python-3.10.15.tgz
+                cd Python-3.10.15
+                ./configure --enable-optimizations --prefix=/usr/local
+                make -j$(nproc)
+                sudo make altinstall  # Use altinstall to avoid replacing system python
+                ;;
+            *)
+                echo -e "${RED}Unsupported Linux distribution. Please install Python 3.10 manually.${NC}"
+                exit 1
+                ;;
+        esac
+    else
+        echo -e "${RED}Could not determine Linux distribution. Please install Python 3.10 manually.${NC}"
+        exit 1
+    fi
+}
+
 check_environment() {
     echo -e "${BLUE}检查环境...${NC}"
     
-    # 检查Python版本
+    # Check if Python3 is available
     if ! command -v python3 &> /dev/null; then
         echo -e "${RED}Python3未安装${NC}"
-        exit 1
+        install_python
     fi
     
-    python_version=$(python3 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+' || python --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+')
+    # Function to get Python version
+    get_python_version() {
+        python3 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+' || python --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+'
+    }
+    
+    python_version=$(get_python_version)
     if [[ -z "$python_version" ]]; then
         echo -e "${RED}无法获取Python版本${NC}"
         exit 1
     fi
     
-    # 提取主版本号和次版本号
+    # Extract major and minor version numbers
     major=$(echo "$python_version" | cut -d. -f1)
     minor=$(echo "$python_version" | cut -d. -f2)
     
     if [[ $major -lt 3 ]] || [[ $major -eq 3 && $minor -lt 10 ]]; then
-        echo -e "${RED}需要Python 3.10+，当前: $python_version${NC}"
-        exit 1
+        echo -e "${YELLOW}当前Python版本 $python_version 不满足要求 (3.10+)${NC}"
+        echo -e "${YELLOW}尝试安装Python 3.10...${NC}"
+        install_python
+        
+        # Check if python3.10 is now available
+        if command -v python3.10 &> /dev/null; then
+            echo -e "${GREEN}Using Python 3.10${NC}"
+            python_version=$(python3.10 --version | grep -oP 'Python \K[0-9]+\.[0-9]+')
+        else
+            # Check if the default python3 has been updated
+            updated_version=$(get_python_version)
+            updated_major=$(echo "$updated_version" | cut -d. -f1)
+            updated_minor=$(echo "$updated_version" | cut -d. -f2)
+            
+            if [[ $updated_major -lt 3 ]] || [[ $updated_major -eq 3 && $updated_minor -lt 10 ]]; then
+                echo -e "${RED}Installed Python still does not meet requirements. Current: $updated_version${NC}"
+                exit 1
+            fi
+            python_version=$updated_version
+        fi
     fi
     
     echo -e "${GREEN} Python $python_version${NC}"
@@ -90,7 +156,13 @@ setup_venv() {
         [[ "$recreate" =~ ^[Yy]$ ]] && rm -rf venv
     fi
     
-    [ ! -d "venv" ] && python3 -m venv venv
+    # Use python3.10 if available, otherwise use python3
+    if command -v python3.10 &> /dev/null; then
+        python3.10 -m venv venv
+    else
+        python3 -m venv venv
+    fi
+    
     source venv/bin/activate
     echo -e "${GREEN} 虚拟环境就绪${NC}"
 }

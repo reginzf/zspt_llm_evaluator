@@ -16,6 +16,7 @@
 - **依赖文件**：
   - CentOS系统：使用 [requirements_centos.txt](file:///D:/pyworkplace/git_place/ai-ken/requirements_centos.txt)（包含`psycopg2`）
   - 其他Linux/macOS系统：使用 [requirements.txt](file:///D:/pyworkplace/git_place/ai-ken/requirements.txt)（包含`psycopg2-binary`）
+- **特殊功能**：自动检测并安装符合要求的Python版本（3.10+）
 - **使用方式**：在终端中执行
 
 ## 使用方法
@@ -44,11 +45,12 @@ chmod +x init_project.sh
 ## 功能说明
 
 1. **环境检查**：验证Python版本（3.10+）及必要文件
-2. **交互式配置**：引导用户输入数据库、路径、API等配置信息
-3. **虚拟环境设置**：创建并激活Python虚拟环境
-4. **依赖安装**：根据操作系统和环境安装所需包
-5. **配置文件生成**：创建configs/settings.toml配置文件
-6. **数据库初始化**：运行数据库创建脚本
+2. **自动Python安装**：如果检测到Python版本低于要求，自动在Linux系统上安装Python 3.10
+3. **交互式配置**：引导用户输入数据库、路径、API等配置信息
+4. **虚拟环境设置**：创建并激活Python虚拟环境
+5. **依赖安装**：根据操作系统和环境安装所需包
+6. **配置文件生成**：创建configs/settings.toml配置文件
+7. **数据库初始化**：运行数据库创建脚本
 
 ## 配置项说明
 
@@ -76,3 +78,4 @@ chmod +x init_project.sh
 4. API密钥需要从相应平台获取
 5. 模型文件需要从指定位置下载
 6. 脚本会根据操作系统智能选择适当的依赖文件
+7. 在Linux系统上，如果Python版本低于3.10，脚本将自动安装Python 3.10
