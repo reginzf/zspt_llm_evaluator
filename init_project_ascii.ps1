@@ -21,19 +21,34 @@ function Check-Environment {
             throw "Python not installed or unavailable"
         }
         
-        $versionMatch = [regex]::Match($pythonVersion, 'Python (\d+)\.(\d+)')
+        $versionMatch = [regex]::Match($pythonVersion, 'Python (\d+)\.(\d+)\.(\d+)')
         if ($versionMatch.Success) {
             $major = [int]$versionMatch.Groups[1].Value
             $minor = [int]$versionMatch.Groups[2].Value
+            $patch = [int]$versionMatch.Groups[3].Value
             
-            if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
-                Write-Custom "Requires Python 3.10+, current: $pythonVersion" "Red"
+            # Check if Python version is 3.12.5 or compatible
+            if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 12) -or ($major -eq 3 -and $minor -eq 12 -and $patch -lt 5)) {
+                Write-Custom "Requires Python 3.12.5+, current: $pythonVersion" "Red"
                 exit 1
             }
-            Write-Custom "Python $major.$minor found" "Green"
+            Write-Custom "Python $major.$minor.$patch found" "Green"
         } else {
-            Write-Custom "Cannot parse Python version" "Red"
-            exit 1
+            # Fallback to major.minor if patch version not available
+            $versionMatch = [regex]::Match($pythonVersion, 'Python (\d+)\.(\d+)')
+            if ($versionMatch.Success) {
+                $major = [int]$versionMatch.Groups[1].Value
+                $minor = [int]$versionMatch.Groups[2].Value
+                
+                if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 12)) {
+                    Write-Custom "Requires Python 3.12.5+, current: $pythonVersion" "Red"
+                    exit 1
+                }
+                Write-Custom "Python $major.$minor found (minimum version met)" "Green"
+            } else {
+                Write-Custom "Cannot parse Python version" "Red"
+                exit 1
+            }
         }
     } catch {
         Write-Custom "Python not installed or unavailable" "Red"

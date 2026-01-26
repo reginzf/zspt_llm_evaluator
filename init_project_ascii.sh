@@ -8,9 +8,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Function to install Python 3.10 on different systems
+# Function to install Python 3.12.5 on different systems
 install_python() {
-    echo -e "${YELLOW}Installing Python 3.10...${NC}"
+    echo -e "${YELLOW}Installing Python 3.12.5...${NC}"
     
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -21,32 +21,32 @@ install_python() {
                 sudo apt install -y software-properties-common
                 sudo add-apt-repository -y ppa:deadsnakes/ppa
                 sudo apt update
-                sudo apt install -y python3.10 python3.10-venv python3.10-dev
+                sudo apt install -y python3.12 python3.12-venv python3.12-dev python3.12-distutils
                 ;;
             *"CentOS"*|*"Red Hat"*|*"Fedora"*)
                 echo -e "${BLUE}Detected Red Hat/CentOS/Fedora system${NC}"
                 if command -v dnf &> /dev/null; then
-                    sudo dnf install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget
+                    sudo dnf install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget sqlite-devel
                 else
-                    sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget
+                    sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget sqlite-devel
                 fi
                 
-                # Download and compile Python 3.10
+                # Download and compile Python 3.12.5
                 cd /tmp
-                wget https://www.python.org/ftp/python/3.10.15/Python-3.10.15.tgz
-                tar xzf Python-3.10.15.tgz
-                cd Python-3.10.15
+                wget https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tgz
+                tar xzf Python-3.12.5.tgz
+                cd Python-3.12.5
                 ./configure --enable-optimizations --prefix=/usr/local
                 make -j$(nproc)
                 sudo make altinstall  # Use altinstall to avoid replacing system python
                 ;;
             *)
-                echo -e "${RED}Unsupported Linux distribution. Please install Python 3.10 manually.${NC}"
+                echo -e "${RED}Unsupported Linux distribution. Please install Python 3.12.5 manually.${NC}"
                 exit 1
                 ;;
         esac
     else
-        echo -e "${RED}Could not determine Linux distribution. Please install Python 3.10 manually.${NC}"
+        echo -e "${RED}Could not determine Linux distribution. Please install Python 3.12.5 manually.${NC}"
         exit 1
     fi
 }
@@ -54,15 +54,17 @@ install_python() {
 check_environment() {
     echo -e "${BLUE}Checking environment...${NC}"
     
-    # Check if Python3.10 is already available first
-    if command -v python3.10 &> /dev/null; then
-        python_version=$(python3.10 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+')
+    # Check if Python3.12 is already available first
+    if command -v python3.12 &> /dev/null; then
+        python_version=$(python3.12 --version 2>/dev/null | grep -oP 'Python \K[0-9]+\.[0-9]+(\.[0-9]+)?')
         if [[ -n "$python_version" ]]; then
-            # Extract major and minor version numbers
-            major=$(echo "$python_version" | cut -d. -f1)
-            minor=$(echo "$python_version" | cut -d. -f2)
+            # Extract major, minor, and patch version numbers
+            IFS='.' read -ra version_parts <<< "$python_version"
+            major=${version_parts[0]}
+            minor=${version_parts[1]}
+            patch=${version_parts[2]:-0}  # Default to 0 if patch version is not present
             
-            if [[ $major -ge 3 && $minor -ge 10 ]]; then
+            if [[ $major -gt 3 ]] || [[ $major -eq 3 && $minor -gt 12 ]] || [[ $major -eq 3 && $minor -eq 12 && $patch -ge 5 ]]; then
                 echo -e "${GREEN} Found suitable Python $python_version${NC}"
                 echo -e "${GREEN} Python $python_version${NC}"
                 
@@ -101,22 +103,30 @@ check_environment() {
     major=$(echo "$python_version" | cut -d. -f1)
     minor=$(echo "$python_version" | cut -d. -f2)
     
-    if [[ $major -lt 3 ]] || [[ $major -eq 3 && $minor -lt 10 ]]; then
-        echo -e "${YELLOW}Current Python version $python_version does not meet requirement (3.10+)${NC}"
-        echo -e "${YELLOW}Attempting to install Python 3.10...${NC}"
+    # Extract major and minor version numbers from current Python
+    IFS='.' read -ra version_parts <<< "$python_version"
+    major=${version_parts[0]}
+    minor=${version_parts[1]}
+    patch=${version_parts[2]:-0}  # Default to 0 if patch version is not present
+    
+    if [[ $major -lt 3 ]] || [[ $major -eq 3 && $minor -lt 12 ]] || [[ $major -eq 3 && $minor -eq 12 && $patch -lt 5 ]]; then
+        echo -e "${YELLOW}Current Python version $python_version does not meet requirement (3.12.5+)${NC}"
+        echo -e "${YELLOW}Attempting to install Python 3.12.5...${NC}"
         install_python
         
-        # Check if python3.10 is now available
-        if command -v python3.10 &> /dev/null; then
-            echo -e "${GREEN}Using Python 3.10${NC}"
-            python_version=$(python3.10 --version | grep -oP 'Python \K[0-9]+\.[0-9]+')
+        # Check if python3.12 is now available
+        if command -v python3.12 &> /dev/null; then
+            echo -e "${GREEN}Using Python 3.12${NC}"
+            python_version=$(python3.12 --version | grep -oP 'Python \K[0-9]+\.[0-9]+(\.[0-9]+)?')
         else
             # Check if the default python3 has been updated
             updated_version=$(get_python_version)
-            updated_major=$(echo "$updated_version" | cut -d. -f1)
-            updated_minor=$(echo "$updated_version" | cut -d. -f2)
+            IFS='.' read -ra updated_parts <<< "$updated_version"
+            updated_major=${updated_parts[0]}
+            updated_minor=${updated_parts[1]}
+            updated_patch=${updated_parts[2]:-0}  # Default to 0 if patch version is not present
             
-            if [[ $updated_major -lt 3 ]] || [[ $updated_major -eq 3 && $updated_minor -lt 10 ]]; then
+            if [[ $updated_major -lt 3 ]] || [[ $updated_major -eq 3 && $updated_minor -lt 12 ]] || [[ $updated_major -eq 3 && $updated_minor -eq 12 && $updated_patch -lt 5 ]]; then
                 echo -e "${RED}Installed Python still does not meet requirements. Current: $updated_version${NC}"
                 exit 1
             fi
