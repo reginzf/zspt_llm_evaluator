@@ -83,8 +83,6 @@ check_environment() {
         # Check if python3.10 is now available
         if command -v python3.10 &> /dev/null; then
             echo -e "${GREEN}Using Python 3.10${NC}"
-            # Create an alias or update our python command
-            alias python3=python3.10
             python_version=$(python3.10 --version | grep -oP 'Python \K[0-9]+\.[0-9]+')
         else
             # Check if the default python3 has been updated
@@ -102,10 +100,15 @@ check_environment() {
     
     echo -e "${GREEN} Python $python_version${NC}"
     
-    # Check project files
-    # On Linux/CentOS systems, use requirements_centos.txt
-    [ -f "requirements_centos.txt" ] || { echo -e "${RED}requirements_centos.txt not found${NC}"; exit 1; }
-    [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}Warning: No database scripts directory${NC}"; }
+    # Check project files in the current working directory
+    if [ ! -f "requirements_centos.txt" ]; then
+        echo -e "${RED}requirements_centos.txt not found in current directory $(pwd)${NC}"
+        exit 1
+    fi
+    
+    if [ ! -d "src/sql_funs/creaters" ]; then
+        echo -e "${YELLOW}Warning: No database scripts directory${NC}"
+    fi
 }
 
 collect_input() {
