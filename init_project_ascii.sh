@@ -36,9 +36,13 @@ install_python() {
                 wget https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tgz
                 tar xzf Python-3.12.5.tgz
                 cd Python-3.12.5
+                # Configure with enable-optimizations flag to improve performance
                 ./configure --enable-optimizations --prefix=/usr/local
                 make -j$(nproc)
                 sudo make altinstall  # Use altinstall to avoid replacing system python
+                
+                # Return to the original directory after installation
+                cd -
                 ;;
             *)
                 echo -e "${RED}Unsupported Linux distribution. Please install Python 3.12.5 manually.${NC}"
@@ -138,8 +142,7 @@ check_environment() {
     
     # Check project files in the current working directory
     if [ ! -f "requirements_centos.txt" ]; then
-        echo -e "${RED}requirements_centos.txt not found in current directory $(pwd)${NC}"
-        exit 1
+        echo -e "${YELLOW}Warning: requirements_centos.txt not found in current directory $(pwd)${NC}"
     fi
     
     if [ ! -d "src/sql_funs/creaters" ]; then

@@ -36,9 +36,13 @@ install_python() {
                 wget https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tgz
                 tar xzf Python-3.12.5.tgz
                 cd Python-3.12.5
+                # Configure with enable-optimizations flag to improve performance
                 ./configure --enable-optimizations --prefix=/usr/local
                 make -j$(nproc)
                 sudo make altinstall  # Use altinstall to avoid replacing system python
+                
+                # Return to the original directory after installation
+                cd -
                 ;;
             *)
                 echo -e "${RED}Unsupported Linux distribution. Please install Python 3.12.5 manually.${NC}"
@@ -67,8 +71,13 @@ check_environment() {
                 echo -e "${GREEN} Python $python_version${NC}"
                 
                 # 检查项目文件
-                [ -f "requirements_centos.txt" ] || { echo -e "${RED}未找到requirements_centos.txt${NC}"; exit 1; }
-                [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"; }
+                if [ ! -f "requirements_centos.txt" ]; then
+                    echo -e "${YELLOW}警告: 未找到requirements_centos.txt${NC}"
+                fi
+                
+                if [ ! -d "src/sql_funs/creaters" ]; then
+                    echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"
+                fi
                 return  # 提前退出函数，因为我们已经找到合适的Python版本
             fi
         fi
@@ -125,9 +134,13 @@ check_environment() {
     echo -e "${GREEN} Python $python_version${NC}"
     
     # 检查项目文件
-    # 在Linux/CentOS上，使用requirements_centos.txt
-    [ -f "requirements_centos.txt" ] || { echo -e "${RED}未找到requirements_centos.txt${NC}"; exit 1; }
-    [ -d "src/sql_funs/creaters" ] || { echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"; }
+    if [ ! -f "requirements_centos.txt" ]; then
+        echo -e "${YELLOW}警告: 未找到requirements_centos.txt${NC}"
+    fi
+    
+    if [ ! -d "src/sql_funs/creaters" ]; then
+        echo -e "${YELLOW}警告: 无数据库脚本目录${NC}"
+    fi
 }
 
 collect_input() {
