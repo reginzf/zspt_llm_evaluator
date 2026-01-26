@@ -18,12 +18,13 @@ local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 def cal_metric(zlpt_user,task_id, ls_user, project_id, knowledge_base_id, search_type, questions_list, file_name):
     try:
         with MetricTasksCRUD() as mt_crud:
-            # zlpt_user = zlpt_login(None, None, knowledge_base_id)
             retrieve_client = Retrieve(zlpt_user)
             report_id = generate_unique_id('rp', 8)
             success1 = mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
             cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list,
                                              file_name, retrieve_client=retrieve_client)
+
+        with MetricTasksCRUD() as mt_crud:
             success2 = mt_crud.metric_task_update(task_id, status='完成')
             success1 = mt_crud.report_update(report_id, status='计算完成')
         if success1:
