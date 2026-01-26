@@ -33,8 +33,11 @@ class MetricTasksCRUD(PostgreSQLManager):
             return False
         try:
             result = self.update("ai_metric_tasks", data, task_id=task_id)
+            if not result:
+                result = self.metric_task_create(task_id, status, search_type)
             return result
         except Exception as e:
+            raise e
             logger.error(f"更新指标任务失败: {e}")
             return False
 
