@@ -165,10 +165,16 @@ function hideCalculationModal() {
 // 确认计算类型
 function confirmCalculationType() {
     const selectedType = document.getElementById('searchTypeSelect').value;
+    const selectedMatchType = document.getElementById('matchTypeSelect').value;
     const taskId = document.getElementById('currentTaskId').value;
 
     if (!selectedType) {
         alert('请选择召回方式');
+        return;
+    }
+
+    if (!selectedMatchType) {
+        alert('请选择匹配方式');
         return;
     }
 
@@ -185,7 +191,8 @@ function confirmCalculationType() {
         },
         body: JSON.stringify({
             task_id: taskId,
-            search_type: selectedType
+            search_type: selectedType,
+            match_type: selectedMatchType
         })
     })
     .then(response => response.json())
