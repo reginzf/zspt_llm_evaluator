@@ -54,6 +54,31 @@ class QuestionsCRUD(PostgreSQLManager):
                                               partial_match_fields=partial_match_fields,
                                               allowed_fileds=allowed_fileds, **kwargs)
         return self.execute_query(query, params)
+    def questions_list(self,order_by=None,limit=None,**kwargs):
+
+        exact_match_fields = ['task_id']
+        partial_match_fields = []
+        allowed_fileds = exact_match_fields + partial_match_fields
+        query, params = self.gen_select_query('ai_annotation_task_extended_view', order_by=order_by, limit=limit,
+                                              exact_match_fields=exact_match_fields,
+                                              partial_match_fields=partial_match_fields,
+                                              allowed_fileds=allowed_fileds, **kwargs)
+        res = self.execute_query(query, params)
+        if res:
+            question_set_id = res[0][3]
+            qs_set_config = self.question_config_list(question_id=question_set_id)
+            if not qs_set_config:
+                logger.warning(f"无法获取问题集 '{question_set_id}' 的配置")
+                return None
+            qs_set_config = qs_set_config[0]
+            qs_set_type = qs_set_config[5]
+
+            # 获取所有问题
+            questions = self.get_questions_by_type(qs_set_type, question_set_id=question_set_id)
+            questions = [self._question_to_json(q) for q in questions]
+            return questions
+        return []
+
 
     def _question_config_to_json(self, question_config_tuple):
         return {
@@ -61,9 +86,8 @@ class QuestionsCRUD(PostgreSQLManager):
             "question_name": question_config_tuple[1],
             "knowledge_id": question_config_tuple[2],
             "question_set_type": question_config_tuple[5],
-            "question_count": question_config_tuple[6],
-            "created_at": question_config_tuple[3].isoformat(),
-            "updated_at": question_config_tuple[4].isoformat(),
+            "question_count": question_config_tuple[6]
+
         }
 
     def _create_question(self, table_name: str, question_id: str, question_type: str, question_content: str,

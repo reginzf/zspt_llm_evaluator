@@ -6,6 +6,7 @@ from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, zlpt_login, Retrieve
 from concurrent.futures import ThreadPoolExecutor
 from src.flask_funcs.common_utils import generate_unique_id
 from src.zlpt_temp import cal_metric_by_chunk_text_overlay_and_similarity
+
 # 创建线程池执行器
 executor = ThreadPoolExecutor(max_workers=5)
 
@@ -15,32 +16,34 @@ logger = logging.getLogger(__name__)
 local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 
-def cal_metric(zlpt_user,task_id, ls_user, project_id, knowledge_base_id, search_type, match_type, questions_list, file_name):
+def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, search_type, match_type, questions_list,
+               file_name):
     try:
         with MetricTasksCRUD() as mt_crud:
             retrieve_client = Retrieve(zlpt_user)
             report_id = generate_unique_id('rp', 8)
             mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
-            
+
             # 根据匹配类型选择计算函数
         if match_type == 'chunkIdMatch':
             cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list,
                                              file_name, retrieve_client=retrieve_client)
         elif match_type == 'chunkTextMatch':
 
-            cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, knowledge_base_id, search_type, questions_list,
-                                                           file_name, retrieve_client=retrieve_client)
+            cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, knowledge_base_id, search_type,
+                                                            questions_list,
+                                                            file_name, retrieve_client=retrieve_client)
         else:
             raise ValueError(f"不支持的匹配类型: {match_type}")
 
         with MetricTasksCRUD() as mt_crud:
             # 更新任务状态为已完成
-            mt_crud.metric_task_update(task_id, status=3)
+            mt_crud.metric_task_update(task_id, status="完成")
         return True
     except Exception as e:
         print(f"cal_metric error: {e}")
         with MetricTasksCRUD() as mt_crud:
-            mt_crud.metric_task_update(task_id, status=4)  # 设置为失败状态
+            mt_crud.metric_task_update(task_id, status="失败")  # 设置为失败状态
         return False
 
 
@@ -76,7 +79,7 @@ def get_metric_task_list():
         if not knowledge_id:
             return jsonify({"success": False, "message": "缺少knowledge_id参数"}), 400
 
-        with MetricTasksCRUD() as mt_crud, LabelStudioCrud() as ls_crud:
+        with MetricTasksCRUD() as mt_crud:
             metric_tasks = mt_crud.view_get_annotation_metric_tasks(local_knowledge_id=knowledge_id)
             result = []
             for task in metric_tasks:
@@ -106,18 +109,19 @@ def start_calculation():
 
         # 查询任务相关信息
         with LabelStudioCrud() as ls_crud:
-            annotation_task_dict = ls_crud.annotation_task_dict(task_id=task_id)
-        
-        if not annotation_task_dict:
+            annotation_task_info = ls_crud.annotation_task_get_by_id(task_id=task_id)
+
+        if not annotation_task_info:
             return jsonify({'success': False, 'message': '找不到指定的任务'}), 400
-            
-        knowledge_base_id = annotation_task_dict['web_know_id']
-        project_id = annotation_task_dict['project_id']
+
+        knowledge_base_id = annotation_task_info['knowledge_base_id']
+        # 从数据库获取project_id，如果没有则使用默认值
+        project_id = annotation_task_info.get('label_studio_project_id')
 
         # 查询问题列表
         with QuestionsCRUD() as q_crud:
-            questions_list = q_crud.questions_list(knowledge_base_id=knowledge_base_id)
-            
+            questions_list = q_crud.questions_list(task_id=task_id)
+
         if not questions_list:
             return jsonify({'success': False, 'message': '没有找到相关问题'}), 400
 
@@ -129,10 +133,10 @@ def start_calculation():
         success = True
         if success:
             # 使用线程池异步执行计算任务
-            ls_user = ls_login(None, None, annotation_task_dict['label_studio_env_id'])
+            ls_user = ls_login(None, None, annotation_task_info['label_studio_env_id'])
             zlpt_user = zlpt_login(None, None, knowledge_base_id)
-            executor.submit(cal_metric, zlpt_user, task_id, ls_user, project_id, knowledge_base_id, search_type, match_type, questions_list,
-                            file_name)
+            executor.submit(cal_metric, zlpt_user, task_id, ls_user, project_id, knowledge_base_id, search_type,
+                            match_type, questions_list, file_name)
 
         return jsonify({'success': True, 'message': '计算任务已启动'})
     except Exception as e:

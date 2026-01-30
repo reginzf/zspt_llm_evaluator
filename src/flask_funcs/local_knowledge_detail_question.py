@@ -308,56 +308,6 @@ def get_question_list():
         return jsonify({'success': False, 'message': f'获取问题列表时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_question_bp.route('/local_knowledge_detail/question/list', methods=['GET'])
-def get_question_list_old():
-    """获取问题列表 (旧版，保持向后兼容)"""
-    try:
-        set_id = request.args.get('set_id')
-        question_type = request.args.get('question_type', 'basic')  # 默认为basic
-
-        if not set_id:
-            return jsonify({'success': False, 'message': '缺少set_id参数'}), 400
-
-        with QuestionsCRUD() as crud:
-            # 根据问题类型获取问题列表 - 修改调用方式
-            questions = crud.get_questions_by_type(
-                question_set_type=question_type,
-                question_set_id=set_id
-            )
-
-        if questions:
-            # 转换数据格式 - 根据实际表结构调整
-            result = []
-            for q in questions:
-                # 根据实际表结构调整字段索引
-                # ai_basic_questions, ai_detailed_questions, ai_mechanism_questions, ai_thematic_questions 表结构:
-                # id, question_id, question_set_id, question_type, question_content, chunk_ids, created_at, updated_at
-                question_obj = {
-                    'id': q[0] if len(q) > 0 else None,
-                    'question_id': q[1] if len(q) > 1 else None,
-                    'question_set_id': q[2] if len(q) > 2 else None,
-                    'question_type': q[3] if len(q) > 3 else None,
-                    'question_content': q[4] if len(q) > 4 else None,
-                    'chunk_ids': q[5] if len(q) > 5 else [],
-                    'created_at': q[6].isoformat() if len(q) > 6 and q[6] else None,
-                    'updated_at': q[7].isoformat() if len(q) > 7 and q[7] else None
-                }
-                result.append(question_obj)
-            return jsonify({
-                'success': True,
-                'data': result
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'data': []
-            })
-
-    except Exception as e:
-        logger.error(f"获取问题列表时发生错误: {str(e)}")
-        return jsonify({'success': False, 'message': f'获取问题列表时发生错误: {str(e)}'}), 500
-
-
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/detail', methods=['POST'])
 def get_question_detail():
     """获取问题详情 (新版本，使用JSON格式)"""
@@ -365,51 +315,6 @@ def get_question_detail():
         data = request.get_json()
         question_id = data.get('question_id')
         question_set_type = data.get('question_set_type')
-
-        if not question_id or not question_set_type:
-            return jsonify({'success': False, 'message': '缺少question_id或question_set_type参数'}), 400
-
-        with QuestionsCRUD() as crud:
-            # 获取指定类型的问题 - 修改调用方式
-            questions = crud.get_questions_by_type(
-                question_set_type=question_set_type,
-                question_id=question_id
-            )
-
-        if questions and len(questions) > 0:
-            q = questions[0]
-            # 根据实际表结构调整字段索引
-            result = {
-                'id': q[0] if len(q) > 0 else None,
-                'question_id': q[1] if len(q) > 1 else None,
-                'question_set_id': q[2] if len(q) > 2 else None,
-                'question_type': q[3] if len(q) > 3 else None,
-                'question_content': q[4] if len(q) > 4 else None,
-                'chunk_ids': q[5] if len(q) > 5 else [],
-                'created_at': q[6].isoformat() if len(q) > 6 and q[6] else None,
-                'updated_at': q[7].isoformat() if len(q) > 7 and q[7] else None
-            }
-            return jsonify({
-                'success': True,
-                'data': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '未找到问题'
-            }), 404
-
-    except Exception as e:
-        logger.error(f"获取问题详情时发生错误: {str(e)}")
-        return jsonify({'success': False, 'message': f'获取问题详情时发生错误: {str(e)}'}), 500
-
-
-@local_knowledge_question_bp.route('/local_knowledge_detail/question/detail', methods=['GET'])
-def get_question_detail_old():
-    """获取问题详情 (旧版，保持向后兼容)"""
-    try:
-        question_id = request.args.get('question_id')
-        question_set_type = request.args.get('question_set_type')
 
         if not question_id or not question_set_type:
             return jsonify({'success': False, 'message': '缺少question_id或question_set_type参数'}), 400
