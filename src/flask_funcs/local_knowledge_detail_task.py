@@ -24,7 +24,7 @@ def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, searc
         with MetricTasksCRUD() as mt_crud:
             retrieve_client = Retrieve(zlpt_user)
             report_id = generate_unique_id('rp', 8)
-            mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算')
+            mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算',match_type)
 
             # 根据匹配类型选择计算函数
         if match_type == 'chunkIdMatch':

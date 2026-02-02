@@ -252,6 +252,7 @@ function loadReportContent(taskId) {
                                 <div class="report-id">ID: ${report.report_id || 'N/A'}</div>
                             </td>
                             <td>${report.search_type || 'N/A'}</td>
+                            <td>${report.match_type || 'N/A'}</td>
                             <td>${report.status || 'N/A'}</td>
                             <td>${report.error_msg || 'N/A'}</td>
                             <td>
@@ -267,6 +268,7 @@ function loadReportContent(taskId) {
                             <tr>
                                 <th>报告名称/ID</th>
                                 <th>召回方式</th>
+                                <th>匹配方式</th>
                                 <th>状态</th>
                                 <th>错误信息</th>
                                 <th>操作</th>

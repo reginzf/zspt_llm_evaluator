@@ -260,9 +260,12 @@ class CreateTables(PostgreSQLManager):
             "task_id": "VARCHAR(100)",
             "status": "VARCHAR(20) NOT NULL DEFAULT '待处理'",
             "error_msg": "TEXT",
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "match_type": "VARCHAR(20)",
             "FOREIGN KEY (task_id)": "REFERENCES ai_metric_tasks(task_id) ON DELETE CASCADE"
         }
-        return self._create_table_with_common_fields("ai_reports", columns)
+        return self.create_table("ai_reports", columns)
 
     def create_all_tables(self):
         """创建所有表"""

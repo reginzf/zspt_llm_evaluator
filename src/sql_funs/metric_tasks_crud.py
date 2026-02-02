@@ -148,7 +148,7 @@ class MetricTasksCRUD(PostgreSQLManager):
 
     # 报告表相关操作方法
     def report_create(self, report_id: str, search_type: str, filepath: str, task_id: str, status: str = '待处理',
-                      error_msg: str = None):
+                      error_msg: str = None,mathc_type: str = None):
         """
         创建报告记录
         """
@@ -158,7 +158,8 @@ class MetricTasksCRUD(PostgreSQLManager):
             "filepath": filepath,
             "task_id": task_id,
             "status": status,
-            "error_msg": error_msg
+            "error_msg": error_msg,
+            "mathc_type":mathc_type
         }
         # 只插入非空值
         data = {k: v for k, v in data.items() if v is not None}
@@ -229,4 +230,5 @@ class MetricTasksCRUD(PostgreSQLManager):
             'error_msg': row[5] if len(row) > 5 else None,
             'created_at': row[6].isoformat() if len(row) > 6 and row[6] and hasattr(row[6], 'isoformat') else None,
             'updated_at': row[7].isoformat() if len(row) > 7 and row[7] and hasattr(row[7], 'isoformat') else None,
+            'match_type': row[8] if len(row) > 8 else None,
         }
