@@ -25,12 +25,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         """
         更新指标任务
         """
-        data = {
-            key: value for key, value in locals().items()
-            if key not in ['self', 'task_id'] and value is not None
-        }
-        if not data:
-            return False
+        data = {"status":status,"search_type":search_type,"report_path":report_path}
         try:
             result = self.update("ai_metric_tasks", data, task_id=task_id)
             if not result:
@@ -161,18 +156,21 @@ class MetricTasksCRUD(PostgreSQLManager):
             "error_msg": error_msg,
             "mathc_type":mathc_type
         }
-        # 只插入非空值
         data = {k: v for k, v in data.items() if v is not None}
         return self.insert("ai_reports", data=data)
 
     def report_update(self, report_id: str, search_type: str = None, filepath: str = None, task_id: str = None,
-                      status: str = None, error_msg: str = None):
+                      status: str = None, error_msg: str = None, mathc_type: str = None):
         """
         更新报告记录
         """
         data = {
-            key: value for key, value in locals().items()
-            if key not in ['self', 'report_id'] and value is not None
+            "search_type": search_type,
+            "filepath":filepath,
+            "task_id":task_id,
+            "status": status,
+            "error_msg": error_msg,
+            "mathc_type":mathc_type
         }
         if not data:
             return False
