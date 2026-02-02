@@ -229,6 +229,18 @@ function hideReportModal() {
     document.getElementById('reportModal').style.display = 'none';
 }
 
+// 定义映射关系
+const searchTypeMap = {
+    'vectorSearch': '向量检索',
+    'hybridSearch': '混合检索',
+    'augmentedSearch': '增强检索'
+};
+
+const matchTypeMap = {
+    'chunkTextMatch': '语义匹配',
+    'chunkIdMatch': 'ID匹配'
+};
+
 // 加载报告内容
 function loadReportContent(taskId) {
     fetch(`/local_knowledge_detail/task/metric/get_report?task_id=${taskId}`, {
@@ -251,8 +263,8 @@ function loadReportContent(taskId) {
                                 <div class="report-name clickable-report" onclick="openReport('${data.knowledgeBaseId}', '${report.filepath || 'N/A'}')">${report.filepath || 'N/A'}</div>
                                 <div class="report-id">ID: ${report.report_id || 'N/A'}</div>
                             </td>
-                            <td>${report.search_type || 'N/A'}</td>
-                            <td>${report.match_type || 'N/A'}</td>
+                            <td>${searchTypeMap[report.search_type]  || 'N/A'}</td>
+                            <td>${matchTypeMap[report.match_type]  || 'N/A'}</td>
                             <td>${report.status || 'N/A'}</td>
                             <td>${report.error_msg || 'N/A'}</td>
                             <td>
