@@ -72,7 +72,7 @@ AI-ken 是一个基于 Flask 框架开发的智能知识管理系统，集成了
 ## 安装和部署
 
 ### 环境要求
-- Python 3.8+
+- Python 3.12+
 - PostgreSQL 12+
 - Redis server
 - Node.js (可选，用于构建前端资源)
@@ -85,36 +85,20 @@ git clone https://github.com/your-org/ai-ken.git
 cd ai-ken
 ```
 
-2. **创建虚拟环境**
+2. **运行初始化脚本**
+需要联网或配置代理
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
+sh init_project_ascli.sh  # Linux/Mac
 # 或
-venv\Scripts\activate  # Windows
+./init_project_ascli.ps1
 ```
 
-3. **安装依赖包**
-```bash
-pip install -r requirements.txt
-```
+3. **根据提示输入基础配置**
 
-4. **配置环境变量**
-复制 `.env.example` 并根据需要修改配置：
-```bash
-cp .env.example .env
-```
 
-5. **配置数据库**
-修改 `configs/settings.toml` 中的数据库连接信息。
-
-6. **初始化数据库**
+4. **启动应用**
 ```bash
-# 根据需要运行数据库迁移脚本
-```
-
-7. **启动应用**
-```bash
-python app.py
+python app.py  --debug
 ```
 
 ## 项目结构
