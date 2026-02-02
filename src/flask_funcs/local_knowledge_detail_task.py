@@ -6,6 +6,8 @@ from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, zlpt_login, Retrieve
 from concurrent.futures import ThreadPoolExecutor
 from src.flask_funcs.common_utils import generate_unique_id
 from src.zlpt_temp import cal_metric_by_chunk_text_overlay_and_similarity
+from env_config_init import REPORT_PATH
+from pathlib import Path
 
 # 创建线程池执行器
 executor = ThreadPoolExecutor(max_workers=5)
@@ -170,6 +172,48 @@ def get_report():
     except Exception as e:
         logger.error(f"获取报告时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"获取报告时发生错误: {str(e)}"}), 500
+
+
+@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/delete_report', methods=['DELETE'])
+def delete_report():
+    """
+    删除报告
+    """
+    try:
+        data = request.get_json()
+        report_id = data.get('report_id')
+        if not report_id:
+            return jsonify({"success": False, "message": "缺少report_id参数"}), 400
+        with MetricTasksCRUD() as mt_crud:
+            # 获取报告信息以确定要删除的文件路径
+            report_list = mt_crud.report_list(report_id=report_id)
+            if not report_list:
+                return jsonify({"success": False, "message": "报告不存在"}), 400
+            report_info = mt_crud._report_to_json(report_list[0])
+            # 获取关联的任务信息以获取知识库ID
+            view_task_info = mt_crud.view_get_annotation_metric_tasks(task_id=report_info['task_id'])
+            if not view_task_info:
+                return jsonify({"success": False, "message": "无法获取任务信息"}), 400
+            knowledge_base_id = view_task_info[0][5]
+            file_path = Path(REPORT_PATH) / knowledge_base_id / report_info['filepath']
+            # 尝试删除文件
+            if file_path.exists():
+                try:
+                    file_path.unlink()  # 删除文件
+                    logger.info(f"报告文件已删除: {file_path}")
+                except Exception as e:
+                    logger.error(f"删除报告文件时出错: {str(e)}")
+            else:
+                logger.warning(f"报告文件不存在: {file_path}")
+            # 删除数据库记录
+            success = mt_crud.report_delete(report_id)
+            if success:
+                return jsonify({"success": True, "message": "报告删除成功"})
+            else:
+                return jsonify({"success": False, "message": "报告删除失败"}), 500
+    except Exception as e:
+        logger.error(f"删除报告时发生错误: {str(e)}")
+        return jsonify({"success": False, "message": f"删除报告时发生错误: {str(e)}"}), 500
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
