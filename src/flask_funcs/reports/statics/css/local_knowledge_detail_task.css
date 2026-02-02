@@ -270,6 +270,33 @@
     white-space: normal;  /* 允许正常的换行 */
 }
 
+/* 操作列样式 */
+.report-table td:nth-child(5) {  /* 第5列是操作列 */
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* 操作按钮样式 */
+.action-btn {
+    padding: 4px 8px;
+    margin: 0 2px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+
 /* 模态框样式 */
 .modal {
     display: none;

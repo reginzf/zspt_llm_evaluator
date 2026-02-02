@@ -254,6 +254,9 @@ function loadReportContent(taskId) {
                             <td>${report.search_type || 'N/A'}</td>
                             <td>${report.status || 'N/A'}</td>
                             <td>${report.error_msg || 'N/A'}</td>
+                            <td>
+                                <button class="action-btn delete-btn" onclick="deleteReport('${report.report_id}', this)">删除</button>
+                            </td>
                         </tr>
                     `;
                 });
@@ -266,6 +269,7 @@ function loadReportContent(taskId) {
                                 <th>召回方式</th>
                                 <th>状态</th>
                                 <th>错误信息</th>
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -293,6 +297,36 @@ function openReport(knowledgeBaseId, filepath) {
     const reportUrl = `/report/${knowledgeBaseId}/${filepath}`;
     // 在新窗口或标签页中打开报告
     window.open(reportUrl, '_blank');
+}
+
+// 删除报告
+function deleteReport(reportId, buttonElement) {
+    if (confirm('确定要删除这个报告吗？此操作不可撤销。')) {
+        fetch('/local_knowledge_detail/task/metric/delete_report', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                report_id: reportId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('报告删除成功');
+                // 重新加载报告列表
+                const taskId = document.getElementById('currentTaskId').value;
+                loadReportContent(taskId);
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除报告时出错:', error);
+            alert('删除报告时发生错误: ' + error.message);
+        });
+    }
 }
 
 // 导出报告
