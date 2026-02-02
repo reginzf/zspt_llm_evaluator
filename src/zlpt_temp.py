@@ -92,6 +92,9 @@ def zlpt_upload_files(know_client: KnowledgeBase, file_lists, kno_id, content_co
                 logger.debug(f"正在上传文件: {file_path}")
                 res = know_client.upload_attachment(file_path, content_code)
                 data_ids.append(res['data'])
+            else:
+                logger.warning(f"文件 {file_path} 不存在")
+                return False
         logger.info(f"文件上传完成，共上传 {len(file_lists)} 个文件\n上传的文件列表: {file_lists}\n开始更新文档信息")
         res = know_client.doc_addOrUpdate(kno_id, content_code, data_ids, chunk_size, chunk_overlap, **kwargs)
         logger.info("文档信息更新成功")
