@@ -244,13 +244,14 @@ class CreateTables(PostgreSQLManager):
     def create_metric_tasks_table(self):
         """11. 创建指标任务表"""
         columns = {
-            "task_id": "VARCHAR(100) PRIMARY KEY",
+            "task_id": "VARCHAR(100)",
             "status": "VARCHAR(20) NOT NULL DEFAULT '初始化'",
             "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "knowledge_base_id": "VARCHAR(100)",  # 新增：知识库ID字段
             "match_type": "VARCHAR(20) CHECK (match_type IN ('chunkTextMatch', 'chunkIdMatch'))",
+            "metric_task_id":"VARCHAR(20) PRIMARY KEY",
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE",
             "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"  # 可以为NULL
         }
@@ -267,8 +268,7 @@ class CreateTables(PostgreSQLManager):
             "error_msg": "TEXT",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "match_type": "VARCHAR(20)",
-            "FOREIGN KEY (task_id)": "REFERENCES ai_metric_tasks(task_id) ON DELETE CASCADE"
+            "match_type": "VARCHAR(20) DEFAULT NULL"
         }
         return self.create_table("ai_reports", columns)
 
@@ -297,3 +297,4 @@ class CreateTables(PostgreSQLManager):
 if __name__ == '__main__':
     with CreateTables() as ct:
         ct.create_all_tables()
+        # ct.migrate_add_fields('ai_metric_tasks',{'metric_task_id':'VARCHAR(20)'})
