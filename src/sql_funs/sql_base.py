@@ -92,7 +92,7 @@ class PostgreSQLManager:
         self.user = user or settings.SQL_USER
         self.password = password or settings.SQL_PASSWORD
         self.connection = None  # 数据库连接对象
-        self.cursor = None      # 数据库游标对象
+        self.cursor = None  # 数据库游标对象
 
     def connect(self) -> bool:
         """
@@ -137,8 +137,8 @@ class PostgreSQLManager:
             logger.info("数据库连接已关闭")
 
     def gen_select_query(self, table_name: str,
-                         order_by: str = None, limit: int = None, 
-                         exact_match_fields: List[str] = None, 
+                         order_by: str = None, limit: int = None,
+                         exact_match_fields: List[str] = None,
                          partial_match_fields: List[str] = None,
                          allowed_fileds: List[str] = None, **kwargs) -> Tuple[str, tuple]:
         """
@@ -163,7 +163,7 @@ class PostgreSQLManager:
         conditions = []
         values = []
         logger.info(f"查询参数: {kwargs}")
-        
+
         # 遍历所有查询条件
         for key, value in kwargs.items():
             # 验证字段名是否在允许的字段列表中，防止 SQL 注入
@@ -184,23 +184,23 @@ class PostgreSQLManager:
                 # 其他字段默认使用精确匹配
                 conditions.append(f"{key} = %s")
                 values.append(value)
-        
+
         # 构建基础查询语句
         query = f"SELECT * FROM {table_name}"
-        
+
         # 添加 WHERE 条件
         if conditions:
             where_clause = " AND ".join(conditions)
             query = f"{query} WHERE {where_clause}"
-            
+
         # 添加排序条件
         if order_by:
             query = f"{query} ORDER BY {order_by}"  # 修复：移除sql.SQL包装，因为它可能导致问题
-            
+
         # 添加限制条件
         if limit:
             query = f"{query} LIMIT {limit}"
-            
+
         logger.info(f"查询语句: {query} 条件参数:{values}")
         return query, tuple(values)
 
@@ -492,3 +492,89 @@ class PostgreSQLManager:
             exc_tb: 异常追踪信息
         """
         self.disconnect()
+
+    def migrate_add_fields(self, table_name: str, field_definitions: dict, constraint_definitions: dict = None):
+        """通用迁移方法：为指定表添加字段和约束
+
+        Args:
+            table_name: 表名称
+            field_definitions: 字段定义字典，格式为 {字段名: SQL定义语句}
+            constraint_definitions: 约束定义字典，格式为 {字段名: 约束SQL语句}，可选
+
+        Returns:
+            bool: 迁移是否成功
+        """
+        if constraint_definitions is None:
+            constraint_definitions = {}
+
+        print(f"开始执行{table_name}表字段扩展迁移...")
+
+        try:
+            added_fields = []
+            added_constraints = []
+
+            # 按字段顺序处理
+            for field_name, field_sql in field_definitions.items():
+                print(f"处理字段: {field_name}")
+
+                # 检查字段是否存在
+                check_field_query = f"""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}' 
+                AND column_name = '{field_name}';
+                """
+                result = self.execute_query(check_field_query)
+
+                if not result:
+                    # 添加字段
+                    add_field_query = f"""
+                    ALTER TABLE {table_name} 
+                    ADD COLUMN {field_sql};
+                    """
+                    self.execute_query(add_field_query)
+                    print(f"  ✓ 已添加{field_name}字段")
+                    added_fields.append(field_name)
+
+                    # 如果有对应的约束定义，则添加约束
+                    if field_name in constraint_definitions:
+                        constraint_sql = constraint_definitions[field_name]
+                        add_constraint_query = f"""
+                        ALTER TABLE {table_name} 
+                        ADD CONSTRAINT {constraint_sql};
+                        """
+                        self.execute_query(add_constraint_query)
+                        print(f"  ✓ 已添加{field_name}字段的约束")
+                        added_constraints.append(field_name)
+                else:
+                    print(f"  ✓ {field_name}字段已存在，跳过添加")
+
+            # 显示最终表结构
+            print(f"显示{table_name}表最终结构:")
+            structure_query = f"""
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns 
+            WHERE table_name = '{table_name}'
+            ORDER BY ordinal_position;
+            """
+            result = self.execute_query(structure_query)
+            if result:
+                print(f"  当前{table_name}表结构:")
+                for row in result:
+                    print(f"    {row[0]}: {row[1]} (nullable: {row[2]}, default: {row[3]})")
+
+            print(f"迁移完成！{table_name}表已成功添加新字段")
+            if added_fields:
+                print("新增字段:")
+                for field in added_fields:
+                    print(f"  - {field}: {field_definitions[field]}")
+            if added_constraints:
+                print("新增约束:")
+                for constraint in added_constraints:
+                    print(f"  - {constraint}: {constraint_definitions[constraint]}")
+
+            return True
+
+        except Exception as e:
+            print(f"迁移失败: {e}")
+            return False
