@@ -247,9 +247,14 @@ class CreateTables(PostgreSQLManager):
             "task_id": "VARCHAR(100) PRIMARY KEY",
             "status": "VARCHAR(20) NOT NULL DEFAULT '初始化'",
             "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
-            "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE"
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "knowledge_base_id": "VARCHAR(100)",  # 新增：知识库ID字段
+            "match_type": "VARCHAR(20) CHECK (match_type IN ('chunkTextMatch', 'chunkIdMatch'))",
+            "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE",
+            "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"  # 可以为NULL
         }
-        return self._create_table_with_common_fields("ai_metric_tasks", columns)
+        return self.create_table("ai_metric_tasks", columns)
 
     def create_report_table(self):
         """12. 创建报告表"""
