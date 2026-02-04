@@ -65,7 +65,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <select id="matchTypeSelect" class="form-control">
+                <select id="matchTypeSelectOld" class="form-control">
                     <option value="" disabled selected>请选择匹配方式</option>
                     <option value="chunkIdMatch">切片ID匹配</option>
                     <option value="chunkTextMatch">切片语义匹配</option>
@@ -106,9 +106,27 @@
             <span class="close" onclick="hideCreateMetricTaskModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <p>请选择一个已完成的标注任务来创建指标任务：</p>
-            <div id="completedTaskList" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
-                <p>加载中...</p>
+            <div class="form-group">
+                <label for="matchTypeSelect">匹配方式：</label>
+                <select id="matchTypeSelect" class="form-control" onchange="handleMatchTypeChange()">
+                    <option value="" disabled selected>请选择匹配方式</option>
+                    <option value="chunkIdMatch">切片ID匹配</option>
+                    <option value="chunkTextMatch">切片语义匹配</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="knowledgeBaseGroup" style="display: none;">
+                <label for="knowledgeBaseSelect">知识库：</label>
+                <select id="knowledgeBaseSelect" class="form-control">
+                    <option value="" disabled selected>请选择知识库</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="taskSelect">标注任务：</label>
+                <select id="taskSelect" class="form-control">
+                    <option value="" disabled selected>请选择任务</option>
+                </select>
             </div>
         </div>
         <div class="modal-footer">

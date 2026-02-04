@@ -10,7 +10,7 @@ function initTaskTab(knoId) {
 
 // 加载任务列表
 function loadTaskList() {
-    
+
     fetch(`/local_knowledge_detail/task/metric/list?knowledge_id=${currentKnowledgeId}`, {
         method: 'GET',
         headers: {
@@ -56,7 +56,7 @@ function renderTaskTable(tasks) {
         }, 100);
         return;
     }
-    
+
     tableBody.innerHTML = ''; // 清空现有内容
 
     if (tasks && tasks.length > 0) {
@@ -352,20 +352,41 @@ function exportReport() {
 
 // 显示创建指标任务对话框
 function showCreateMetricTaskDialog() {
-    // 先加载已完成的标注任务列表
-    loadCompletedAnnotationTasks();
-    
+    // 重置表单
+    document.getElementById('matchTypeSelect').value = '';
+    document.getElementById('taskSelect').innerHTML = '<option value="" disabled selected>请选择任务</option>';
+    document.getElementById('knowledgeBaseGroup').style.display = 'none';
+    document.getElementById('knowledgeBaseSelect').innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+
+    // 加载已完成的标注任务
+    loadCompletedTasks();
+
     // 显示模态框
     document.getElementById('createMetricTaskModal').style.display = 'block';
 }
 
-// 隐藏创建指标任务对话框
-function hideCreateMetricTaskModal() {
-    document.getElementById('createMetricTaskModal').style.display = 'none';
+// 处理匹配方式变化
+function handleMatchTypeChange() {
+    const matchType = document.getElementById('matchTypeSelect').value;
+    const knowledgeBaseGroup = document.getElementById('knowledgeBaseGroup');
+    const knowledgeBaseSelect = document.getElementById('knowledgeBaseSelect');
+
+    if (matchType === 'chunkTextMatch') {
+        // 显示知识库选择
+        knowledgeBaseGroup.style.display = 'block';
+        // 加载绑定的知识库
+        loadBoundKnowledgeBases();
+    } else {
+        // 隐藏知识库选择
+        knowledgeBaseGroup.style.display = 'none';
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+    }
 }
 
-// 加载已完成的标注任务列表
-function loadCompletedAnnotationTasks() {
+// 加载已完成的标注任务
+function loadCompletedTasks() {
+    const taskSelect = document.getElementById('taskSelect');
+
     fetch('/local_knowledge_detail/task/metric/completed_tasks', {
         method: 'POST',
         headers: {
@@ -378,73 +399,105 @@ function loadCompletedAnnotationTasks() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            renderCompletedAnnotationTasks(data.data);
+            taskSelect.innerHTML = '<option value="" disabled selected>请选择任务</option>';
+            (data.data || []).forEach(task => {
+                const option = document.createElement('option');
+                option.value = task.task_id;
+                option.textContent = `${task.task_name} (${task.task_id})`;
+                taskSelect.appendChild(option);
+            });
         } else {
-            console.error('获取已完成的标注任务失败:', data.message);
-            const taskListElement = document.getElementById('completedTaskList');
-            if (taskListElement) {
-                taskListElement.innerHTML = `<p style="color: red;">获取任务列表失败: ${data.message}</p>`;
-            }
+            taskSelect.innerHTML = '<option value="" disabled>加载任务失败</option>';
         }
     })
     .catch(error => {
-        console.error('请求已完成的标注任务时出错:', error);
-        const taskListElement = document.getElementById('completedTaskList');
-        if (taskListElement) {
-            taskListElement.innerHTML = `<p style="color: red;">网络请求错误: ${error.message}</p>`;
-        }
+        console.error('加载任务列表时出错:', error);
+        taskSelect.innerHTML = '<option value="" disabled>加载失败</option>';
     });
 }
 
-// 渲染已完成的标注任务列表
-function renderCompletedAnnotationTasks(tasks) {
-    const taskListElement = document.getElementById('completedTaskList');
-    if (!taskListElement) {
-        console.error('找不到已完成任务列表元素');
-        return;
-    }
-    
-    if (tasks && tasks.length > 0) {
-        let html = '';
-        tasks.forEach(task => {
-            html += `
-                <div class="completed-task-item">
-                    <input type="radio" name="selectedTask" value="${task.task_id}" id="task_${task.task_id}">
-                    <label for="task_${task.task_id}">
-                        <strong>${task.task_name}</strong> 
-                        (<em>${task.knowledge_base_name}</em> - ${task.question_set_name})
-                        <br>
-                        <small>进度: ${task.annotated_chunks}/${task.total_chunks} | 状态: ${task.task_status}</small>
-                    </label>
-                </div>
-            `;
-        });
-        taskListElement.innerHTML = html;
-    } else {
-        taskListElement.innerHTML = '<p>暂无已完成的标注任务</p>';
-    }
-}
+// 加载绑定的知识库
+function loadBoundKnowledgeBases() {
+    const knowledgeBaseSelect = document.getElementById('knowledgeBaseSelect');
+    const knoId = currentKnowledgeId;
 
-// 创建指标任务
-function createMetricTask() {
-    const selectedTaskId = document.querySelector('input[name="selectedTask"]:checked');
-    if (!selectedTaskId) {
-        alert('请先选择一个已完成的标注任务');
+    if (!knoId) {
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled>未找到本地知识库ID</option>';
         return;
     }
-    
-    const taskId = selectedTaskId.value;
-    
-    // 将任务信息写入ai_metric_tasks表
-    fetch('/local_knowledge_detail/task/metric/create', {
+
+    fetch('/local_knowledge/bindings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            task_id: taskId,
-            annotation_type: 'metric_task' // 标记这是一个指标任务
+            kno_id: knoId
         })
+    })
+    .then(response => response.json())
+    .then(data => {
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(binding => {
+                if (binding.bind_status === 2) { // 已绑定状态
+                    const option = document.createElement('option');
+                    option.value = binding.knowledge_id;
+                    option.textContent = binding.knowledge_name || binding.knowledge_id;
+                    knowledgeBaseSelect.appendChild(option);
+                }
+            });
+        } else {
+            knowledgeBaseSelect.innerHTML = '<option value="" disabled>暂无绑定的知识库</option>';
+        }
+    })
+    .catch(error => {
+        console.error('加载知识库列表时出错:', error);
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled>加载失败</option>';
+    });
+}
+
+// 创建指标任务
+function createMetricTask() {
+    const matchType = document.getElementById('matchTypeSelect').value;
+    const taskId = document.getElementById('taskSelect').value;
+    const knowledgeBaseId = document.getElementById('knowledgeBaseSelect').value;
+
+    // 验证必填字段
+    if (!matchType) {
+        alert('请选择匹配方式');
+        return;
+    }
+
+    if (!taskId) {
+        alert('请选择标注任务');
+        return;
+    }
+
+    // 如果是切片语义匹配，还需要选择知识库
+    if (matchType === 'chunkTextMatch' && !knowledgeBaseId) {
+        alert('请选择知识库');
+        return;
+    }
+
+    // 构造请求数据
+    const requestData = {
+        match_type: matchType,
+        task_id: taskId
+    };
+
+    // 如果是切片语义匹配，添加知识库ID
+    if (matchType === 'chunkTextMatch') {
+        requestData.knowledge_base_id = knowledgeBaseId;
+    }
+
+    // 发送创建请求
+    fetch('/local_knowledge_detail/task/metric/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
     })
     .then(response => response.json())
     .then(data => {
@@ -461,4 +514,9 @@ function createMetricTask() {
         console.error('创建指标任务时出错:', error);
         alert('创建指标任务时发生错误');
     });
+}
+
+// 隐藏创建指标任务模态框
+function hideCreateMetricTaskModal() {
+    document.getElementById('createMetricTaskModal').style.display = 'none';
 }
