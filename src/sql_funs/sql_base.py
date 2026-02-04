@@ -530,7 +530,7 @@ class PostgreSQLManager:
                     # 添加字段
                     add_field_query = f"""
                     ALTER TABLE {table_name} 
-                    ADD COLUMN {field_sql};
+                    ADD COLUMN {field_name} {field_sql};
                     """
                     self.execute_query(add_field_query)
                     print(f"  ✓ 已添加{field_name}字段")
@@ -541,7 +541,7 @@ class PostgreSQLManager:
                         constraint_sql = constraint_definitions[field_name]
                         add_constraint_query = f"""
                         ALTER TABLE {table_name} 
-                        ADD CONSTRAINT {constraint_sql};
+                        ADD CONSTRAINT {field_name} {constraint_sql};
                         """
                         self.execute_query(add_constraint_query)
                         print(f"  ✓ 已添加{field_name}字段的约束")
