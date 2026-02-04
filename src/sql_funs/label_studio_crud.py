@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Label Studio管理CRUD操作模块
+
+此模块提供了Label Studio环境和标注任务管理的完整CRUD操作接口，
+包括环境信息、绑定关系和标注任务的增删改查等操作。
+"""
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
 
@@ -5,9 +12,26 @@ logger = logging.getLogger(__name__)
 
 
 class LabelStudioCrud(PostgreSQLManager):
+    """
+    Label Studio管理CRUD操作类
+    
+    继承自PostgreSQLManager，提供针对Label Studio环境和标注任务的数据库操作方法，
+    包括环境信息管理、环境绑定关系管理以及标注任务管理等操作。
+    """
 
     def label_studio_list(self, label_studio_id=None, label_studio_url=None):
-        """获取Label-Studio环境列表"""
+        """
+        获取Label Studio环境列表
+        
+        根据传入的参数查询Label Studio环境信息，支持按ID精确查询和按URL部分匹配查询。
+        
+        Args:
+            label_studio_id (str, optional): Label Studio环境ID
+            label_studio_url (str, optional): Label Studio环境URL
+        
+        Returns:
+            List[Tuple]: 查询结果列表，每个元素为元组形式的记录
+        """
         exact_match_fields = ['label_studio_id']
         partial_match_fields = ['label_studio_url']
         allowed_fileds = exact_match_fields + partial_match_fields
@@ -28,7 +52,19 @@ class LabelStudioCrud(PostgreSQLManager):
             return []
 
     def label_studio_insert(self, label_studio_id, label_studio_url, label_studio_api_key):
-        """插入Label-Studio环境信息"""
+        """
+        插入Label Studio环境信息
+        
+        在ai_label_studio_info表中插入新的Label Studio环境记录。
+        
+        Args:
+            label_studio_id (str): Label Studio环境ID
+            label_studio_url (str): Label Studio环境URL
+            label_studio_api_key (str): Label Studio API密钥
+        
+        Returns:
+            bool: 插入成功返回True，失败返回False
+        """
         try:
             data = {
                 'label_studio_id': label_studio_id,
@@ -41,7 +77,19 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def label_studio_update(self, label_studio_id, label_studio_url=None, label_studio_api_key=None):
-        """更新Label-Studio环境信息"""
+        """
+        更新Label Studio环境信息
+        
+        根据Label Studio环境ID更新ai_label_studio_info表中的环境记录。
+        
+        Args:
+            label_studio_id (str): 要更新的Label Studio环境ID
+            label_studio_url (str, optional): 新的Label Studio环境URL
+            label_studio_api_key (str, optional): 新的Label Studio API密钥
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
+        """
         try:
             updates = {}
 
@@ -59,7 +107,17 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def label_studio_delete(self, label_studio_id):
-        """删除Label-Studio环境信息"""
+        """
+        删除Label Studio环境信息
+        
+        根据Label Studio环境ID从ai_label_studio_info表中删除环境记录。
+        
+        Args:
+            label_studio_id (str): 要删除的Label Studio环境ID
+        
+        Returns:
+            bool: 删除成功返回True，失败返回False
+        """
         try:
             return self.delete('ai_label_studio_info', label_studio_id=label_studio_id)
         except Exception as e:
@@ -67,7 +125,18 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def label_studio_bind_get(self, kno_id=None, label_studio_id=None):
-        """获取Label-Studio绑定关系"""
+        """
+        获取Label Studio绑定关系
+        
+        查询知识库与Label Studio环境之间的绑定关系，支持按知识库ID和环境ID查询。
+        
+        Args:
+            kno_id (str, optional): 知识库ID
+            label_studio_id (str, optional): Label Studio环境ID
+        
+        Returns:
+            List[Tuple]: 查询结果列表，每个元素为元组形式的记录
+        """
         data = {}
         if kno_id:
             data['kno_id'] = kno_id
@@ -87,7 +156,19 @@ class LabelStudioCrud(PostgreSQLManager):
             return []
 
     def label_studio_bind_create(self, kno_id, label_studio_id, bind_status=2):
-        """创建Label-Studio绑定关系"""
+        """
+        创建Label Studio绑定关系
+        
+        在ai_label_studio_bind表中创建知识库与Label Studio环境的绑定关系。
+        
+        Args:
+            kno_id (str): 知识库ID
+            label_studio_id (str): Label Studio环境ID
+            bind_status (int, optional): 绑定状态，默认为2
+        
+        Returns:
+            bool: 创建成功返回True，失败返回False
+        """
         try:
             data = {
                 'kno_id': kno_id,
@@ -100,7 +181,19 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def label_studio_bind_update(self, kno_id, label_studio_id, bind_status=None):
-        """更新Label-Studio绑定关系"""
+        """
+        更新Label Studio绑定关系
+        
+        根据知识库ID和Label Studio环境ID更新ai_label_studio_bind表中的绑定记录。
+        
+        Args:
+            kno_id (str): 知识库ID
+            label_studio_id (str): Label Studio环境ID
+            bind_status (int, optional): 新的绑定状态
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
+        """
         try:
             updates = {}
 
@@ -116,7 +209,18 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def label_studio_bind_delete(self, kno_id, label_studio_id):
-        """删除Label-Studio绑定关系"""
+        """
+        删除Label Studio绑定关系
+        
+        根据知识库ID和Label Studio环境ID从ai_label_studio_bind表中删除绑定记录。
+        
+        Args:
+            kno_id (str): 知识库ID
+            label_studio_id (str): Label Studio环境ID
+        
+        Returns:
+            bool: 删除成功返回True，失败返回False
+        """
         try:
             return self.delete('ai_label_studio_bind', kno_id=kno_id, label_studio_id=label_studio_id)
         except Exception as e:
@@ -124,7 +228,18 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def _label_studio_to_json(self, row):
-        """将Label-Studio数据库记录转换为JSON格式"""
+        """
+        将Label Studio数据库记录转换为JSON格式
+        
+        将数据库查询返回的元组格式环境信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的环境信息元组
+        
+        Returns:
+            dict or None: 转换后的环境信息字典，如果输入为None则返回None
+        """
         if not row:
             return None
 
@@ -137,7 +252,18 @@ class LabelStudioCrud(PostgreSQLManager):
         }
 
     def _label_studio_bind_to_json(self, row):
-        """将Label-Studio绑定记录转换为JSON格式"""
+        """
+        将Label Studio绑定记录转换为JSON格式
+        
+        将数据库查询返回的元组格式绑定信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的绑定信息元组
+        
+        Returns:
+            dict or None: 转换后的绑定信息字典，如果输入为None则返回None
+        """
         if not row:
             return None
 
@@ -154,7 +280,24 @@ class LabelStudioCrud(PostgreSQLManager):
     def annotation_task_list(self, task_id=None, task_name=None, local_knowledge_id=None, label_studio_env_id=None,
                              question_set_id=None, label_studio_project_id=None,
                              task_status=None, annotation_type=None):
-        """获取标注任务列表"""
+        """
+        获取标注任务列表
+        
+        从ai_annotation_tasks表中查询标注任务列表，支持多种查询条件。
+        
+        Args:
+            task_id (str, optional): 任务ID
+            task_name (str, optional): 任务名称（部分匹配）
+            local_knowledge_id (str, optional): 本地知识库ID
+            label_studio_env_id (str, optional): Label Studio环境ID
+            question_set_id (str, optional): 问题集ID
+            label_studio_project_id (str, optional): Label Studio项目ID
+            task_status (str, optional): 任务状态
+            annotation_type (str, optional): 标注类型
+        
+        Returns:
+            List[Tuple]: 查询结果列表，每个元素为元组形式的记录
+        """
         exact_match_fields = ['task_id', 'local_knowledge_id', 'label_studio_env_id', 'question_set_id',
                               'label_studio_project_id', 'task_status', 'annotation_type']
         partial_match_fields = ['task_name']
@@ -177,7 +320,27 @@ class LabelStudioCrud(PostgreSQLManager):
     def annotation_task_create(self, task_id, task_name, local_knowledge_id, question_set_id,
                                label_studio_env_id, label_studio_project_id=None, knowledge_base_id=None,
                                total_chunks=0, annotated_chunks=0, task_status='未开始', annotation_type=None):
-        """创建标注任务"""
+        """
+        创建标注任务
+        
+        在ai_annotation_tasks表中创建新的标注任务记录。
+        
+        Args:
+            task_id (str): 任务ID
+            task_name (str): 任务名称
+            local_knowledge_id (str): 本地知识库ID
+            question_set_id (str): 问题集ID
+            label_studio_env_id (str): Label Studio环境ID
+            label_studio_project_id (str, optional): Label Studio项目ID
+            knowledge_base_id (str, optional): 知识库ID
+            total_chunks (int, optional): 总分块数，默认为0
+            annotated_chunks (int, optional): 已标注分块数，默认为0
+            task_status (str, optional): 任务状态，默认为'未开始'
+            annotation_type (str, optional): 标注类型
+        
+        Returns:
+            bool: 创建成功返回True，失败返回False
+        """
         try:
             data = {
                 'task_id': task_id,
@@ -200,7 +363,23 @@ class LabelStudioCrud(PostgreSQLManager):
 
     def annotation_task_update(self, task_id, task_name=None, task_status=None, label_studio_project_id=None,
                                total_chunks=None, annotated_chunks=None, annotation_type=None):
-        """更新标注任务"""
+        """
+        更新标注任务
+        
+        根据任务ID更新ai_annotation_tasks表中的标注任务记录。
+        
+        Args:
+            task_id (str): 要更新的任务ID
+            task_name (str, optional): 新的任务名称
+            task_status (str, optional): 新的任务状态
+            label_studio_project_id (str, optional): 新的Label Studio项目ID
+            total_chunks (int, optional): 新的总分块数
+            annotated_chunks (int, optional): 新的已标注分块数
+            annotation_type (str, optional): 新的标注类型
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
+        """
         try:
             updates = {
                 'task_name': task_name,
@@ -219,7 +398,17 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def annotation_task_delete(self, task_id):
-        """删除标注任务"""
+        """
+        删除标注任务
+        
+        根据任务ID从ai_annotation_tasks表中删除标注任务记录。
+        
+        Args:
+            task_id (str): 要删除的任务ID
+        
+        Returns:
+            bool: 删除成功返回True，失败返回False
+        """
         try:
             return self.delete('ai_annotation_tasks', task_id=task_id)
         except Exception as e:
@@ -227,7 +416,17 @@ class LabelStudioCrud(PostgreSQLManager):
             return False
 
     def annotation_task_count_by_env(self, label_studio_env_id):
-        """获取特定环境下标注任务的数量"""
+        """
+        获取特定环境下标注任务的数量
+        
+        统计指定Label Studio环境下有多少个标注任务。
+        
+        Args:
+            label_studio_env_id (str): Label Studio环境ID
+        
+        Returns:
+            int: 标注任务数量
+        """
         try:
             query = "SELECT COUNT(*) FROM ai_annotation_tasks WHERE label_studio_env_id = %s"
             result = self.execute_query(query, (label_studio_env_id,))
@@ -237,13 +436,36 @@ class LabelStudioCrud(PostgreSQLManager):
             return 0
 
     def annotation_task_get_by_id(self, task_id):
-        """通过任务ID获取标注任务"""
+        """
+        通过任务ID获取标注任务
+        
+        根据任务ID获取完整的标注任务信息并转换为JSON格式。
+        
+        Args:
+            task_id (str): 要获取的任务ID
+        
+        Returns:
+            dict: 标注任务信息字典
+        """
         result = self.annotation_task_list(task_id=task_id)
         if result:
             return self._annotation_task_to_json(result[0])
 
     def view_annotation_task_extended_list(self, label_studio_env_id=None, local_knowledge_id=None,task_id=None):
-        """根据label_studio_env_id和local_knowledge_id查询标注任务扩展视图"""
+        """
+        查询标注任务扩展视图
+        
+        根据Label Studio环境ID和本地知识库ID查询标注任务扩展视图，
+        包含知识库名称和问题集名称等扩展信息。
+        
+        Args:
+            label_studio_env_id (str, optional): Label Studio环境ID
+            local_knowledge_id (str, optional): 本地知识库ID
+            task_id (str, optional): 任务ID
+        
+        Returns:
+            List[Tuple]: 查询结果列表，每个元素为元组形式的记录
+        """
         exact_match_fields = ['label_studio_env_id', 'local_knowledge_id','task_id']
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
@@ -263,7 +485,17 @@ class LabelStudioCrud(PostgreSQLManager):
             return []
 
     def view_annotation_task_completed_list(self, local_knowledge_id=None):
-        """查询状态为'已标注'的标注任务扩展视图，用于创建指标任务时选择"""
+        """
+        查询已完成的标注任务扩展视图
+        
+        查询状态为'已完成'的标注任务扩展视图，用于创建指标任务时选择。
+        
+        Args:
+            local_knowledge_id (str, optional): 本地知识库ID
+        
+        Returns:
+            List[Tuple]: 查询结果列表，每个元素为元组形式的记录
+        """
         exact_match_fields = ['local_knowledge_id', 'task_status']
         partial_match_fields = []
         allowed_fileds = exact_match_fields + partial_match_fields
@@ -281,7 +513,18 @@ class LabelStudioCrud(PostgreSQLManager):
             return []
 
     def _annotation_task_to_json(self, row):
-        """将标注任务数据库记录转换为JSON格式"""
+        """
+        将标注任务数据库记录转换为JSON格式
+        
+        将数据库查询返回的元组格式任务信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的任务信息元组
+        
+        Returns:
+            dict: 转换后的任务信息字典
+        """
         return {
             'task_id': row[0] if len(row) > 0 else None,
             'task_name': row[1] if len(row) > 1 else None,
@@ -299,6 +542,18 @@ class LabelStudioCrud(PostgreSQLManager):
         }
 
     def _view_annotation_task_completed_list_to_json(self, row):
+        """
+        将已完成标注任务扩展视图记录转换为JSON格式
+        
+        将数据库查询返回的元组格式已完成任务信息转换为字典格式，
+        包含知识库名称和问题集名称等扩展信息。
+        
+        Args:
+            row (Tuple): 数据库查询返回的已完成任务信息元组
+        
+        Returns:
+            dict: 转换后的已完成任务信息字典
+        """
         return {
             'task_id': row[0],
             'task_name': row[1],
@@ -318,6 +573,18 @@ class LabelStudioCrud(PostgreSQLManager):
         }
 
     def _view_annotation_task_extended_list_to_json(self, row):
+        """
+        将标注任务扩展视图记录转换为JSON格式
+        
+        将数据库查询返回的元组格式任务扩展信息转换为字典格式，
+        包含知识库名称和问题集名称等扩展信息。
+        
+        Args:
+            row (Tuple): 数据库查询返回的任务扩展信息元组
+        
+        Returns:
+            dict: 转换后的任务扩展信息字典
+        """
         return {
             'task_id': row[0] if len(row) > 0 else None,
             'task_name': row[1] if len(row) > 1 else None,

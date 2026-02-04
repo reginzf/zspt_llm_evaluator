@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+指标任务管理CRUD操作模块
+
+此模块提供了指标任务和报告管理的完整CRUD操作接口，
+包括指标任务的创建、更新、删除、查询以及报告记录的管理。
+"""
 from typing import Optional, List, Tuple
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
@@ -6,10 +13,27 @@ logger = logging.getLogger(__name__)
 
 
 class MetricTasksCRUD(PostgreSQLManager):
+    """
+    指标任务管理CRUD操作类
+    
+    继承自PostgreSQLManager，提供针对指标任务和报告的数据库操作方法，
+    包括指标任务的增删改查以及报告记录的管理。
+    """
+    
     def metric_task_create(self, task_id: str, status: str = '初始化',
                            search_type: str = None):
         """
         创建指标任务
+        
+        在ai_metric_tasks表中插入新的指标任务记录。
+        
+        Args:
+            task_id (str): 任务ID
+            status (str, optional): 任务状态，默认为'初始化'
+            search_type (str, optional): 搜索类型
+        
+        Returns:
+            bool: 创建成功返回True，失败返回False
         """
         data = {
             "task_id": task_id,
@@ -24,6 +48,17 @@ class MetricTasksCRUD(PostgreSQLManager):
                            search_type: str = None, report_path=None):
         """
         更新指标任务
+        
+        根据任务ID更新ai_metric_tasks表中的指标任务记录。
+        
+        Args:
+            task_id (str): 要更新的任务ID
+            status (str, optional): 新的任务状态
+            search_type (str, optional): 新的搜索类型
+            report_path (str, optional): 报告路径
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
         """
         data = {"status":status,"search_type":search_type,"report_path":report_path}
         try:
@@ -39,12 +74,28 @@ class MetricTasksCRUD(PostgreSQLManager):
     def metric_task_delete(self, task_id: str):
         """
         删除指标任务
+        
+        根据任务ID从ai_metric_tasks表中删除指标任务记录。
+        
+        Args:
+            task_id (str): 要删除的任务ID
+        
+        Returns:
+            bool: 删除成功返回True，失败返回False
         """
         return self.delete("ai_metric_tasks", task_id=task_id)
 
     def metric_task_get_by_id(self, task_id: str) -> Optional[Tuple]:
         """
         根据任务ID获取指标任务信息
+        
+        从ai_metric_tasks表中查询指定ID的指标任务记录。
+        
+        Args:
+            task_id (str): 要查询的任务ID
+        
+        Returns:
+            Optional[Tuple]: 查询结果元组，如果未找到返回None
         """
         query = "SELECT * FROM ai_metric_tasks WHERE task_id = %s"
         result = self.execute_query(query, (task_id,))
@@ -55,7 +106,20 @@ class MetricTasksCRUD(PostgreSQLManager):
         List[Tuple]]:
         """
         获取指标任务列表
-        支持按条件查询
+        
+        从ai_metric_tasks表中查询指标任务列表，支持多种查询条件、
+        排序和结果数量限制。
+        
+        Args:
+            task_id (str, optional): 按任务ID精确查询
+            status (str, optional): 按任务状态精确查询
+            search_type (str, optional): 按搜索类型精确查询
+            order_by (str, optional): 排序字段
+            limit (int, optional): 限制返回结果数量
+            **kwargs: 其他查询条件参数
+        
+        Returns:
+            Optional[List[Tuple]]: 查询结果列表，每个元素为元组形式的记录
         """
         exact_match_fields = ['task_id', 'status', 'search_type']
         partial_match_fields = []  # 没有需要模糊匹配的字段
@@ -76,7 +140,18 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.execute_query(query, params)
 
     def _metric_task_to_json(self, row):
-        """将指标任务数据库记录转换为JSON格式"""
+        """
+        将指标任务数据库记录转换为JSON格式
+        
+        将数据库查询返回的元组格式任务信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的任务信息元组
+        
+        Returns:
+            dict or None: 转换后的任务信息字典，如果输入为None则返回None
+        """
         if not row:
             return None
 
@@ -93,6 +168,20 @@ class MetricTasksCRUD(PostgreSQLManager):
                                          limit: int = None, **kwargs) -> Optional[List[Tuple]]:
         """
         获取标注任务与指标任务关联信息
+        
+        从ai_annotation_metric_tasks_view视图中查询标注任务与指标任务的关联信息。
+        
+        Args:
+            task_id (str, optional): 任务ID
+            local_knowledge_id (str, optional): 本地知识库ID
+            task_status (str, optional): 任务状态
+            metric_status (str, optional): 指标状态
+            order_by (str, optional): 排序字段
+            limit (int, optional): 限制返回结果数量
+            **kwargs: 其他查询条件参数
+        
+        Returns:
+            Optional[List[Tuple]]: 查询结果列表，每个元素为元组形式的记录
         """
         exact_match_fields = ['task_id', 'local_knowledge_id', 'task_status', 'metric_status']
         partial_match_fields = ['task_name']  # 任务名称可能需要模糊匹配
@@ -114,7 +203,18 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.execute_query(query, params)
 
     def view_annotation_metric_task_to_json(self, row):
-        """将标注任务与指标任务关联视图记录转换为JSON格式"""
+        """
+        将标注任务与指标任务关联视图记录转换为JSON格式
+        
+        将数据库查询返回的元组格式关联信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的关联信息元组
+        
+        Returns:
+            dict or None: 转换后的关联信息字典，如果输入为None则返回None
+        """
         if not row:
             return None
 
@@ -146,6 +246,20 @@ class MetricTasksCRUD(PostgreSQLManager):
                       error_msg: str = None,mathc_type: str = None):
         """
         创建报告记录
+        
+        在ai_reports表中插入新的报告记录。
+        
+        Args:
+            report_id (str): 报告ID
+            search_type (str): 搜索类型
+            filepath (str): 文件路径
+            task_id (str): 任务ID
+            status (str, optional): 报告状态，默认为'待处理'
+            error_msg (str, optional): 错误信息
+            mathc_type (str, optional): 匹配类型
+        
+        Returns:
+            bool: 创建成功返回True，失败返回False
         """
         data = {
             "report_id": report_id,
@@ -163,6 +277,20 @@ class MetricTasksCRUD(PostgreSQLManager):
                       status: str = None, error_msg: str = None, mathc_type: str = None):
         """
         更新报告记录
+        
+        根据报告ID更新ai_reports表中的报告记录。
+        
+        Args:
+            report_id (str): 要更新的报告ID
+            search_type (str, optional): 新的搜索类型
+            filepath (str, optional): 新的文件路径
+            task_id (str, optional): 新的任务ID
+            status (str, optional): 新的报告状态
+            error_msg (str, optional): 新的错误信息
+            mathc_type (str, optional): 新的匹配类型
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
         """
         data = {
             "search_type": search_type,
@@ -172,6 +300,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             "error_msg": error_msg,
             "mathc_type":mathc_type
         }
+        data = {k: v for k, v in data.items() if v is not None}
         if not data:
             return False
         try:
@@ -184,6 +313,14 @@ class MetricTasksCRUD(PostgreSQLManager):
     def report_delete(self, report_id: str):
         """
         删除报告记录
+        
+        根据报告ID从ai_reports表中删除报告记录。
+        
+        Args:
+            report_id (str): 要删除的报告ID
+        
+        Returns:
+            bool: 删除成功返回True，失败返回False
         """
         return self.delete("ai_reports", report_id=report_id)
 
@@ -193,7 +330,23 @@ class MetricTasksCRUD(PostgreSQLManager):
                 List[Tuple]]:
         """
         获取报告列表
-        支持按条件查询
+        
+        从ai_reports表中查询报告列表，支持多种查询条件、
+        排序和结果数量限制。
+        
+        Args:
+            report_id (str, optional): 按报告ID精确查询
+            search_type (str, optional): 按搜索类型精确查询
+            filepath (str, optional): 按文件路径精确查询
+            task_id (str, optional): 按任务ID精确查询
+            status (str, optional): 按报告状态精确查询
+            error_msg (str, optional): 按错误信息部分匹配查询
+            order_by (str, optional): 排序字段
+            limit (int, optional): 限制返回结果数量
+            **kwargs: 其他查询条件参数
+        
+        Returns:
+            Optional[List[Tuple]]: 查询结果列表，每个元素为元组形式的记录
         """
         exact_match_fields = ['report_id', 'search_type', 'filepath', 'task_id', 'status']
         partial_match_fields = ['error_msg']  # 错误信息可能需要模糊匹配
@@ -215,7 +368,18 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.execute_query(query, params)
 
     def _report_to_json(self, row):
-        """将报告数据库记录转换为JSON格式"""
+        """
+        将报告数据库记录转换为JSON格式
+        
+        将数据库查询返回的元组格式报告信息转换为字典格式，
+        便于前端展示和数据处理，并将日期时间格式转换为ISO格式字符串。
+        
+        Args:
+            row (Tuple): 数据库查询返回的报告信息元组
+        
+        Returns:
+            dict or None: 转换后的报告信息字典，如果输入为None则返回None
+        """
         if not row:
             return None
 
