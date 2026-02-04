@@ -29,6 +29,8 @@ class CreateViews(PostgreSQLManager):
                             at.annotation_type,
                             mt.status     as metric_status,
                             mt.search_type,
+                            mt.match_type as metric_match_type,
+                            mt.metric_task_id,
                             mt.created_at as metric_created_at,
                             mt.updated_at as metric_updated_at
                      FROM ai_annotation_tasks at
