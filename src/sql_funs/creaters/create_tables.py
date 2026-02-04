@@ -268,7 +268,8 @@ class CreateTables(PostgreSQLManager):
             "error_msg": "TEXT",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "match_type": "VARCHAR(20) DEFAULT NULL"
+            "match_type": "VARCHAR(20) DEFAULT NULL",
+            "metric_task_id": "VARCHAR(20)"
         }
         return self.create_table("ai_reports", columns)
 
