@@ -359,13 +359,57 @@ def update_task_match_type():
         return jsonify({"success": False, "message": f"更新任务匹配方式时发生错误: {str(e)}"}), 500
 
 
-
-
-
-
-
-
-
-
+@local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/delete_task', methods=['DELETE'])
+def delete_task():
+    """
+    删除指标任务及其相关报告
+    """
+    try:
+        data = request.get_json()
+        metric_task_id = data.get('metric_task_id')
+        if not metric_task_id:
+            return jsonify({"success": False, "message": "缺少metric_task_id参数"}), 400
+        
+        with MetricTasksCRUD() as mt_crud:
+            # 首先查询该任务的所有报告
+            reports = mt_crud.report_list(metric_task_id=metric_task_id)
+            
+            # 删除所有相关的报告文件和记录
+            for report in reports:
+                report_info = mt_crud._report_to_json(report)
+                report_id = report_info['report_id']
+                
+                # 获取关联的任务信息以获取知识库ID
+                view_task_info = mt_crud.view_get_annotation_metric_tasks(task_id=report_info['task_id'])
+                if view_task_info:
+                    knowledge_base_id = view_task_info[0][5]
+                    file_path = Path(REPORT_PATH) / knowledge_base_id / report_info['filepath']
+                    
+                    # 尝试删除文件
+                    if file_path.exists():
+                        try:
+                            file_path.unlink()  # 删除文件
+                            logger.info(f"报告文件已删除: {file_path}")
+                        except Exception as e:
+                            logger.error(f"删除报告文件时出错: {str(e)}")
+                    else:
+                        logger.warning(f"报告文件不存在: {file_path}")
+                    
+                    # 删除数据库记录
+                    mt_crud.report_delete(report_id)
+                    logger.info(f"报告记录已删除: {report_id}")
+            
+            # 删除指标任务本身
+            success = mt_crud.metric_task_delete(metric_task_id)
+            if success:
+                logger.info(f"指标任务删除成功: {metric_task_id}")
+                return jsonify({"success": True, "message": "任务删除成功"})
+            else:
+                logger.error(f"指标任务删除失败: {metric_task_id}")
+                return jsonify({"success": False, "message": "任务删除失败"}), 500
+                
+    except Exception as e:
+        logger.error(f"删除任务时发生错误: {str(e)}")
+        return jsonify({"success": False, "message": f"删除任务时发生错误: {str(e)}"}), 500
 
 

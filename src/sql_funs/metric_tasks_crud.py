@@ -85,19 +85,19 @@ class MetricTasksCRUD(PostgreSQLManager):
             logger.error(f"更新指标任务失败: {e}")
             return False
 
-    def metric_task_delete(self, task_id: str):
+    def metric_task_delete(self, metric_task_id: str):
         """
         删除指标任务
         
         根据任务ID从ai_metric_tasks表中删除指标任务记录。
         
         Args:
-            task_id (str): 要删除的任务ID
+            metric_task_id (str): 要删除的任务ID
         
         Returns:
             bool: 删除成功返回True，失败返回False
         """
-        return self.delete("ai_metric_tasks", task_id=task_id)
+        return self.delete("ai_metric_tasks", metric_task_id=metric_task_id)
 
     def metric_task_list(self, task_id: str = None, status: str = None, metric_task_id: str = None,
                          match_type: str = None,
