@@ -124,10 +124,13 @@ function createTaskRow(task) {
         <td><span class="${statusClass}">${task.status ? escapeHtml(task.status) : '未知'}</span></td>
         <td class="task-actions-cell">
             <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')">
-                质量计算
+                计算
             </button>
             <button class="task-action-btn report-btn" onclick="showReportDialog('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
-                查看报告
+                报告
+            </button>
+            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
+                删除
             </button>
         </td>
     `;
@@ -700,4 +703,47 @@ function createMetricTask() {
 // 隐藏创建指标任务模态框
 function hideCreateMetricTaskModal() {
     document.getElementById('createMetricTaskModal').style.display = 'none';
+}
+
+// 删除任务函数
+function deleteTask(metricTaskId) {
+    if (!metricTaskId) {
+        alert('任务ID不能为空');
+        return;
+    }
+
+    // 弹出确认对话框
+    if (!confirm('确定要删除此任务吗？将同时删除相关的报告文件和数据库记录。')) {
+        return;
+    }
+
+    // 发送删除请求
+    fetch('/local_knowledge_detail/task/metric/delete_task', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            metric_task_id: metricTaskId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('任务删除成功');
+            // 刷新任务列表
+            loadTaskList();
+        } else {
+            throw new Error(data.message || '删除任务失败');
+        }
+    })
+    .catch(error => {
+        console.error('删除任务时出错:', error);
+        alert('删除任务失败: ' + error.message);
+    });
 }
