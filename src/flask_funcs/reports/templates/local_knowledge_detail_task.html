@@ -5,16 +5,18 @@
     <table class="task-table">
         <thead>
             <tr>
-                <th>任务ID</th>
-                <th>任务名称</th>
+                <th>质量报告ID</th>
+                <th>标注任务ID/名称</th>
                 <th>标注类型</th>
+                <th>召回方式</th>
+                <th>匹配方式</th>
                 <th>状态</th>
                 <th>操作</th>
             </tr>
         </thead>
         <tbody id="metricTaskTableBody">
             <tr>
-                <td colspan="5" style="text-align: center;">加载中...</td>
+                <td colspan="8" style="text-align: center;">加载中...</td>
             </tr>
         </tbody>
     </table>
@@ -57,6 +59,7 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
+                <label for="searchTypeSelect">召回方式：</label>
                 <select id="searchTypeSelect" class="form-control">
                     <option value="" disabled selected>请选择召回方式</option>
                     <option value="vectorSearch">向量检索</option>
@@ -64,12 +67,25 @@
                     <option value="augmentedSearch">增强检索</option>
                 </select>
             </div>
-            <div class="form-group">
-                <select id="matchTypeSelectOld" class="form-control">
-                    <option value="" disabled selected>请选择匹配方式</option>
-                    <option value="chunkIdMatch">切片ID匹配</option>
-                    <option value="chunkTextMatch">切片语义匹配</option>
-                </select>
+            <!-- 匹配方式更新区域（当原任务缺少匹配方式时显示） -->
+            <div id="matchTypeUpdateSection" style="display: none; margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                <h3 style="margin-top: 0; color: #d9534f;">需要设置匹配方式</h3>
+                <p>当前任务缺少匹配方式信息，请设置：</p>
+                <div class="form-group">
+                    <label for="updateMatchTypeSelect">匹配方式：</label>
+                    <select id="updateMatchTypeSelect" class="form-control" onchange="handleUpdateMatchTypeChange()">
+                        <option value="" disabled selected>请选择匹配方式</option>
+                        <option value="chunkIdMatch">切片ID匹配</option>
+                        <option value="chunkTextMatch">切片语义匹配</option>
+                    </select>
+                </div>
+                <div class="form-group" id="updateKnowledgeBaseGroup" style="display: none;">
+                    <label for="updateKnowledgeBaseSelect">知识库：</label>
+                    <select id="updateKnowledgeBaseSelect" class="form-control">
+                        <option value="" disabled selected>请选择知识库</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-confirm" onclick="updateTaskMatchType()" style="margin-top: 10px;">更新匹配方式</button>
             </div>
         </div>
         <div class="modal-footer">

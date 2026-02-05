@@ -187,6 +187,20 @@
     color: white;
 }
 
+/* 针对特定列的样式调整 */
+.task-table td:nth-child(5), /* 计算任务ID列 */
+.task-table td:nth-child(6) { /* 匹配方式列 */
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-table th:nth-child(5), /* 计算任务ID表头 */
+.task-table th:nth-child(6) { /* 匹配方式表头 */
+    min-width: 100px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .task-table {
@@ -196,6 +210,14 @@
     .task-table th,
     .task-table td {
         padding: 8px;
+    }
+    
+    /* 移动端隐藏部分列以节省空间 */
+    .task-table th:nth-child(4),
+    .task-table td:nth-child(4),
+    .task-table th:nth-child(5),
+    .task-table td:nth-child(5) {
+        display: none;
     }
 }
 
@@ -351,4 +373,31 @@
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+}
+
+/* 创建指标任务按钮样式 - 与bind-btn保持一致 */
+.create-metric-task-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.create-metric-task-btn:hover {
+    background-color: #5a67d8;
+}
+
+.action-btn.create-metric-task-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.action-btn.create-metric-task-btn:hover {
+    background-color: #5a67d8;
 }
