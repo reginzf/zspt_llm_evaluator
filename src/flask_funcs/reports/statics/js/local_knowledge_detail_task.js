@@ -22,6 +22,8 @@ function loadTaskList() {
     })
     .then(data => {
         if (data.success) {
+            // 存储任务列表到全局变量
+            window.currentTaskList = data.data;
             renderTaskTable(data.data);
         } else {
             console.error('获取任务列表失败:', data.message);
@@ -73,7 +75,7 @@ function renderTaskTable(tasks) {
 
     } else {
         const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="5" style="text-align: center;">暂无指标任务</td>`;
+        row.innerHTML = `<td colspan="8" style="text-align: center;">暂无指标任务</td>`;
         tableBody.appendChild(row);
     }
 }
@@ -112,15 +114,19 @@ function createTaskRow(task) {
     const row = document.createElement('tr');
     // 使用更安全的innerHTML赋值，防止潜在的XSS问题
     row.innerHTML = `
-        <td>${task.task_id ? escapeHtml(task.task_id) : 'N/A'}</td>
-        <td>${task.task_name ? escapeHtml(task.task_name) : 'N/A'}</td>
+        <td>${task.metric_task_id ? escapeHtml(task.metric_task_id) : 'N/A'}</td>
+        <td>
+            <div>${task.task_id ? escapeHtml(task.task_id) : 'N/A'}</div>
+            <div>${task.task_name ? escapeHtml(task.task_name) : 'N/A'}</div>
+        </td>
         <td>${task.annotation_type ? escapeHtml(task.annotation_type) : '未设置'}</td>
+        <td>${task.match_type ? escapeHtml(getMatchTypeDisplay(task.match_type)) : 'N/A'}</td>
         <td><span class="${statusClass}">${task.status ? escapeHtml(task.status) : '未知'}</span></td>
         <td class="task-actions-cell">
             <button class="task-action-btn calculate-btn" onclick="showCalculationDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')">
                 质量计算
             </button>
-            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.task_id ? escapeHtml(task.task_id) : ''}')">
+            <button class="task-action-btn report-btn" onclick="showReportDialog('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
                 查看报告
             </button>
         </td>
@@ -165,16 +171,10 @@ function hideCalculationModal() {
 // 确认计算类型
 function confirmCalculationType() {
     const selectedType = document.getElementById('searchTypeSelect').value;
-    const selectedMatchType = document.getElementById('matchTypeSelect').value;
     const taskId = document.getElementById('currentTaskId').value;
 
     if (!selectedType) {
         alert('请选择召回方式');
-        return;
-    }
-
-    if (!selectedMatchType) {
-        alert('请选择匹配方式');
         return;
     }
 
@@ -183,45 +183,217 @@ function confirmCalculationType() {
         return;
     }
 
-    // 发送请求启动计算
-    fetch('/local_knowledge_detail/task/metric/start_calculation', {
+    // 直接从服务器获取任务信息
+    fetch(`/local_knowledge_detail/task/metric/get_task_info?task_id=${taskId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data) {
+                const taskInfo = data.data;
+                
+                // 检查 match_type
+                if (!taskInfo.match_type) {
+                    // 如果 match_type 为空，显示更新匹配方式的界面
+                    showMatchTypeUpdateSection(taskId, selectedType);
+                    return;
+                }
+
+                const matchType = taskInfo.match_type;
+                const metricTaskId = taskInfo.metric_task_id;
+
+                // 发送请求启动计算
+                return fetch('/local_knowledge_detail/task/metric/start_calculation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        search_type: selectedType,
+                        match_type: matchType,
+                        metric_task_id: metricTaskId
+                    })
+                });
+            } else {
+                throw new Error(data.message || '无法获取任务信息');
+            }
+        })
+        .then(response => {
+            if (!response) {
+                // 如果没有返回 response，说明前面已经处理过了
+                return;
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data) {
+                // 如果没有数据，说明前面已经处理过了
+                return;
+            }
+            if (data.success) {
+                alert('质量计算已启动');
+                hideCalculationModal();
+                // 刷新任务列表
+                loadTaskList();
+            } else {
+                throw new Error(data.message || '启动计算失败');
+            }
+        })
+        .catch(error => {
+            console.error('处理过程中出错:', error);
+            alert('操作失败: ' + error.message);
+        });
+}
+
+// 显示匹配方式更新区域
+function showMatchTypeUpdateSection(taskId, searchType) {
+    document.getElementById('matchTypeUpdateSection').style.display = 'block';
+    document.getElementById('currentTaskId').setAttribute('data-search-type', searchType);
+    
+    // 重置选择框
+    document.getElementById('updateMatchTypeSelect').selectedIndex = 0;
+    document.getElementById('updateKnowledgeBaseGroup').style.display = 'none';
+    document.getElementById('updateKnowledgeBaseSelect').innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+}
+
+// 处理更新匹配方式选择变化
+function handleUpdateMatchTypeChange() {
+    const matchType = document.getElementById('updateMatchTypeSelect').value;
+    const knowledgeBaseGroup = document.getElementById('updateKnowledgeBaseGroup');
+    const knowledgeBaseSelect = document.getElementById('updateKnowledgeBaseSelect');
+
+    if (matchType === 'chunkTextMatch') {
+        // 显示知识库选择
+        knowledgeBaseGroup.style.display = 'block';
+        // 加载绑定的知识库
+        loadBoundKnowledgeBasesForUpdate();
+    } else {
+        // 隐藏知识库选择
+        knowledgeBaseGroup.style.display = 'none';
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+    }
+}
+
+// 为更新功能加载绑定的知识库
+function loadBoundKnowledgeBasesForUpdate() {
+    const knowledgeBaseSelect = document.getElementById('updateKnowledgeBaseSelect');
+    const knoId = currentKnowledgeId;
+
+    if (!knoId) {
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled>未找到本地知识库ID</option>';
+        return;
+    }
+
+    fetch('/local_knowledge/bindings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            task_id: taskId,
-            search_type: selectedType,
-            match_type: selectedMatchType
+            kno_id: knoId
         })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            alert('质量计算已启动');
-            hideCalculationModal();
-            // 刷新任务列表
-            loadTaskList();
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled selected>请选择知识库</option>';
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(binding => {
+                if (binding.bind_status === 2) { // 已绑定状态
+                    const option = document.createElement('option');
+                    option.value = binding.knowledge_id;
+                    option.textContent = binding.knowledge_name || binding.knowledge_id;
+                    knowledgeBaseSelect.appendChild(option);
+                }
+            });
         } else {
-            alert('启动计算失败: ' + data.message);
+            knowledgeBaseSelect.innerHTML = '<option value="" disabled>暂无绑定的知识库</option>';
         }
     })
     .catch(error => {
-        console.error('启动计算时出错:', error);
-        alert('启动计算时发生错误');
+        console.error('加载知识库列表时出错:', error);
+        knowledgeBaseSelect.innerHTML = '<option value="" disabled>加载失败</option>';
+    });
+}
+
+// 更新任务匹配方式
+function updateTaskMatchType() {
+    const taskId = document.getElementById('currentTaskId').value;
+    const searchType = document.getElementById('currentTaskId').getAttribute('data-search-type');
+    const matchType = document.getElementById('updateMatchTypeSelect').value;
+    const knowledgeBaseId = document.getElementById('updateKnowledgeBaseSelect').value;
+
+    // 验证必填字段
+    if (!matchType) {
+        alert('请选择匹配方式');
+        return;
+    }
+
+    if (!searchType) {
+        alert('召回方式不能为空');
+        return;
+    }
+
+    // 如果是切片语义匹配，还需要选择知识库
+    if (matchType === 'chunkTextMatch' && !knowledgeBaseId) {
+        alert('请选择知识库');
+        return;
+    }
+
+    // 构造请求数据
+    const requestData = {
+        task_id: taskId,
+        match_type: matchType,
+        search_type: searchType
+    };
+
+    // 如果是切片语义匹配，添加知识库ID
+    if (matchType === 'chunkTextMatch') {
+        requestData.knowledge_base_id = knowledgeBaseId;
+    }
+
+    // 发送更新请求
+    fetch('/local_knowledge_detail/task/metric/update_match_type', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('匹配方式更新成功');
+            // 隐藏更新区域
+            document.getElementById('matchTypeUpdateSection').style.display = 'none';
+            // 重新尝试启动计算
+            confirmCalculationType();
+        } else {
+            alert('更新失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('更新匹配方式时出错:', error);
+        alert('更新匹配方式时发生错误');
     });
 }
 
 // 显示报告查看对话框
-function showReportDialog(taskId) {
-    // 存储当前任务ID
-    document.getElementById('currentTaskId').value = taskId;
+function showReportDialog(metricTaskId) {
+    // 存储当前计算任务ID
+    document.getElementById('currentTaskId').value = metricTaskId;
 
     // 显示模态框
     document.getElementById('reportModal').style.display = 'block';
 
     // 加载报告内容
-    loadReportContent(taskId);
+    loadReportContent(metricTaskId);
 }
 
 // 隐藏报告查看对话框
@@ -237,13 +409,23 @@ const searchTypeMap = {
 };
 
 const matchTypeMap = {
-    'chunkTextMatch': '语义匹配',
-    'chunkIdMatch': 'ID匹配'
+    'chunkTextMatch': '切片语义匹配',
+    'chunkIdMatch': '切片ID匹配'
 };
 
+// 获取匹配方式的中文显示
+function getMatchTypeDisplay(matchType) {
+    return matchTypeMap[matchType] || matchType;
+}
+
+// 获取搜索类型的中文显示
+function getSearchTypeDisplay(searchType) {
+    return searchTypeMap[searchType] || searchType;
+}
+
 // 加载报告内容
-function loadReportContent(taskId) {
-    fetch(`/local_knowledge_detail/task/metric/get_report?task_id=${taskId}`, {
+function loadReportContent(metricTaskId) {
+    fetch(`/local_knowledge_detail/task/metric/get_report?metric_task_id=${metricTaskId}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'
@@ -353,7 +535,6 @@ function exportReport() {
 // 显示创建指标任务对话框
 function showCreateMetricTaskDialog() {
     // 重置表单
-    document.getElementById('matchTypeSelect').value = '';
     document.getElementById('taskSelect').innerHTML = '<option value="" disabled selected>请选择任务</option>';
     document.getElementById('knowledgeBaseGroup').style.display = 'none';
     document.getElementById('knowledgeBaseSelect').innerHTML = '<option value="" disabled selected>请选择知识库</option>';
