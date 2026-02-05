@@ -105,16 +105,17 @@ def get_metric_task_list():
             metric_tasks = mt_crud.view_get_annotation_metric_tasks(local_knowledge_id=knowledge_id)
             result = []
             for task in metric_tasks:
-                combined_data = {
-                    'task_id': task[0],
-                    'task_name': task[1],
-                    'annotation_type': task[12],
-                    'status': task[13],
-                    'search_type': task[14],
-                    'match_type': task[15],
-                    'metric_task_id': task[16]
-                }
-                result.append(combined_data)
+                if task[16]:
+                    combined_data = {
+                        'task_id': task[0],
+                        'task_name': task[1],
+                        'annotation_type': task[12],
+                        'status': task[13],
+                        'search_type': task[14],
+                        'match_type': task[15],
+                        'metric_task_id': task[16]
+                    }
+                    result.append(combined_data)
         return jsonify({"success": True, "data": result})
     except Exception as e:
         logger.error(f"获取指标任务列表时发生错误: {str(e)}")
