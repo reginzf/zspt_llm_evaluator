@@ -21,7 +21,7 @@ class MetricTasksCRUD(PostgreSQLManager):
     """
 
     def metric_task_create(self, metric_task_id: str, task_id: str, status: str = '初始化',
-                           search_type: str = None, knowledge_base_id: str = None):
+                           search_type: str = None, knowledge_base_id: str = None, match_type: str = None):
         """
         创建指标任务
         
@@ -29,6 +29,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         
         Args:
             metric_task_id: 计算任务ID
+            match_type: 匹配方式
             task_id (str): 任务ID
             status (str, optional): 任务状态，默认为'初始化'
             search_type (str, optional): 搜索类型
@@ -38,18 +39,19 @@ class MetricTasksCRUD(PostgreSQLManager):
             bool: 创建成功返回True，失败返回False
         """
         data = {
-            "metric_task_id:": metric_task_id,
+            "metric_task_id": metric_task_id,
             "task_id": task_id,
             "status": status,
             "search_type": search_type,
-            "knowledge_base_id": knowledge_base_id
+            "knowledge_base_id": knowledge_base_id,
+            "match_type": match_type
         }
         # 只插入非空值
         data = {k: v for k, v in data.items() if v is not None}
         return self.insert("ai_metric_tasks", data=data)
 
-    def metric_task_update(self, task_id: str, status: str = None,
-                           search_type: str = None, report_path=None):
+    def metric_task_update(self,metric_task_id:str, task_id: str=None, status: str = None, search_type: str = None,
+                          knowledge_base_id: str = None, match_type: str = None):
         """
         更新指标任务
         
@@ -59,19 +61,27 @@ class MetricTasksCRUD(PostgreSQLManager):
             task_id (str): 要更新的任务ID
             status (str, optional): 新的任务状态
             search_type (str, optional): 新的搜索类型
-            report_path (str, optional): 报告路径
-        
+            knowledge_base_id (str, optional): 新的知识库ID
+            match_type (str, optional): 新的匹配方式
+
         Returns:
             bool: 更新成功返回True，失败返回False
         """
-        data = {"status": status, "search_type": search_type, "report_path": report_path}
+        data = {
+            "task_id":task_id,
+            "status": status,
+            "search_type": search_type,
+            "knowledge_base_id": knowledge_base_id,
+            "match_type": match_type
+        }
+        # 只更新非空值
+        data = {k: v for k, v in data.items() if v is not None}
+        if not data:
+            return False
         try:
-            result = self.update("ai_metric_tasks", data, task_id=task_id)
-            if not result:
-                result = self.metric_task_create(task_id, status, search_type)
+            result = self.update("ai_metric_tasks", data, metric_task_id=metric_task_id)
             return result
         except Exception as e:
-            raise e
             logger.error(f"更新指标任务失败: {e}")
             return False
 
@@ -152,6 +162,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             'search_type': row[2] if len(row) > 2 else None,
             'created_at': row[3].isoformat(),
             'updated_at': row[4].isoformat(),
+            'knowledge_base_id':row[5],
             'match_type': row[6],
             'metric_task_id': row[7]
         }
@@ -231,7 +242,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             'annotation_type': row[12] if len(row) > 12 else None,  # 从ai_annotation_tasks表获取
             'metric_status': row[13] if len(row) > 13 else None,
             'search_type': row[14] if len(row) > 14 else None,
-            'match_type':row[15],
+            'match_type': row[15],
             'metric_task_id': row[16] if len(row) > 14 else None,
             'metric_created_at': row[17].isoformat(),
             'metric_updated_at': row[18].isoformat(),
@@ -239,7 +250,7 @@ class MetricTasksCRUD(PostgreSQLManager):
 
     # 报告表相关操作方法
     def report_create(self, report_id: str, search_type: str, filepath: str, task_id: str, status: str = '待处理',
-                      error_msg: str = None, mathc_type: str = None,metric_task_id=None):
+                      error_msg: str = None, match_type: str = None, metric_task_id=None):
         """
         创建报告记录
         
@@ -253,26 +264,26 @@ class MetricTasksCRUD(PostgreSQLManager):
             task_id (str): 任务ID
             status (str, optional): 报告状态，默认为'待处理'
             error_msg (str, optional): 错误信息
-            mathc_type (str, optional): 匹配类型
+            match_type (str, optional): 匹配类型
         
         Returns:
             bool: 创建成功返回True，失败返回False
         """
         data = {
-            "metric_task_id":metric_task_id,
+            "metric_task_id": metric_task_id,
             "report_id": report_id,
             "search_type": search_type,
             "filepath": filepath,
             "task_id": task_id,
             "status": status,
             "error_msg": error_msg,
-            "mathc_type": mathc_type
+            "match_type": match_type
         }
         data = {k: v for k, v in data.items() if v is not None}
         return self.insert("ai_reports", data=data)
 
     def report_update(self, report_id: str, search_type: str = None, filepath: str = None, task_id: str = None,
-                      status: str = None, error_msg: str = None, mathc_type: str = None):
+                      status: str = None, error_msg: str = None, match_type: str = None):
         """
         更新报告记录
         
@@ -285,7 +296,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             task_id (str, optional): 新的任务ID
             status (str, optional): 新的报告状态
             error_msg (str, optional): 新的错误信息
-            mathc_type (str, optional): 新的匹配类型
+            match_type (str, optional): 新的匹配类型
         
         Returns:
             bool: 更新成功返回True，失败返回False
@@ -296,7 +307,7 @@ class MetricTasksCRUD(PostgreSQLManager):
             "task_id": task_id,
             "status": status,
             "error_msg": error_msg,
-            "mathc_type": mathc_type
+            "match_type": match_type
         }
         data = {k: v for k, v in data.items() if v is not None}
         if not data:
@@ -323,7 +334,8 @@ class MetricTasksCRUD(PostgreSQLManager):
         return self.delete("ai_reports", report_id=report_id)
 
     def report_list(self, report_id: str = None, search_type: str = None, filepath: str = None, task_id: str = None,
-                    status: str = None, error_msg: str = None, order_by: str = None, limit: int = None,metric_task_id:str = None, **kwargs) -> \
+                    status: str = None, error_msg: str = None, order_by: str = None, limit: int = None,
+                    metric_task_id: str = None, **kwargs) -> \
             Optional[
                 List[Tuple]]:
         """
@@ -347,7 +359,7 @@ class MetricTasksCRUD(PostgreSQLManager):
         Returns:
             Optional[List[Tuple]]: 查询结果列表，每个元素为元组形式的记录
         """
-        exact_match_fields = ['report_id', 'search_type', 'filepath', 'task_id', 'status','metric_task_id']
+        exact_match_fields = ['report_id', 'search_type', 'filepath', 'task_id', 'status', 'metric_task_id']
         partial_match_fields = ['error_msg']  # 错误信息可能需要模糊匹配
         allowed_fileds = exact_match_fields + partial_match_fields
 
