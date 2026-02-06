@@ -188,6 +188,12 @@ def get_report():
             return jsonify({"success": False, "message": "缺少metric_task_id参数"}), 400
 
         with MetricTasksCRUD() as mt_crud:
+            # 首先获取关联的任务信息以获取知识库ID
+            task_info = mt_crud.view_get_annotation_metric_tasks(metric_task_id=metric_task_id)
+            knowledge_base_id = None
+            if task_info:
+                knowledge_base_id = task_info[0][5]  # 假设知识库ID在第6列（索引5）
+            
             report_list = mt_crud.report_list(metric_task_id=metric_task_id)
             if report_list:
                 report_dict_list = [mt_crud._report_to_json(report) for report in report_list]
@@ -196,6 +202,7 @@ def get_report():
         return jsonify({
             "success": True,
             "data": report_dict_list,
+            "knowledgeBaseId": knowledge_base_id  # 添加知识库ID到响应中
         })
     except Exception as e:
         logger.error(f"获取报告时发生错误: {str(e)}")
@@ -412,5 +419,7 @@ def delete_task():
     except Exception as e:
         logger.error(f"删除任务时发生错误: {str(e)}")
         return jsonify({"success": False, "message": f"删除任务时发生错误: {str(e)}"}), 500
+
+
 
 
