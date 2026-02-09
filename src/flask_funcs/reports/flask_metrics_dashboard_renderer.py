@@ -1,9 +1,15 @@
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from env_config_init import TYPE_DISPLAY_NAMES
-from .flask_renderer_base import FlaskHTMLRenderer
 
+from .flask_renderer_base import FlaskHTMLRenderer
+TYPE_DISPLAY_NAMES = {
+    "factual": "事实型",
+    "contextual": "上下文型",
+    "conceptual": "概念型",
+    "reasoning": "推理型",
+    "application": "应用型"
+}
 
 class MetricsDashboardRenderer(FlaskHTMLRenderer):
 
