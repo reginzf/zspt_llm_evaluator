@@ -4,12 +4,12 @@ from pathlib import Path
 
 from jsonpath import jsonpath
 
-from env_config_init import  REPORT_PATH
+from env_config_init import REPORT_PATH
 
 from typing import Callable, List, Dict, Any
 
 from src.zlpt.login import LoginManager
-from src.zlpt.api.knowledge_base import KnowledgeBase,Retrieve
+from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve
 from src.zlpt.api.project import Project
 
 from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
@@ -17,7 +17,7 @@ from src.label_studio_api.task import get_tasks_with_specific_choice
 from src.label_studio_api.label_studio_client import LabelStudioLogin
 from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 from utils.zl_to_label_studio import doc_slices_format_for_label_studio
-from utils.pub_funs import save_json_file
+from utils.pub_funs import write_json_file
 from src.sql_funs import Environment_Crud, LabelStudioCrud
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 from check_chunk.checkers.AlignmentBasedChecker import AlignmentBasedChecker
@@ -236,7 +236,7 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
         metrics['type'] = question['question_type']
         metric_all[question['question_content']] = metrics
 
-    save_json_file(metric_all, str(file_path))
+    write_json_file(str(file_path), metric_all)
     logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
 
 
@@ -275,7 +275,7 @@ def cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, kno_id:
         metrics['type'] = question['question_type']
         metric_all[question['question_content']] = metrics
 
-    save_json_file(metric_all, str(file_path))
+    write_json_file(str(file_path), metric_all)
     logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
 
 
