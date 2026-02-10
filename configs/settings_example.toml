@@ -1,0 +1,21 @@
+[default]
+PROJECT_ROOT = 'D:\pyworkplace\git_place\ai-ken'
+# SQL配置
+SQL_HOST = '10.210.2.223'
+SQL_PORT = 5432
+SQL_DB = 'label_studio'
+SQL_USER = 'labelstudio'
+SQL_PASSWORD = 'Labelstudio123'
+# 测试知识
+KNOWLEDGE_LOCAL_PATH = 'D:\pyworkplace\git_place\ai-ken\tests'
+# 当使用text计算时的参数
+OVERLAP_THRESHOLD = 0.8   # 字符串重叠阈值
+SIMILARITY_THRESHOLD = 0.7  # 语义相似度阈值
+SEMANTIC_WEIGHT = 0.9 # 语义匹配权重
+MODEL_PATH = 'D:\pyworkplace\git_place\ai-ken\models\bge-base-zh-v1.5'
+# 质量参数配置
+TOP_K = [1, 3, 5, 10]
+# LLM API配置
+DEEPSEEK_API_KEY = "sk-you-api-key"
+DEEPSEEK_API_BASE = "https://api.deepseek.com"
+MODEL_NAME = "deepseek-chat"
