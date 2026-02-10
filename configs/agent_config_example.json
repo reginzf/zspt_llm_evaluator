@@ -1,0 +1,40 @@
+{
+  "agents": [
+    {
+      "name": "deepseek",
+      "type": "deepseek",
+      "api_key": "sk-your-api-key",
+      "api_url": "https://api.deepseek.com/v1/chat/completions",
+      "model": "deepseek-chat",
+      "temperature": 0.1,
+      "max_tokens": 150,
+      "timeout": 30,
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "自定义API",
+      "type": "custom",
+      "api_key": "your-custom-api-key",
+      "api_url": "https://your-api-endpoint.com/qa",
+      "request_template": {
+        "question": "{question}",
+        "context": "{context}",
+        "task": "question_answering"
+      },
+      "response_parser": "lambda x: x.get('answer', '')",
+      "timeout": 30,
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  ],
+  "evaluation_settings": {
+    "sample_size": 10,
+    "verbose": true,
+    "save_results": true,
+    "results_file": "./evaluation_results.json",
+    "metrics": ["accuracy", "f1_score", "inference_time", "success_rate", "cost"]
+  }
+}
