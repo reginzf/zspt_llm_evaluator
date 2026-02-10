@@ -7,8 +7,8 @@ settings = Dynaconf(
     environments=True,
     load_dotenv=True,
 )
-
+PROJECT_ROOT = Path(settings.PROJECT_ROOT)
 # report的目录
-REPORT_PATH = Path(settings.PROJECT_ROOT) / 'reports' / 'report_data'
+REPORT_PATH = PROJECT_ROOT / 'reports' / 'report_data'
 # config的目录
-CONFIG_PATH = Path(settings.PROJECT_ROOT) / 'configs'
+CONFIG_PATH = PROJECT_ROOT / 'configs'
