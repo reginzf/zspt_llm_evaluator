@@ -305,6 +305,7 @@ class MetricsCalculator:
         # 加权组合
         relevance = 0.3 * question_overlap + 0.7 * context_overlap
         return min(1.0, relevance)
+
     @staticmethod
     def calculate_context_utilization(prediction: str, context: str, cal_type: str = 'simple', n: int = 2,
                                       weights: List[float] = None) -> float:
@@ -346,7 +347,7 @@ class MetricsCalculator:
             计算预测答案中的词汇有多少来自上下文，反映答案对上下文的直接引用程度。
             """
             logger.debug(f"计算简单上下文利用率: prediction_length={len(prediction)}, context_length={len(context)}")
-            
+
             pred_words = set(MetricsCalculator.normalize_text(prediction).split())
             context_words = set(MetricsCalculator.normalize_text(context).split())
 
@@ -357,8 +358,9 @@ class MetricsCalculator:
             # 预测答案中有多少来自上下文
             from_context = pred_words & context_words
             utilization = len(from_context) / len(pred_words)
-            
-            logger.debug(f"词汇重叠: 共同词汇数={len(from_context)}, 预测词汇数={len(pred_words)}, 利用率={utilization:.4f}")
+
+            logger.debug(
+                f"词汇重叠: 共同词汇数={len(from_context)}, 预测词汇数={len(pred_words)}, 利用率={utilization:.4f}")
             return utilization
 
         def cal_semantic(prediction: str, context: str) -> float:
@@ -369,23 +371,23 @@ class MetricsCalculator:
             反映答案在语义层面与上下文的相关程度。
             """
             logger.debug("计算语义相似度上下文利用率")
-            
+
             model = get_sentence_transformer_model()
             if model is not None:
                 try:
                     logger.debug("编码预测答案和上下文...")
                     pred_embedding = model.encode(prediction)
                     context_embedding = model.encode(context)
-                    
+
                     # 计算余弦相似度
                     similarity = np.dot(pred_embedding, context_embedding) / (
                             np.linalg.norm(pred_embedding) * np.linalg.norm(context_embedding)
                     )
-                    
+
                     result = max(0.0, min(1.0, similarity))
                     logger.debug(f"语义相似度计算完成: {result:.4f}")
                     return result
-                    
+
                 except Exception as e:
                     logger.warning(f"语义相似度计算失败: {e}")
                     return 0.0
@@ -401,15 +403,15 @@ class MetricsCalculator:
             反映答案在序列层面与上下文的匹配程度。
             """
             logger.debug("计算ROUGE-L上下文利用率")
-            
+
             try:
                 scores = rouge.get_scores(prediction, context)
                 rouge_l_recall = scores[0]['rouge-l']['r']  # ROUGE-L召回率
-                
+
                 result = max(0.0, min(1.0, rouge_l_recall))
                 logger.debug(f"ROUGE-L召回率计算完成: {result:.4f}")
                 return result
-                
+
             except Exception as e:
                 logger.warning(f"ROUGE计算失败: {e}")
                 return 0.0
@@ -422,7 +424,7 @@ class MetricsCalculator:
             反映答案在词汇重要性分布上与上下文的一致性。
             """
             logger.debug("计算TF-IDF上下文利用率")
-            
+
             try:
                 vectorizer = TfidfVectorizer()
                 tfidf_matrix = vectorizer.fit_transform([prediction, context])
@@ -433,11 +435,11 @@ class MetricsCalculator:
                 # 计算预测向量在上下文向量中的投影比例
                 utilization = (pred_vector.dot(context_vector.T) /
                                context_vector.dot(context_vector.T))[0, 0]
-                
+
                 result = max(0.0, min(1.0, utilization))
                 logger.debug(f"TF-IDF投影计算完成: {result:.4f}")
                 return result
-                
+
             except Exception as e:
                 logger.warning(f"TF-IDF计算失败: {e}")
                 return 0.0
@@ -450,18 +452,19 @@ class MetricsCalculator:
             反映答案在短语层面与上下文的匹配情况。
             """
             logger.debug(f"计算{n}-gram上下文利用率")
-            
+
             pred_ngrams = set(zip(*[MetricsCalculator.normalize_text(prediction).split()[i:] for i in range(n)]))
             context_ngrams = set(zip(*[MetricsCalculator.normalize_text(context).split()[i:] for i in range(n)]))
-            
+
             if not pred_ngrams:
                 logger.debug("预测答案N-gram为空，返回利用率0.0")
                 return 0.0
-                
+
             overlap = pred_ngrams & context_ngrams
             utilization = len(overlap) / len(pred_ngrams)
-            
-            logger.debug(f"N-gram重叠: 共同N-gram数={len(overlap)}, 预测N-gram数={len(pred_ngrams)}, 利用率={utilization:.4f}")
+
+            logger.debug(
+                f"N-gram重叠: 共同N-gram数={len(overlap)}, 预测N-gram数={len(pred_ngrams)}, 利用率={utilization:.4f}")
             return utilization
 
         def cal_weighted(prediction: str, context: str, n: int, weights: List[float]) -> float:
@@ -472,29 +475,29 @@ class MetricsCalculator:
             通过加权平均得到综合的上下文利用率评估。
             """
             logger.debug(f"计算加权上下文利用率，权重: {weights}")
-            
+
             if sum(weights) != 1:
                 raise ValueError("权重之和必须为1")
-                
+
             semantic_score = cal_semantic(prediction, context)
             tfidf_score = cal_tfidf(prediction, context)
             rouge_score = cal_rouge(prediction, context)
             ngram_score = cal_ngram(prediction, context, n)
-            
-            weighted_score = (semantic_score * weights[0] + 
-                            tfidf_score * weights[1] + 
-                            rouge_score * weights[2] + 
-                            ngram_score * weights[3])
-            
+
+            weighted_score = (semantic_score * weights[0] +
+                              tfidf_score * weights[1] +
+                              rouge_score * weights[2] +
+                              ngram_score * weights[3])
+
             logger.debug(f"各分项得分: 语义={semantic_score:.4f}, TF-IDF={tfidf_score:.4f}, "
-                        f"ROUGE={rouge_score:.4f}, N-gram={ngram_score:.4f}")
+                         f"ROUGE={rouge_score:.4f}, N-gram={ngram_score:.4f}")
             logger.debug(f"加权综合得分: {weighted_score:.4f}")
-            
+
             return weighted_score
 
         # 根据计算类型选择相应的方法
         logger.info(f"开始计算上下文利用率，计算方式: {cal_type}")
-        
+
         if cal_type == 'semantic':
             result = cal_semantic(prediction, context)
         elif cal_type == 'tfidf':
@@ -507,39 +510,213 @@ class MetricsCalculator:
             result = cal_weighted(prediction, context, n, weights)
         else:  # 默认使用simple方式
             result = cal_simple(prediction, context)
-        
+
         logger.info(f"上下文利用率计算完成: {result:.4f}")
         return result
-
     @staticmethod
-    def calculate_completeness(prediction: str, ground_truth: List[str]) -> float:
+    def calculate_completeness(prediction: str, ground_truth: List[str], cal_type: str = 'simple', 
+                               model_name: str = "zh_core_web_sm", weights: List[float] = None) -> float:
         """
         计算答案完整性
         
         Args:
-            prediction: 预测答案
-            ground_truth: 标准答案列表
+            prediction (str): 预测答案
+            ground_truth (List[str]): 标准答案列表
+            cal_type (str): 计算方式，可选值包括：
+                - 'simple': 基于长度比例的简单计算（默认）
+                - 'coverage': 基于关键词覆盖度计算
+                - 'entities': 基于命名实体识别计算
+                - 'rouge': 基于ROUGE-1召回率计算
+                - 'weighted': 加权组合多种计算方式
+            model_name (str): 实体识别模型名称，默认为"zh_core_web_sm"
+            weights (List[float]): 各计算方式的权重列表，仅在cal_type='weighted'时使用，
+                                 默认为[0.5, 0.25, 0.25]，分别对应coverage、entities、rouge
             
         Returns:
-            完整性分数 (0-1)
+            float: 完整性分数 (0-1)，值越高表示答案越完整
+            
+        Note:
+            - 当使用'entities'或'weighted'模式时，需要安装spacy及相关语言模型
+            - 所有计算结果都会被限制在[0,1]范围内
+            - 如果计算过程中出现异常，会记录警告日志并返回默认值
         """
-        pred_len = len(MetricsCalculator.normalize_text(prediction).split())
+        if weights is None:
+            weights = [0.5, 0.25, 0.25]
 
-        if pred_len == 0:
+        def cal_simple(prediction: str, ground_truth: List[str]) -> float:
+            """
+            基于长度比例的简单完整性计算
+            
+            通过比较预测答案与标准答案的长度比例来评估完整性，
+            避免答案过短或过长的情况。
+            """
+            logger.debug(f"计算简单完整性: prediction_length={len(prediction)}")
+            
+            pred_len = len(MetricsCalculator.normalize_text(prediction).split())
+            if pred_len == 0:
+                logger.debug("预测答案为空，返回完整性0.0")
+                return 0.0
+                
+            # 计算与标准答案长度的接近程度
+            best_score = 0.0
+            for truth in ground_truth:
+                truth_len = len(MetricsCalculator.normalize_text(truth).split())
+                if truth_len == 0:
+                    continue
+                    
+                # 长度比例（预测答案不应太短也不应太长）
+                ratio = min(pred_len / truth_len, truth_len / pred_len) if pred_len > 0 and truth_len > 0 else 0
+                best_score = max(best_score, ratio)
+                
+            logger.debug(f"简单完整性计算完成: {best_score:.4f}")
+            return best_score
+
+        def cal_coverage(prediction: str, ground_truth: List[str]) -> float:
+            """
+            基于关键信息覆盖度计算答案完整性
+            
+            通过计算预测答案中包含的标准答案关键词比例来评估完整性。
+            """
+            logger.debug(f"计算覆盖度完整性: prediction_words={len(set(MetricsCalculator.normalize_text(prediction).split()))}")
+            
+            pred_words = set(MetricsCalculator.normalize_text(prediction).split())
+            if not pred_words:
+                logger.debug("预测答案词汇为空，返回完整性0.0")
+                return 0.0
+
+            best_coverage = 0.0
+            for truth in ground_truth:
+                truth_words = set(MetricsCalculator.normalize_text(truth).split())
+                if not truth_words:
+                    continue
+
+                # 计算关键信息覆盖率
+                covered = pred_words & truth_words
+                coverage = len(covered) / len(truth_words) if truth_words else 0
+                best_coverage = max(best_coverage, coverage)
+                
+            logger.debug(f"覆盖度完整性计算完成: {best_coverage:.4f}")
+            return best_coverage
+
+        def cal_entities(prediction: str, ground_truth: List[str], model_name: str = "zh_core_web_sm") -> float:
+            """
+            基于命名实体识别计算答案完整性
+            
+            使用spaCy进行命名实体识别，计算预测答案中包含的标准答案实体比例。
+            """
+            logger.debug(f"计算实体完整性: model={model_name}")
+            
+            try:
+                import spacy
+                nlp = spacy.load(model_name)
+
+                pred_doc = nlp(prediction)
+                pred_entities = set([ent.text for ent in pred_doc.ents])
+                logger.debug(f"预测答案实体数: {len(pred_entities)}")
+
+                if not pred_entities:
+                    logger.debug("预测答案无实体，返回完整性0.0")
+                    return 0.0
+
+                best_entity_coverage = 0.0
+                for truth in ground_truth:
+                    truth_doc = nlp(truth)
+                    truth_entities = set([ent.text for ent in truth_doc.ents])
+                    logger.debug(f"标准答案实体数: {len(truth_entities)}")
+
+                    if not truth_entities:
+                        continue
+
+                    covered_entities = pred_entities & truth_entities
+                    entity_coverage = len(covered_entities) / len(truth_entities) if truth_entities else 0
+                    best_entity_coverage = max(best_entity_coverage, entity_coverage)
+                    
+                logger.debug(f"实体完整性计算完成: {best_entity_coverage:.4f}")
+                return best_entity_coverage
+                
+            except ImportError:
+                logger.warning(f"spaCy未安装，无法进行实体识别计算")
+                return 0.0
+            except Exception as e:
+                logger.warning(f"实体识别计算失败: {e}")
+                return 0.0
+
+        def cal_rouge(prediction: str, ground_truth: List[str]) -> float:
+            """
+            基于ROUGE-1召回率计算答案完整性
+            
+            使用ROUGE-1算法计算预测答案对标准答案的召回率，
+            反映答案在词汇层面的完整性。
+            """
+            logger.debug("计算ROUGE完整性")
+            
+            try:
+                best_rouge_score = 0.0
+                for truth in ground_truth:
+                    scores = rouge.get_scores(prediction, truth)
+                    # 使用ROUGE-1召回率作为完整性指标
+                    rouge_score = scores[0]['rouge-1']['r']
+                    best_rouge_score = max(best_rouge_score, rouge_score)
+                    
+                logger.debug(f"ROUGE完整性计算完成: {best_rouge_score:.4f}")
+                return best_rouge_score
+                
+            except Exception as e:
+                logger.warning(f"ROUGE计算失败: {e}")
+                return 0.0
+
+        def cal_weighted(prediction: str, ground_truth: List[str], model_name: str = "zh_core_web_sm",
+                         weights: List[float] = None) -> float:
+            """
+            加权组合多种计算方式的完整性评估
+            
+            综合关键词覆盖度、实体识别和ROUGE三种方式，
+            通过加权平均得到综合的完整性评估。
+            """
+            if weights is None:
+                weights = [0.5, 0.25, 0.25]
+                
+            logger.debug(f"计算加权完整性，权重: {weights}")
+            
+            if sum(weights) != 1:
+                raise ValueError("权重和必须等于1")
+
+            coverage_score = cal_coverage(prediction, ground_truth)
+            entities_score = cal_entities(prediction, ground_truth, model_name)
+            rouge_score = cal_rouge(prediction, ground_truth)
+
+            weighted_score = (coverage_score * weights[0] +
+                            entities_score * weights[1] +
+                            rouge_score * weights[2])
+
+            logger.debug(f"各分项得分: 覆盖度={coverage_score:.4f}, 实体={entities_score:.4f}, ROUGE={rouge_score:.4f}")
+            logger.debug(f"加权综合得分: {weighted_score:.4f}")
+            
+            return weighted_score
+
+        # 根据计算类型选择相应的方法
+        logger.info(f"开始计算答案完整性，计算方式: {cal_type}")
+        
+        try:
+            if cal_type == 'coverage':
+                result = cal_coverage(prediction, ground_truth)
+            elif cal_type == 'entities':
+                result = cal_entities(prediction, ground_truth, model_name)
+            elif cal_type == 'rouge':
+                result = cal_rouge(prediction, ground_truth)
+            elif cal_type == 'weighted':
+                result = cal_weighted(prediction, ground_truth, model_name, weights)
+            else:  # 默认使用simple方式
+                result = cal_simple(prediction, ground_truth)
+                
+            # 确保结果在合理范围内
+            result = max(0.0, min(1.0, result))
+            logger.info(f"答案完整性计算完成: {result:.4f}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"完整性计算过程中发生错误: {e}")
             return 0.0
-
-        # 计算与标准答案长度的接近程度
-        best_score = 0.0
-        for truth in ground_truth:
-            truth_len = len(MetricsCalculator.normalize_text(truth).split())
-            if truth_len == 0:
-                continue
-
-            # 长度比例（预测答案不应太短也不应太长）
-            ratio = min(pred_len / truth_len, truth_len / pred_len) if pred_len > 0 and truth_len > 0 else 0
-            best_score = max(best_score, ratio)
-
-        return best_score
 
     @staticmethod
     def calculate_conciseness(prediction: str, ground_truth: List[str]) -> float:
