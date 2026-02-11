@@ -148,6 +148,15 @@ class ConfigManager:
             Dict: 评估设置
         """
         return self.evaluation_settings.copy()
+    
+    def get_match_types(self) -> Dict:
+        """
+        获取匹配类型配置
+        
+        Returns:
+            Dict: match_types 配置字典
+        """
+        return self.config_data.get('match_types', {}).copy()
 
     def add_agent(self, agent_config: Dict) -> bool:
         """

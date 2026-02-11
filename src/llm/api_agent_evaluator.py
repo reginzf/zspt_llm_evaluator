@@ -12,7 +12,7 @@ LLM 知识库问答评估系统
 
 import time
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple,Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import re
@@ -1303,12 +1303,18 @@ class LLMEvaluator:
     6. 保存结果，支持跨模型比较
     """
 
-    def __init__(self, output_dir: str = "./evaluation_results"):
+    def __init__(self, output_dir: str = "./evaluation_results", match_types: Dict[str, Any] = None):
         """
         初始化评估器
         
         Args:
             output_dir: 结果输出目录
+            match_types: 匹配类型配置字典，用于自定义各指标的计算方式
+                格式: {
+                    "calculate_exact_match": {"match_type": "normalized"},
+                    "calculate_f1_score": {"cal_type": "word"},
+                    ...
+                }
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -1316,10 +1322,13 @@ class LLMEvaluator:
         self.agents: Dict[str, BaseLLMAgent] = {}
         self.qa_pairs: List[QuestionAnswerPair] = []
         self.results: Dict[str, ModelEvaluationResult] = {}
+        self.match_types: Dict[str, Any] = match_types or {}
 
         self.calculator = MetricsCalculator()
 
         logger.info(f"评估器初始化完成，输出目录: {self.output_dir}")
+        if self.match_types:
+            logger.info(f"已加载自定义 match_types 配置: {list(self.match_types.keys())}")
 
     def load_qa_pairs(self, source: str, source_type: str = 'auto',
                       split: str = 'test') -> List[QuestionAnswerPair]:
@@ -1461,7 +1470,6 @@ class LLMEvaluator:
         for attempt in range(retry_attempts):
             try:
                 result = agent.ask(qa_pair.question, qa_pair.context)
-
                 if result.get('success'):
                     return ModelResponse(
                         question_id=qa_pair.id,
@@ -1500,7 +1508,8 @@ class LLMEvaluator:
 
     def evaluate_agent(self, agent_name: str, sample_size: int = None,
                        parallel: bool = False, max_workers: int = 4,
-                       retry_attempts: int = 1, show_progress: bool = True) -> ModelEvaluationResult:
+                       retry_attempts: int = 1, show_progress: bool = True,
+                       match_types: Dict[str, Any] = None) -> ModelEvaluationResult:
         """
         评估单个Agent
         
@@ -1511,6 +1520,7 @@ class LLMEvaluator:
             max_workers: 并行工作线程数
             retry_attempts: 重试次数
             show_progress: 是否显示进度条
+            match_types: 匹配类型配置字典（优先级高于初始化时的配置）
             
         Returns:
             评估结果
@@ -1520,6 +1530,9 @@ class LLMEvaluator:
 
         if not self.qa_pairs:
             raise ValueError("请先加载问答对数据")
+
+        # 使用传入的 match_types 或实例的 match_types
+        effective_match_types = match_types if match_types is not None else self.match_types
 
         agent = self.agents[agent_name]
 
@@ -1565,8 +1578,8 @@ class LLMEvaluator:
             p for p in eval_pairs if p.id == r.question_id
         )) if any(p.id == r.question_id for p in eval_pairs) else 0)
 
-        # 计算指标
-        metrics = self._calculate_metrics(responses)
+        # 计算指标（传入 match_types）
+        metrics = self._calculate_metrics(responses, effective_match_types)
 
         # 构建结果
         result = ModelEvaluationResult(
@@ -1579,6 +1592,7 @@ class LLMEvaluator:
                 'sample_size': total,
                 'parallel': parallel,
                 'retry_attempts': retry_attempts,
+                'match_types': effective_match_types,
                 'timestamp': datetime.now().isoformat()
             }
         )
@@ -1595,7 +1609,7 @@ class LLMEvaluator:
 
     def evaluate_all(self, sample_size: int = None, parallel: bool = False,
                      max_workers: int = 4, retry_attempts: int = 1,
-                     show_progress: bool = True) -> Dict[str, ModelEvaluationResult]:
+                     show_progress: bool = True, match_types: Dict[str, Any] = None) -> Dict[str, ModelEvaluationResult]:
         """
         评估所有Agent
         
@@ -1605,6 +1619,7 @@ class LLMEvaluator:
             max_workers: 并行工作线程数
             retry_attempts: 重试次数
             show_progress: 是否显示进度条
+            match_types: 匹配类型配置字典（优先级高于初始化时的配置）
             
         Returns:
             所有Agent的评估结果
@@ -1616,17 +1631,37 @@ class LLMEvaluator:
                 parallel=parallel,
                 max_workers=max_workers,
                 retry_attempts=retry_attempts,
-                show_progress=show_progress
+                show_progress=show_progress,
+                match_types=match_types
             )
 
         return self.results
 
-    def _calculate_metrics(self, responses: List[ModelResponse]) -> EvaluationMetrics:
+    def _get_metric_config(self, method_name: str, match_types: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        获取指定计算方法的配置参数
+        
+        Args:
+            method_name: 计算方法名称（如 calculate_exact_match）
+            match_types: match_types 配置字典
+            
+        Returns:
+            该方法对应的配置参数字典
+        """
+        if not match_types or method_name not in match_types:
+            return {}
+        
+        config = match_types.get(method_name, {})
+        # 过滤掉 description 等非参数字段
+        return {k: v for k, v in config.items() if k != 'description'}
+
+    def _calculate_metrics(self, responses: List[ModelResponse], match_types: Dict[str, Any] = None) -> EvaluationMetrics:
         """
         计算评估指标
         
         Args:
             responses: 模型响应列表
+            match_types: 匹配类型配置字典，用于自定义各指标的计算方式
             
         Returns:
             评估指标
@@ -1641,6 +1676,17 @@ class LLMEvaluator:
                 successful_predictions=0,
                 failed_predictions=total
             )
+
+        # 获取各指标的配置
+        exact_match_config = self._get_metric_config('calculate_exact_match', match_types)
+        f1_score_config = self._get_metric_config('calculate_f1_score', match_types)
+        partial_match_config = self._get_metric_config('calculate_partial_match', match_types)
+        semantic_sim_config = self._get_metric_config('calculate_semantic_similarity', match_types)
+        coverage_config = self._get_metric_config('calculate_answer_coverage', match_types)
+        relevance_config = self._get_metric_config('calculate_answer_relevance', match_types)
+        utilization_config = self._get_metric_config('calculate_context_utilization', match_types)
+        completeness_config = self._get_metric_config('calculate_completeness', match_types)
+        conciseness_config = self._get_metric_config('calculate_conciseness', match_types)
 
         # 基础指标
         exact_matches = []
@@ -1660,23 +1706,37 @@ class LLMEvaluator:
             pred = resp.predicted_answer
             truth = resp.ground_truth
 
-            # 基础指标
-            exact_matches.append(self.calculator.calculate_exact_match(pred, truth))
-            f1_scores.append(self.calculator.calculate_f1_score(pred, truth))
-            partial_matches.append(self.calculator.calculate_partial_match(pred, truth))
-            semantic_sims.append(self.calculator.calculate_semantic_similarity(pred, truth))
+            # 基础指标（传入配置参数）
+            exact_matches.append(self.calculator.calculate_exact_match(
+                pred, truth, **exact_match_config
+            ))
+            f1_scores.append(self.calculator.calculate_f1_score(
+                pred, truth, **f1_score_config
+            ))
+            partial_matches.append(self.calculator.calculate_partial_match(
+                pred, truth, **partial_match_config
+            ))
+            semantic_sims.append(self.calculator.calculate_semantic_similarity(
+                pred, truth, **semantic_sim_config
+            ))
             inference_times.append(resp.inference_time)
 
-            # 知识库指标
-            coverages.append(self.calculator.calculate_answer_coverage(pred, truth))
+            # 知识库指标（传入配置参数）
+            coverages.append(self.calculator.calculate_answer_coverage(
+                pred, truth, **coverage_config
+            ))
             relevances.append(self.calculator.calculate_answer_relevance(
-                pred, resp.question, resp.context
+                pred, resp.question, resp.context, **relevance_config
             ))
             utilizations.append(self.calculator.calculate_context_utilization(
-                pred, resp.context
+                pred, resp.context, **utilization_config
             ))
-            completeness_scores.append(self.calculator.calculate_completeness(pred, truth))
-            conciseness_scores.append(self.calculator.calculate_conciseness(pred, truth))
+            completeness_scores.append(self.calculator.calculate_completeness(
+                pred, truth, **completeness_config
+            ))
+            conciseness_scores.append(self.calculator.calculate_conciseness(
+                pred, truth, **conciseness_config
+            ))
 
         return EvaluationMetrics(
             total_samples=total,
@@ -1972,7 +2032,8 @@ def run_evaluation(
         sample_size: int = None,
         parallel: bool = False,
         max_workers: int = 4,
-        retry_attempts: int = 1
+        retry_attempts: int = 1,
+        match_types: Dict[str, Any] = None
 ) -> Dict[str, ModelEvaluationResult]:
     """
     运行完整评估流程的便捷函数
@@ -1986,12 +2047,28 @@ def run_evaluation(
         parallel: 是否并行处理
         max_workers: 并行工作线程数
         retry_attempts: 重试次数
+        match_types: 匹配类型配置字典，用于自定义各指标的计算方式
+            格式: {
+                "calculate_exact_match": {"match_type": "normalized"},
+                "calculate_f1_score": {"cal_type": "word"},
+                ...
+            }
         
     Returns:
         评估结果字典
     """
-    # 创建评估器
-    evaluator = LLMEvaluator(output_dir=output_dir)
+    # 如果未传入 match_types 但提供了 config_path，尝试从配置文件读取
+    if match_types is None and config_path:
+        try:
+            config = read_json_file(config_path, default={})
+            match_types = config.get('match_types')
+            if match_types:
+                logger.info("从配置文件加载 match_types 成功")
+        except Exception as e:
+            logger.warning(f"从配置文件加载 match_types 失败: {e}")
+
+    # 创建评估器（传入 match_types）
+    evaluator = LLMEvaluator(output_dir=output_dir, match_types=match_types)
 
     # 1. 加载问答对
     logger.info("步骤 1/6: 加载问答对...")
@@ -2005,7 +2082,7 @@ def run_evaluation(
         logger.error("没有可用的Agent，评估终止")
         return {}
 
-    # 3. 进行评估
+    # 3. 进行评估（match_types 已通过初始化传入 evaluator）
     logger.info("步骤 3/6: 进行问答评估...")
     evaluator.evaluate_all(
         sample_size=sample_size,

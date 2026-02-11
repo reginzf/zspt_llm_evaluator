@@ -1,40 +1,117 @@
 {
   "agents": [
     {
-      "name": "deepseek",
+      "name": "DeepSeek-V3",
       "type": "deepseek",
-      "api_key": "sk-your-api-key",
+      "api_key": "your-deepseek-api-key",
       "api_url": "https://api.deepseek.com/v1/chat/completions",
       "model": "deepseek-chat",
       "temperature": 0.1,
-      "max_tokens": 150,
-      "timeout": 30,
-      "headers": {
-        "Content-Type": "application/json"
-      }
+      "max_tokens": 512,
+      "timeout": 60,
+      "version": "20240201"
     },
     {
-      "name": "自定义API",
+      "name": "DeepSeek-R1",
+      "type": "deepseek",
+      "api_key": "your-deepseek-api-key",
+      "api_url": "https://api.deepseek.com/v1/chat/completions",
+      "model": "deepseek-reasoner",
+      "temperature": 0.1,
+      "max_tokens": 512,
+      "timeout": 120,
+      "version": "20240201"
+    },
+    {
+      "name": "GPT-3.5",
+      "type": "openai",
+      "api_key": "your-openai-api-key",
+      "api_url": "https://api.openai.com/v1/chat/completions",
+      "model": "gpt-3.5-turbo",
+      "temperature": 0.1,
+      "max_tokens": 512,
+      "timeout": 60,
+      "version": "20240201"
+    },
+    {
+      "name": "GPT-4",
+      "type": "openai",
+      "api_key": "your-openai-api-key",
+      "api_url": "https://api.openai.com/v1/chat/completions",
+      "model": "gpt-4",
+      "temperature": 0.1,
+      "max_tokens": 512,
+      "timeout": 60,
+      "version": "20240201"
+    },
+    {
+      "name": "Custom-Model",
       "type": "custom",
-      "api_key": "your-custom-api-key",
-      "api_url": "https://your-api-endpoint.com/qa",
+      "api_key": "your-api-key",
+      "api_url": "https://your-custom-api.com/v1/chat",
+      "temperature": 0.1,
+      "max_tokens": 512,
+      "timeout": 60,
+      "version": "20240201",
       "request_template": {
-        "question": "{question}",
-        "context": "{context}",
-        "task": "question_answering"
+        "model": "your-model-name",
+        "messages": [
+          {"role": "user", "content": "基于以下文档回答问题：\n\n文档：{context}\n\n问题：{question}"}
+        ],
+        "temperature": 0.1,
+        "max_tokens": 512
       },
-      "response_parser": "lambda x: x.get('answer', '')",
-      "timeout": 30,
-      "headers": {
-        "Content-Type": "application/json"
-      }
+      "response_parser": "lambda x: x['choices'][0]['message']['content']"
     }
   ],
   "evaluation_settings": {
-    "sample_size": 10,
-    "verbose": true,
-    "save_results": true,
-    "results_file": "./evaluation_results.json",
-    "metrics": ["accuracy", "f1_score", "inference_time", "success_rate", "cost"]
+    "default_sample_size": 100,
+    "parallel_processing": true,
+    "max_workers": 4,
+    "retry_attempts": 3,
+    "retry_delay": 1.0,
+    "save_intermediate": true
+  },
+  "match_types": {
+    "calculate_exact_match": {
+      "match_type": "normalized",
+      "description": "精确匹配计算方式: normalized(默认标准化), strict(严格匹配), fuzzy(模糊匹配), semantic(语义匹配), rouge(ROUGE匹配), tfidf(TF-IDF匹配), keyword(关键词匹配)"
+    },
+    "calculate_f1_score": {
+      "cal_type": "word",
+      "description": "F1分数计算方式: word(默认词汇), rouge(ROUGE), semantic(语义), jaccard(Jaccard)"
+    },
+    "calculate_partial_match": {
+      "match_type": "word_overlap",
+      "description": "部分匹配计算方式: word_overlap(默认词汇重叠), semantic(语义), rouge(ROUGE), tfidf(TF-IDF), jaccard(Jaccard)"
+    },
+    "calculate_semantic_similarity": {
+      "sim_type": "sentence_transformer",
+      "description": "语义相似度计算方式: sentence_transformer(默认), bert(BERT), tfidf(TF-IDF), word2vec(Word2Vec), jaccard(Jaccard)"
+    },
+    "calculate_answer_coverage": {
+      "cal_type": "simple",
+      "description": "答案覆盖率计算方式: simple(默认简单), rouge(ROUGE), sentence(句子), weighted(加权)"
+    },
+    "calculate_answer_relevance": {
+      "rel_type": "word_overlap",
+      "description": "答案相关性计算方式: word_overlap(默认词汇重叠), semantic(语义), tfidf(TF-IDF), weighted(加权), rouge(ROUGE)"
+    },
+    "calculate_context_utilization": {
+      "cal_type": "simple",
+      "n": 2,
+      "weights": [0.3, 0.3, 0.2, 0.2],
+      "description": "上下文利用率计算方式: simple(默认简单), semantic(语义), tfidf(TF-IDF), rouge(ROUGE), ngram(N-gram), weighted(加权)。n: N-gram的N值, weights: 加权计算的权重"
+    },
+    "calculate_completeness": {
+      "cal_type": "simple",
+      "model_name": "zh_core_web_sm",
+      "weights": [0.5, 0.25, 0.25],
+      "description": "答案完整性计算方式: simple(默认简单), coverage(覆盖度), entities(实体), rouge(ROUGE), weighted(加权)。model_name: 实体识别模型, weights: 加权计算的权重"
+    },
+    "calculate_conciseness": {
+      "conciseness_type": "ratio",
+      "description": "答案简洁性计算方式: ratio(默认长度比例), semantic(语义压缩度), rouge(ROUGE压缩度), density(信息密度), weighted(加权)"
+    }
   }
 }

@@ -197,13 +197,10 @@ class DeepSeekAgent(BaseLLMAgent):
     def _build_request_payload(self, question: str, context: str) -> Dict:
         """构建DeepSeek请求载荷"""
         prompt = f"""基于以下文档内容回答问题：
-
 文档内容：
 {context}
-
 问题：
 {question}
-
 请直接给出答案，不需要解释过程。"""
 
         return {
@@ -253,13 +250,10 @@ class OpenAIAgent(BaseLLMAgent):
     def _build_request_payload(self, question: str, context: str) -> Dict:
         """构建OpenAI请求载荷"""
         prompt = f"""基于以下文档内容回答问题：
-
 文档内容：
 {context}
-
 问题：
 {question}
-
 请直接给出答案，不需要解释过程。"""
 
         return {
