@@ -1,5 +1,7 @@
 from src.sql_funs.sql_base import PostgreSQLManager
-
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class CreateTables(PostgreSQLManager):
     # 通用字段定义
@@ -293,6 +295,294 @@ class CreateTables(PostgreSQLManager):
         self.create_metric_tasks_table()  # 新增指标任务表
         self.create_report_table()
         self.create_local_knowledge_file_upload_table()
+        self.create_ai_qa_data_group_table()  # 新增AI问答对分组表
+        self.create_ai_qa_data_table()  # 新增AI问答对数据表
+
+    # ==================== AI问答对数据表 ====================
+
+    def create_ai_qa_data_group_table(self) -> bool:
+        """
+        创建AI问答对分组表
+        
+        用于管理问答对分组，前端可创建不同的测试用途分组
+        """
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "group_uuid": "UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL",
+            "name": "VARCHAR(200) NOT NULL",
+            "purpose": "TEXT",  # 用途描述
+            "test_type": "VARCHAR(50) CHECK (test_type IN ('accuracy', 'performance', 'robustness', 'comprehensive', 'custom'))",
+            "language": "VARCHAR(20) DEFAULT 'zh'",  # 语言
+            "difficulty_range": "VARCHAR(50)",  # 难度范围，如 "1-5"
+            "tags": "JSONB DEFAULT '[]'::jsonb",  # 标签列表
+            "source_count": "INTEGER DEFAULT 0",  # 来源数据集数量统计
+            "qa_count": "INTEGER DEFAULT 0",  # 问答对数量统计
+            "is_active": "BOOLEAN DEFAULT TRUE",  # 是否激活
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "metadata": "JSONB DEFAULT '{}'::jsonb"  # 额外配置信息
+        }
+        
+        success = self.create_table("ai_qa_data_group", columns)
+        
+        if success:
+            # 创建索引
+            self._create_ai_qa_data_group_indexes()
+        
+        return success
+    
+    def _create_ai_qa_data_group_indexes(self):
+        """为ai_qa_data_group表创建索引"""
+        indexes = [
+            ("idx_qa_group_name", "CREATE INDEX idx_qa_group_name ON ai_qa_data_group(name)"),
+            ("idx_qa_group_test_type", "CREATE INDEX idx_qa_group_test_type ON ai_qa_data_group(test_type)"),
+            ("idx_qa_group_is_active", "CREATE INDEX idx_qa_group_is_active ON ai_qa_data_group(is_active) WHERE is_active = TRUE"),
+            ("idx_qa_group_created_at", "CREATE INDEX idx_qa_group_created_at ON ai_qa_data_group(created_at DESC)"),
+            ("idx_qa_group_tags", "CREATE INDEX idx_qa_group_tags ON ai_qa_data_group USING GIN(tags)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                # 对于向量索引，如果是因为扩展不存在导致的错误，给出更友好的提示
+                if index_name == "idx_qa_data_vector" and "vector_cosine_ops" in str(e):
+                    logger.warning(f"向量索引 {index_name} 创建失败，可能是pgvector扩展未安装: {e}")
+                elif "gin_trgm_ops" in str(e):
+                    logger.warning(f"全文搜索索引 {index_name} 创建失败，可能是pg_trgm扩展未安装: {e}")
+                else:
+                    logger.warning(f"索引 {index_name} 创建失败: {e}")
+
+    def create_ai_qa_data_table(self) -> bool:
+        """
+        创建AI问答对数据表
+        
+        存储具体的问答对数据，支持分区、索引优化和TOAST技术
+        """
+        # 定义表结构
+        columns = {
+            "id": "BIGSERIAL",
+            "qa_uuid": "UUID DEFAULT gen_random_uuid() NOT NULL",
+            "group_id": "INTEGER NOT NULL",
+            "question": "TEXT NOT NULL",
+            "answers": "JSONB NOT NULL",  # 支持多种结构的答案存储
+            "context": "TEXT",  # 上下文/背景信息
+            "question_type": "VARCHAR(50) CHECK (question_type IN ('factual', 'contextual', 'conceptual', 'reasoning', 'application', 'multi_choice'))",
+            "source_dataset": "VARCHAR(200)",  # 源数据集名称
+            "hf_dataset_id": "VARCHAR(200)",  # HuggingFace原始ID
+            "language": "VARCHAR(20) DEFAULT 'zh'",
+            "difficulty_level": "INTEGER CHECK (difficulty_level BETWEEN 1 AND 10)",
+            "category": "VARCHAR(100)",  # 分类标签
+            "sub_category": "VARCHAR(100)",  # 子分类
+            "tags": "JSONB DEFAULT '[]'::jsonb",  # 标签列表
+            # 固定元数据
+            "fixed_metadata": "JSONB DEFAULT '{}'::jsonb",
+            # 动态可扩展元数据
+            "dynamic_metadata": "JSONB DEFAULT '{}'::jsonb",
+            # 向量化字段（可选）
+            "vector_embedding": "VECTOR(768)",  # 使用pgvector扩展，维度可配置
+            # 统计字段
+            "question_length": "INTEGER",  # 问题长度
+            "answer_length": "INTEGER",  # 答案长度
+            "context_length": "INTEGER",  # 上下文长度
+            # 时间戳
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            # 分区键
+            "created_month": "DATE NOT NULL",
+            # 主键和外键约束
+            "PRIMARY KEY (id, created_month)": "",
+            "FOREIGN KEY (group_id)": "REFERENCES ai_qa_data_group(id) ON DELETE CASCADE"
+        }
+        
+        try:
+            # 检查并创建pgvector扩展
+            try:
+                self.cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                logger.info("pgvector扩展创建成功或已存在")
+            except Exception as ext_error:
+                logger.warning(f"pgvector扩展创建失败: {ext_error}")
+                logger.warning("将继续创建表，但向量相关功能可能不可用")
+                # 从columns中移除向量字段
+                columns.pop("vector_embedding", None)
+            
+            # 检查并创建pg_trgm扩展
+            try:
+                self.cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+                logger.info("pg_trgm扩展创建成功或已存在")
+            except Exception as ext_error:
+                logger.warning(f"pg_trgm扩展创建失败: {ext_error}")
+                logger.warning("全文搜索功能可能受限")
+            
+            self.connection.commit()
+            
+            # 使用标准create_table方法创建表
+            result = self.create_table("ai_qa_data", columns)
+            
+            if result:
+                # 创建分区
+                self._create_ai_qa_data_partitions()
+                
+                # 创建索引
+                self._create_ai_qa_data_indexes()
+                
+                # 设置TOAST存储策略
+                self._set_ai_qa_data_toast_strategy()
+                
+                logger.info("表 ai_qa_data 创建成功")
+                return True
+            else:
+                logger.error("使用create_table方法创建表 ai_qa_data 失败")
+                return False
+                
+        except Exception as e:
+            self.connection.rollback()
+            logger.error(f"创建表 ai_qa_data 失败: {e}")
+            return False
+    
+    def _create_ai_qa_data_partitions(self):
+        """创建ai_qa_data表的分区"""
+        from datetime import datetime, timedelta
+        
+        # 创建未来12个月的分区
+        current_date = datetime.now()
+        
+        for i in range(-3, 12):  # 包含前3个月和未来12个月
+            partition_date = current_date + timedelta(days=30*i)
+            year_month = partition_date.strftime('%Y_%m')
+            start_date = partition_date.replace(day=1).strftime('%Y-%m-%d')
+            
+            # 计算下个月的第一天
+            if partition_date.month == 12:
+                next_month = partition_date.replace(year=partition_date.year+1, month=1, day=1)
+            else:
+                next_month = partition_date.replace(month=partition_date.month+1, day=1)
+            end_date = next_month.strftime('%Y-%m-%d')
+            
+            partition_name = f"ai_qa_data_{year_month}"
+            
+            create_partition_sql = f"""
+            CREATE TABLE IF NOT EXISTS {partition_name} 
+            PARTITION OF ai_qa_data
+            FOR VALUES FROM ('{start_date}') TO ('{end_date}');
+            """
+            
+            try:
+                self.cursor.execute(create_partition_sql)
+                self.connection.commit()
+                logger.info(f"分区 {partition_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"分区 {partition_name} 创建失败: {e}")
+    
+    def _create_ai_qa_data_indexes(self):
+        """为ai_qa_data表创建索引"""
+        indexes = [
+            # 主键索引（自动创建）
+            # 外键索引
+            ("idx_qa_data_group_id", "CREATE INDEX idx_qa_data_group_id ON ai_qa_data(group_id)"),
+            # 复合索引
+            ("idx_qa_data_group_difficulty", "CREATE INDEX idx_qa_data_group_difficulty ON ai_qa_data(group_id, difficulty_level)"),
+            ("idx_qa_data_group_category", "CREATE INDEX idx_qa_data_group_category ON ai_qa_data(group_id, category)"),
+            ("idx_qa_data_group_created", "CREATE INDEX idx_qa_data_group_created ON ai_qa_data(group_id, created_at DESC)"),
+            # 全文搜索索引
+            ("idx_qa_data_question_trgm", "CREATE INDEX idx_qa_data_question_trgm ON ai_qa_data USING GIN(question gin_trgm_ops)"),
+            ("idx_qa_data_context_trgm", "CREATE INDEX idx_qa_data_context_trgm ON ai_qa_data USING GIN(context gin_trgm_ops)"),
+            # JSONB字段GIN索引
+            ("idx_qa_data_answers", "CREATE INDEX idx_qa_data_answers ON ai_qa_data USING GIN(answers)"),
+            ("idx_qa_data_fixed_metadata", "CREATE INDEX idx_qa_data_fixed_metadata ON ai_qa_data USING GIN(fixed_metadata)"),
+            ("idx_qa_data_dynamic_metadata", "CREATE INDEX idx_qa_data_dynamic_metadata ON ai_qa_data USING GIN(dynamic_metadata)"),
+            ("idx_qa_data_tags", "CREATE INDEX idx_qa_data_tags ON ai_qa_data USING GIN(tags)"),
+            # 向量索引（使用ivfflat）- 只在vector扩展可用时创建
+            ("idx_qa_data_vector", "CREATE INDEX idx_qa_data_vector ON ai_qa_data USING ivfflat (vector_embedding vector_cosine_ops)"),
+            # 条件索引
+            ("idx_qa_data_high_difficulty", "CREATE INDEX idx_qa_data_high_difficulty ON ai_qa_data(group_id, difficulty_level) WHERE difficulty_level >= 7"),
+            # 源数据集索引
+            ("idx_qa_data_source", "CREATE INDEX idx_qa_data_source ON ai_qa_data(source_dataset, hf_dataset_id)"),
+            # 语言索引
+            ("idx_qa_data_language", "CREATE INDEX idx_qa_data_language ON ai_qa_data(language)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                # 对于向量索引，如果是因为扩展不存在导致的错误，给出更友好的提示
+                if index_name == "idx_qa_data_vector" and "vector_cosine_ops" in str(e):
+                    logger.warning(f"向量索引 {index_name} 创建失败，可能是pgvector扩展未安装: {e}")
+                elif "gin_trgm_ops" in str(e):
+                    logger.warning(f"全文搜索索引 {index_name} 创建失败，可能是pg_trgm扩展未安装: {e}")
+                else:
+                    logger.warning(f"索引 {index_name} 创建失败: {e}")
+    
+    def _set_ai_qa_data_toast_strategy(self):
+        """设置ai_qa_data表的TOAST存储策略"""
+        toast_settings = [
+            # 大文本字段使用EXTERNAL策略（不压缩，快速访问）
+            ("ALTER TABLE ai_qa_data ALTER COLUMN question SET STORAGE EXTERNAL"),
+            ("ALTER TABLE ai_qa_data ALTER COLUMN context SET STORAGE EXTERNAL"),
+            ("ALTER TABLE ai_qa_data ALTER COLUMN answers SET STORAGE EXTERNAL"),
+            # JSONB字段使用MAIN策略（适度压缩）
+            ("ALTER TABLE ai_qa_data ALTER COLUMN fixed_metadata SET STORAGE MAIN"),
+            ("ALTER TABLE ai_qa_data ALTER COLUMN dynamic_metadata SET STORAGE MAIN"),
+            # 设置表的填充因子为90%，留出空间用于HOT更新
+            ("ALTER TABLE ai_qa_data SET (fillfactor = 90)"),
+        ]
+        
+        for sql in toast_settings:
+            try:
+                self.cursor.execute(sql)
+                self.connection.commit()
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"TOAST设置失败: {e}")
+    
+    def create_ai_qa_data_partitions_for_month(self, year: int, month: int) -> bool:
+        """
+        为指定月份创建分区
+        
+        Args:
+            year: 年份
+            month: 月份
+            
+        Returns:
+            bool: 创建成功返回True
+        """
+        from datetime import datetime
+        
+        year_month = f"{year}_{month:02d}"
+        start_date = datetime(year, month, 1).strftime('%Y-%m-%d')
+        
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).strftime('%Y-%m-%d')
+        else:
+            end_date = datetime(year, month + 1, 1).strftime('%Y-%m-%d')
+        
+        partition_name = f"ai_qa_data_{year_month}"
+        
+        create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name} 
+        PARTITION OF ai_qa_data
+        FOR VALUES FROM ('{start_date}') TO ('{end_date}');
+        """
+        
+        try:
+            self.cursor.execute(create_partition_sql)
+            self.connection.commit()
+            logger.info(f"分区 {partition_name} 创建成功")
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            logger.error(f"分区 {partition_name} 创建失败: {e}")
+            return False
 
 
 if __name__ == '__main__':
