@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-
+from datasets import load_from_disk
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -144,7 +144,6 @@ class DatasetLoader:
             问答对列表
         """
         try:
-            from datasets import load_from_disk
             dataset = load_from_disk(dataset_path)
 
             if split in dataset:
