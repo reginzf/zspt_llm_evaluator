@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "project": {
+    "name": "ai-ken",
+    "type": "AI辅助开发工具",
+    "description": "基于Flask的AI知识管理系统，集成本地知识库管理和远程知识库（如Label Studio）的双向同步功能",
+    "created": "2026-02-12T15:27:38+08:00"
+  },
+  "tech_stack": {
+    "backend": "Flask",
+    "llm": "本地模型 (models/zlpt) + DeepSeek API",
+    "embedding": "bge-base-zh-v1.5",
+    "reranker": "bge-reranker-base",
+    "database": "PostgreSQL (10.210.2.223:5432)",
+    "mcp_tools": ["memory", "sequential-thinking", "filesystem"]
+  },
+  "project_structure": {
+    "core_modules": {
+      "flask_api": "src/flask_funcs/",
+      "llm_inference": "src/llm/",
+      "label_studio_integration": "src/label_studio_api/",
+      "database_operations": "src/sql_funs/",
+      "data_checker": "check_chunk/",
+      "local_models": "models/",
+      "zlpt_module": "src/zlpt/"
+    },
+    "config_files": {
+      "main_config": "configs/settings.toml",
+      "agent_config": "configs/agent_config.json",
+      "env_init": "env_config_init.py"
+    },
+    "entry_points": {
+      "main_app": "app.py",
+      "start_command": "python app.py --host 0.0.0.0 --port 5001 --debug"
+    }
+  },
+  "exclusions": {
+    "version_control": [".git/", ".gitignore"],
+    "ide_configs": [".idea/", ".pytest_cache/"],
+    "virtual_env": [".venv/"],
+    "python_cache": ["__pycache__/"],
+    "logs": ["logs/"],
+    "large_files": ["models/*.bin", "models/*.pth", "models/*.safetensors"],
+    "generated_reports": ["reports/report_data/"]
+  },
+  "memory_entries": {
+    "project_name": "ai-ken",
+    "project_type": "AI辅助开发工具",
+    "tech_stack": "- Backend: Flask\n- LLM: 本地模型 (models/zlpt)\n- Embedding: bge-base-zh-v1.5\n- Reranker: bge-reranker-base\n- Database: SQLite/自定义SQL工具\n- MCP: memory, sequential-thinking, filesystem",
+    "project_structure": "核心模块:\n- src/flask_funcs/: API接口\n- src/llm/: 模型推理\n- src/label_studio_api/: 标注平台集成\n- src/sql_funs/: 数据库操作\n- check_chunk/: 数据检查器\n- models/: 预训练模型",
+    "project_structure_detailed": "**项目根目录结构：**\nai-ken/\n├── .git/                    # Git版本控制目录（排除）\n├── .gitignore              # Git忽略文件\n├── .idea/                  # PyCharm配置目录（排除）\n├── .pytest_cache/          # pytest缓存（排除）\n├── .venv/                  # Python虚拟环境（排除）\n├── app.py                  # Flask应用入口\n├── check_chunk/            # 数据检查器\n│   ├── checkers/           # 检查器实现\n│   ├── checker_funcs/      # 检查器函数\n│   ├── checker_tests/      # 检查器测试\n│   └── __init__.py\n├── configs/                # 配置文件目录\n│   ├── agent_config.json   # 代理配置\n│   ├── agent_config_example.json\n│   ├── settings.toml       # 主配置文件\n│   └── settings_example.toml\n├── docs/                   # 文档目录\n├── env_config_init.py      # 环境配置初始化\n├── examples/               # 示例文件\n├── logs/                   # 日志目录（排除）\n├── models/                 # 预训练模型\n│   ├── bge-base-zh-v1.5/   # 中文Embedding模型\n│   ├── bge-reranker-base/  # 重排序模型\n│   ├── paraphrase-multilingual-MiniLM-L12-v2/\n│   └── text2vec-base-chinese/\n├── prompt_templates.md     # 提示词模板\n├── README.md               # 项目说明文档\n├── reports/                # 报告输出目录\n├── scripts/                # 脚本目录\n├── src/                    # 源代码目录\n│   ├── flask_funcs/        # Flask API接口\n│   │   ├── common_utils.py\n│   │   ├── environment.py\n│   │   ├── home.py\n│   │   ├── knowledge_base.py\n│   │   ├── knowledge_doc.py\n│   │   ├── label_studio_env.py\n│   │   ├── local_knowledge.py\n│   │   ├── local_knowledge_detail.py\n│   │   ├── local_knowledge_detail_label_studio.py\n│   │   ├── local_knowledge_detail_question.py\n│   │   ├── local_knowledge_detail_task.py\n│   │   ├── report_list.py\n│   │   ├── static_routes.py\n│   │   ├── reports/        # 报告相关资源\n│   │   └── __init__.py\n│   ├── label_studio_api/   # Label Studio集成\n│   │   ├── annotator.py\n│   │   ├── export.py\n│   │   ├── labels.py\n│   │   ├── label_studio_client.py\n│   │   ├── ml_backed/      # ML后端\n│   │   ├── task.py\n│   │   └── __init__.py\n│   ├── llm/                # 模型推理模块\n│   │   ├── api_agent_evaluator.py\n│   │   ├── config_manager.py\n│   │   ├── data_loaders.py\n│   │   ├── flask_func.py\n│   │   ├── knowledge_slice_annotator.py\n│   │   ├── llm_agent_basic.py\n│   │   ├── llm_interface.py\n│   │   └── __init__.py\n│   ├── sql_funs/           # 数据库操作\n│   │   ├── ai_qa_data_crud.py\n│   │   ├── ai_qa_data_group_crud.py\n│   │   ├── annotation_metric_tasks_crud.py\n│   │   ├── creaters/       # 创建器\n│   │   ├── environment_crud.py\n│   │   ├── knowledge_crud.py\n│   │   ├── knowledge_path_crud.py\n│   │   ├── label_studio_crud.py\n│   │   ├── local_knowledge_crud.py\n│   │   ├── metric_tasks_crud.py\n│   │   ├── questions_crud.py\n│   │   ├── sql_base.py\n│   │   └── __init__.py\n│   ├── zlpt/               # ZLPT模型相关（新增）\n│   └── zlpt_temp.py        # ZLPT临时文件\n├── tests/                  # 测试目录\n├── tree.ps1               # PowerShell目录树脚本\n├── utils/                  # 工具函数\n└── __pycache__/           # Python缓存（排除）\n\n**关键配置文件信息（settings.toml）：**\n- 数据库：PostgreSQL (10.210.2.223:5432)\n- LLM API：DeepSeek API (deepseek-chat)\n- 模型路径：本地bge-base-zh-v1.5模型\n- 项目根路径：D:\\pyworkplace\\git_place\\ai-ken\n\n**排除规则（不需要读取的文件/目录）：**\n1. 版本控制和IDE配置：.git/, .idea/, .pytest_cache/\n2. 虚拟环境：.venv/\n3. Python缓存：__pycache__/ 所有目录\n4. 日志文件：logs/ 目录\n5. 模型文件：models/ 目录中的大文件\n6. 报告输出：reports/ 目录中的生成文件\n\n**项目核心功能模块：**\n1. **Flask API层** (src/flask_funcs/) - Web接口\n2. **LLM推理层** (src/llm/) - 模型调用和代理\n3. **数据库层** (src/sql_funs/) - 数据持久化\n4. **Label Studio集成** (src/label_studio_api/) - 标注平台对接\n5. **数据检查器** (check_chunk/) - 数据质量检查\n6. **ZLPT模块** (src/zlpt/) - 本地模型支持\n\n**启动方式：**\n```bash\npython app.py --host 0.0.0.0 --port 5001 --debug\n```\n\n**注意：** 读取文件时应优先读取配置文件、源代码和文档，避免读取大文件或缓存文件。"
+  },
+  "mcp_server_config": {
+    "command": "npx.cmd -y @modelcontextprotocol/server-memory --file D:\\pyworkplace\\git_place\\ai-ken\\.mcp_memory.json",
+    "last_updated": "2026-02-12T15:27:38+08:00",
+    "auto_sync": true
+  },
+  "notes": "此文件由MCP Memory Server使用，存储项目相关的记忆信息。请勿手动编辑，除非您知道自己在做什么。"
+}
