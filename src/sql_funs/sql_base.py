@@ -219,6 +219,11 @@ class PostgreSQLManager:
             Optional[List[Tuple]]: SELECT 语句返回查询结果列表，其他语句返回 True 或 False
         """
         try:
+            # 检查连接是否已关闭，如果关闭则重新连接
+            if self.connection is None or self.connection.closed:
+                logger.debug("数据库连接已关闭，重新连接...")
+                self.connect()
+            
             # 根据是否有参数决定如何执行查询
             if params:
                 self.cursor.execute(query, params)
