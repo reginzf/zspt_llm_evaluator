@@ -132,7 +132,7 @@ def generate_unique_id(prefix="id", length=8):
 
 def handle_file_upload(files, target_directory, related_info=None):
     """
-    处理文件上传的通用函数
+    处理文件上传的通用函数，支持文件夹上传和数据集文件解析
     
     Args:
         files: 上传的文件列表
@@ -142,45 +142,302 @@ def handle_file_upload(files, target_directory, related_info=None):
     Returns:
         dict: 包含成功和失败文件信息的字典
     """
+    import os
+    import json
+    from pathlib import Path
+    import logging
+    
+    logger = logging.getLogger(__name__)
     success_count = 0
     failed_files = []
     success_file_names = []
+    processed_datasets = []
+    
     # 确保目录存在
     Path(target_directory).mkdir(parents=True, exist_ok=True)
 
     for file in files:
         if file and file.filename:
-            # 验证文件类型（可以根据需要添加更多类型）
-            filename = file.filename
+            try:
+                filename = file.filename
+                
+                # 检查是否是数据集文件
+                if _is_dataset_file(filename):
+                    # 处理数据集文件
+                    dataset_info = _process_dataset_file(file, target_directory)
+                    if dataset_info:
+                        processed_datasets.append(dataset_info)
+                        success_count += 1
+                        success_file_names.append(filename)
+                        logger.info(f"成功处理数据集文件: {filename}")
+                    else:
+                        failed_files.append(f"{filename} (数据集处理失败)")
+                    continue
+                
+                # 构建安全的文件路径
+                file_path = Path(target_directory) / filename
 
-            # 构建安全的文件路径
-            file_path = Path(target_directory) / filename
+                # 检查是否已存在同名文件，如果存在则重命名
+                counter = 1
+                name, ext = file_path.stem, file_path.suffix
+                new_filename = None
+                while file_path.exists():
+                    new_filename = f"{name}_{counter}{ext}"
+                    file_path = Path(target_directory) / new_filename
+                    counter += 1
 
-            # 检查是否已存在同名文件，如果存在则重命名
-            counter = 1
-            name, ext = file_path.stem, file_path.suffix
-            new_filename = None
-            while file_path.exists():
-                new_filename = f"{name}_{counter}{ext}"
-                file_path = Path(target_directory) / new_filename
-                counter += 1
+                # 保存文件到本地文件夹
+                file.save(str(file_path))
+                if new_filename:
+                    success_file_names.append(new_filename)
+                else:
+                    success_file_names.append(filename)
+                success_count += 1
+                
+            except Exception as e:
+                logger.error(f"处理文件 {filename} 时出错: {str(e)}")
+                failed_files.append(f"{filename} ({str(e)})")
 
-            # 保存文件到本地文件夹
-            file.save(str(file_path))
-            if new_filename:
-                success_file_names.append(new_filename)
-            else:
-                success_file_names.append(filename)
-            success_count += 1
-
+    # 如果有处理的数据集，生成数据集信息文件
+    if processed_datasets:
+        _generate_dataset_info(processed_datasets, target_directory)
+    
+    message = f"成功上传 {success_count} 个文件"
+    if processed_datasets:
+        message += f"，处理了 {len(processed_datasets)} 个数据集文件"
+    if failed_files:
+        message += f"，失败文件: {', '.join(failed_files)}"
+    
     return {
         "success_file_names": success_file_names,
         "success_count": success_count,
         "failed_count": len(failed_files),
         "failed_files": failed_files,
-        "message": f"成功上传 {success_count} 个文件" + (
-            f"，失败文件: {', '.join(failed_files)}" if failed_files else "")
+        "processed_datasets": processed_datasets,
+        "message": message
     }
+
+
+def _is_dataset_file(filename):
+    """检查文件是否是数据集文件"""
+    dataset_extensions = ['.arrow', '.jsonl', '.json', '.parquet', '.csv']
+    filename_lower = filename.lower()
+    
+    # 检查扩展名
+    for ext in dataset_extensions:
+        if filename_lower.endswith(ext):
+            return True
+    
+    # 检查是否是HuggingFace数据集文件
+    dataset_keywords = ['dataset', 'train', 'test', 'validation', 'split']
+    for keyword in dataset_keywords:
+        if keyword in filename_lower:
+            return True
+            
+    return False
+
+
+def _process_dataset_file(file, target_directory):
+    """处理数据集文件"""
+    import os
+    import json
+    from pathlib import Path
+    
+    try:
+        filename = file.filename
+        file_path = Path(target_directory) / filename
+        
+        # 保存文件
+        file.save(str(file_path))
+        
+        # 根据文件类型处理
+        if filename.lower().endswith('.jsonl') or filename.lower().endswith('.json'):
+            return _process_json_dataset(file_path, filename)
+        elif filename.lower().endswith('.arrow'):
+            return _process_arrow_dataset(file_path, filename)
+        elif filename.lower().endswith('.parquet'):
+            return _process_parquet_dataset(file_path, filename)
+        elif filename.lower().endswith('.csv'):
+            return _process_csv_dataset(file_path, filename)
+        else:
+            # 通用处理
+            return {
+                'filename': filename,
+                'type': 'unknown',
+                'size': os.path.getsize(file_path),
+                'message': '文件已保存，但未进行特殊处理'
+            }
+            
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"处理数据集文件 {filename} 时出错: {str(e)}")
+        return None
+
+
+def _process_json_dataset(file_path, filename):
+    """处理JSON/JSONL数据集文件"""
+    import json
+    
+    try:
+        samples = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            # 尝试作为JSONL处理
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if line:
+                    try:
+                        sample = json.loads(line)
+                        samples.append(sample)
+                    except json.JSONDecodeError:
+                        # 如果不是JSONL，尝试作为完整JSON处理
+                        f.seek(0)
+                        try:
+                            data = json.load(f)
+                            if isinstance(data, list):
+                                samples = data
+                            else:
+                                samples = [data]
+                        except json.JSONDecodeError:
+                            pass
+                        break
+        
+        return {
+            'filename': filename,
+            'type': 'json/jsonl',
+            'samples': len(samples),
+            'size': os.path.getsize(file_path),
+            'features': list(samples[0].keys()) if samples else []
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"处理JSON数据集 {filename} 时出错: {str(e)}")
+        return {
+            'filename': filename,
+            'type': 'json/jsonl',
+            'error': str(e)
+        }
+
+
+def _process_arrow_dataset(file_path, filename):
+    """处理Arrow数据集文件"""
+    try:
+        import pyarrow as pa
+        
+        with pa.memory_map(str(file_path), 'rb') as source:
+            reader = pa.ipc.open_stream(source)
+            table = reader.read_all()
+            
+            return {
+                'filename': filename,
+                'type': 'arrow',
+                'rows': table.num_rows,
+                'columns': table.num_columns,
+                'size': os.path.getsize(file_path),
+                'schema': [str(field) for field in table.schema]
+            }
+            
+    except ImportError:
+        return {
+            'filename': filename,
+            'type': 'arrow',
+            'error': 'pyarrow库未安装，无法读取Arrow文件'
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"处理Arrow数据集 {filename} 时出错: {str(e)}")
+        return {
+            'filename': filename,
+            'type': 'arrow',
+            'error': str(e)
+        }
+
+
+def _process_parquet_dataset(file_path, filename):
+    """处理Parquet数据集文件"""
+    try:
+        import pandas as pd
+        
+        df = pd.read_parquet(file_path)
+        
+        return {
+            'filename': filename,
+            'type': 'parquet',
+            'rows': len(df),
+            'columns': len(df.columns),
+            'size': os.path.getsize(file_path),
+            'columns_list': list(df.columns)
+        }
+        
+    except ImportError:
+        return {
+            'filename': filename,
+            'type': 'parquet',
+            'error': 'pandas库未安装，无法读取Parquet文件'
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"处理Parquet数据集 {filename} 时出错: {str(e)}")
+        return {
+            'filename': filename,
+            'type': 'parquet',
+            'error': str(e)
+        }
+
+
+def _process_csv_dataset(file_path, filename):
+    """处理CSV数据集文件"""
+    try:
+        import pandas as pd
+        
+        df = pd.read_csv(file_path)
+        
+        return {
+            'filename': filename,
+            'type': 'csv',
+            'rows': len(df),
+            'columns': len(df.columns),
+            'size': os.path.getsize(file_path),
+            'columns_list': list(df.columns)
+        }
+        
+    except ImportError:
+        return {
+            'filename': filename,
+            'type': 'csv',
+            'error': 'pandas库未安装，无法读取CSV文件'
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"处理CSV数据集 {filename} 时出错: {str(e)}")
+        return {
+            'filename': filename,
+            'type': 'csv',
+            'error': str(e)
+        }
+
+
+def _generate_dataset_info(processed_datasets, target_directory):
+    """生成数据集信息文件"""
+    import json
+    import datetime
+    from pathlib import Path
+    
+    info_file = Path(target_directory) / "dataset_info.json"
+    
+    info = {
+        'total_datasets': len(processed_datasets),
+        'datasets': processed_datasets,
+        'generated_at': datetime.datetime.now().isoformat()
+    }
+    
+    with open(info_file, 'w', encoding='utf-8') as f:
+        json.dump(info, f, ensure_ascii=False, indent=2)
 
 
 def render_template_with_version(template_name, css_static_dir="css", js_static_dir="js", **kwargs):
