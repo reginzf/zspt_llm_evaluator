@@ -376,6 +376,29 @@ class AIQADataManager(PostgreSQLManager):
             Optional[Dict]: 转换后的数据字典，转换失败返回None
         """
         try:
+            # 如果record是字符串，尝试解析为JSON
+            if isinstance(record, str):
+                try:
+                    record = json.loads(record)
+                except json.JSONDecodeError:
+                    # 如果不是JSON，将其作为问题处理
+                    return {
+                        'group_id': group_id,
+                        'question': record,
+                        'answers': {'text': [record], 'answer_start': []},
+                        'source_dataset': dataset_name,
+                        'language': 'zh',
+                        'fixed_metadata': {
+                            'original_format': 'huggingface',
+                            'imported_at': datetime.now().isoformat()
+                        }
+                    }
+            
+            # 确保record是字典
+            if not isinstance(record, dict):
+                logger.warning(f"记录不是字典格式: {type(record)}")
+                return None
+            
             # 应用自定义转换
             if transform_func:
                 record = transform_func(record)
@@ -784,7 +807,16 @@ class AIQADataManager(PostgreSQLManager):
     def _update_group_qa_count(self, group_id: int):
         """更新分组的问答对数量统计"""
         try:
+            # 确保数据库连接是打开的
+            if not self.connection or self.connection.closed:
+                self.connect()
+            
             count = self.count_qa_data(group_id=group_id)
+            
+            # 确保group_manager的连接也是打开的
+            if not self.group_manager.connection or self.group_manager.connection.closed:
+                self.group_manager.connect()
+            
             self.group_manager.update_group(group_id, qa_count=count)
         except Exception as e:
             logger.warning(f"更新分组统计失败: {e}")
