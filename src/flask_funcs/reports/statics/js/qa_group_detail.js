@@ -15,6 +15,49 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// 工具函数：显示成功消息
+function showSuccess(message) {
+    showToast(message, 'success');
+}
+
+// 工具函数：显示错误消息
+function showError(message) {
+    showToast(message, 'error');
+}
+
+// 工具函数：显示信息消息
+function showInfo(message) {
+    showToast(message, 'info');
+}
+
+// 显示消息提示（自动消失）
+function showToast(message, type = 'info') {
+    // 移除已有的消息
+    const existingToast = document.querySelector('.message-toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // 创建消息元素
+    const toast = document.createElement('div');
+    toast.className = `message-toast ${type}`;
+    
+    // 设置图标
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    toast.innerHTML = `${icon} ${escapeHtml(message)}`;
+    
+    // 添加到页面
+    document.body.appendChild(toast);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 3000);
+}
+
 // 全局变量
 let currentQAPage = 1;
 let qaPageSize = 20;
@@ -664,7 +707,7 @@ function editGroup() {
                 document.getElementById('editGroupMetadata').value = group.metadata ? JSON.stringify(group.metadata, null, 2) : '{}';
                 
                 // 显示编辑对话框
-                document.getElementById('editGroupDialog').style.display = 'block';
+                document.getElementById('editGroupDialog').classList.add('active');
             } else {
                 showError('获取分组详情失败: ' + result.message);
             }
@@ -677,7 +720,7 @@ function editGroup() {
 
 // 关闭编辑分组对话框
 function closeEditGroupDialog() {
-    document.getElementById('editGroupDialog').style.display = 'none';
+    document.getElementById('editGroupDialog').classList.remove('active');
 }
 
 // 提交编辑分组
@@ -793,12 +836,12 @@ function showCreateQADialog() {
     document.getElementById('qaAnswersError').textContent = '';
     
     // 显示对话框
-    document.getElementById('createQADialog').style.display = 'block';
+    document.getElementById('createQADialog').classList.add('active');
 }
 
 // 关闭创建问答对对话框
 function closeCreateQADialog() {
-    document.getElementById('createQADialog').style.display = 'none';
+    document.getElementById('createQADialog').classList.remove('active');
 }
 
 // 提交创建问答对
@@ -922,7 +965,7 @@ function editQA(qaId) {
                 document.getElementById('editQATags').value = tags;
                 
                 // 显示对话框
-                document.getElementById('editQADialog').style.display = 'block';
+                document.getElementById('editQADialog').classList.add('active');
             } else {
                 showError('获取问答对详情失败: ' + result.message);
             }
@@ -935,7 +978,7 @@ function editQA(qaId) {
 
 // 关闭编辑问答对对话框
 function closeEditQADialog() {
-    document.getElementById('editQADialog').style.display = 'none';
+    document.getElementById('editQADialog').classList.remove('active');
 }
 
 // 提交编辑问答对
@@ -1048,12 +1091,12 @@ function showBatchCreateDialog() {
     document.getElementById('batchQADataError').textContent = '';
     
     // 显示对话框
-    document.getElementById('batchCreateDialog').style.display = 'block';
+    document.getElementById('batchCreateDialog').classList.add('active');
 }
 
 // 关闭批量创建对话框
 function closeBatchCreateDialog() {
-    document.getElementById('batchCreateDialog').style.display = 'none';
+    document.getElementById('batchCreateDialog').classList.remove('active');
 }
 
 // 提交批量创建
@@ -1121,7 +1164,7 @@ function showImportQADialog() {
 
 // 关闭导入问答对对话框
 function closeImportQADialog() {
-    document.getElementById('importQADialog').style.display = 'none';
+    document.getElementById('importQADialog').classList.remove('active');
 }
 
 // 切换导入选项
@@ -1326,7 +1369,7 @@ function showQAImportProgressDialog() {
     document.querySelector('#importQAProgressDialog .cancel-btn').style.display = 'block';
     
     // 显示对话框
-    document.getElementById('importQAProgressDialog').style.display = 'block';
+    document.getElementById('importQAProgressDialog').classList.add('active');
 }
 
 // 更新导入进度
@@ -1349,7 +1392,7 @@ function updateQAImportProgress(total, processed, success, failed, errors) {
 
 // 关闭导入进度对话框
 function closeImportQAProgressDialog() {
-    document.getElementById('importQAProgressDialog').style.display = 'none';
+    document.getElementById('importQAProgressDialog').classList.remove('active');
 }
 
 // 取消导入

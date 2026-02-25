@@ -633,6 +633,24 @@ body.resizing {
 }
 
 .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal > .modal-content {
     background: white;
     border-radius: 10px;
     width: 90%;
@@ -640,6 +658,8 @@ body.resizing {
     max-height: 90vh;
     overflow-y: auto;
     animation: modalSlideIn 0.3s ease;
+    margin: auto;
+    position: relative;
 }
 
 @keyframes modalSlideIn {
@@ -718,6 +738,13 @@ body.resizing {
     margin-bottom: 15px;
 }
 
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #333;
+}
+
 .form-label {
     display: block;
     margin-bottom: 5px;
@@ -726,23 +753,41 @@ body.resizing {
 
 .form-input,
 .form-textarea,
-.form-select {
+.form-select,
+.form-control {
     width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 14px;
+    box-sizing: border-box;
 }
 
-.form-textarea {
-    min-height: 100px;
+.form-textarea,
+textarea.form-control {
+    min-height: 80px;
     resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
 }
 
 .form-hint {
     font-size: 12px;
     color: #666;
     margin-top: 5px;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-row .form-group.half-width {
+    flex: 0 0 calc(50% - 7.5px);
 }
 
 /* 批量创建样式 */
@@ -1037,6 +1082,17 @@ body.resizing {
     to {
         transform: translateX(0);
         opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
     }
 }
 

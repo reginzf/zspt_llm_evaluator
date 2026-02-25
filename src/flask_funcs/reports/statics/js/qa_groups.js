@@ -13,10 +13,7 @@ let importCanceled = false;
 const API_BASE = '/api/qa';
 
 // 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
-    initEventListeners();
-    loadGroups();
-});
+// 注意：DOMContentLoaded 事件处理在 qa_groups.html 中定义
 
 // 初始化事件监听器
 function initEventListeners() {

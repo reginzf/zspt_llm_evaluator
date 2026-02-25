@@ -118,10 +118,10 @@ class EnhancedAIQADataManager(PostgreSQLManager):
     
     def preview_huggingface_dataset(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
         """
-        预览HuggingFace数据集
+        预览数据集（支持HuggingFace数据集目录、JSON文件、JSONL文件）
         
         Args:
-            file_path: HuggingFace数据集路径
+            file_path: 数据集路径（可以是HuggingFace数据集目录、JSON文件或JSONL文件）
             preview_rows: 预览行数
             
         Returns:
@@ -135,11 +135,186 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                 preview.error = f"文件不存在: {file_path}"
                 return preview
             
-            # 检查是否为HuggingFace数据集目录
-            if not os.path.isdir(file_path):
-                preview.error = f"不是有效的HuggingFace数据集目录: {file_path}"
+            # 判断文件类型并相应处理
+            if os.path.isfile(file_path):
+                # 单个文件（JSON或JSONL）
+                return self._preview_json_file(file_path, preview_rows)
+            elif os.path.isdir(file_path):
+                # 目录：检查内容类型
+                json_files = self._find_json_files_in_dir(file_path)
+                if json_files:
+                    # 目录中包含JSON文件，使用第一个JSON文件
+                    logger.info(f"目录中发现JSON文件，使用第一个: {json_files[0]}")
+                    return self._preview_json_file(json_files[0], preview_rows)
+                else:
+                    # 尝试作为HuggingFace数据集加载
+                    return self._preview_hf_dataset(file_path, preview_rows)
+            else:
+                preview.error = f"无效的文件路径: {file_path}"
                 return preview
             
+        except Exception as e:
+            preview.error = f"预览数据集失败: {str(e)}"
+            logger.error(f"预览数据集失败: {e}")
+            raise e
+        
+        return preview
+    
+    def _find_json_files_in_dir(self, dir_path: str) -> List[str]:
+        """
+        在目录中查找JSON/JSONL文件
+        
+        Args:
+            dir_path: 目录路径
+            
+        Returns:
+            List[str]: JSON/JSONL文件路径列表
+        """
+        json_files = []
+        try:
+            for item in os.listdir(dir_path):
+                item_path = os.path.join(dir_path, item)
+                if os.path.isfile(item_path):
+                    ext = os.path.splitext(item)[1].lower()
+                    if ext in ['.json', '.jsonl']:
+                        json_files.append(item_path)
+        except Exception as e:
+            logger.warning(f"查找JSON文件失败: {e}")
+        return json_files
+    
+    def _preview_json_file(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
+        """
+        预览JSON或JSONL文件
+        
+        Args:
+            file_path: JSON或JSONL文件路径
+            preview_rows: 预览行数
+            
+        Returns:
+            DatasetPreview: 数据集预览信息
+        """
+        preview = DatasetPreview(file_path=file_path)
+        
+        try:
+            file_ext = os.path.splitext(file_path)[1].lower()
+            
+            if file_ext == '.jsonl':
+                # JSONL文件：每行一个JSON对象
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                preview.total_records = len(lines)
+                
+                for i, line in enumerate(lines[:preview_rows]):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                        preview.preview_rows.append(record)
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"解析JSONL第{i+1}行失败: {e}")
+                        
+            elif file_ext == '.json':
+                # JSON文件：可能是对象列表或单个对象
+                # 先尝试作为普通JSON解析
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    
+                    if isinstance(data, list):
+                        # JSON数组
+                        preview.total_records = len(data)
+                        preview.preview_rows = data[:preview_rows]
+                    elif isinstance(data, dict):
+                        # 单个JSON对象或包含数据键的对象
+                        # 尝试查找常见的数据键
+                        data_keys = ['data', 'items', 'rows', 'records', 'examples', 'qa_pairs', 'questions']
+                        found_data = None
+                        for key in data_keys:
+                            if key in data and isinstance(data[key], list):
+                                found_data = data[key]
+                                break
+                        
+                        if found_data:
+                            preview.total_records = len(found_data)
+                            preview.preview_rows = found_data[:preview_rows]
+                        else:
+                            # 如果没有找到数据键，将整个对象作为单条记录
+                            preview.total_records = 1
+                            preview.preview_rows = [data]
+                    else:
+                        preview.error = f"不支持的JSON格式: {type(data)}"
+                        return preview
+                        
+                except json.JSONDecodeError as e:
+                    # 如果JSON解析失败，尝试作为JSONL格式读取
+                    logger.info(f"JSON解析失败，尝试作为JSONL格式: {e}")
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                    
+                    preview.total_records = len(lines)
+                    
+                    for i, line in enumerate(lines[:preview_rows]):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                            preview.preview_rows.append(record)
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"解析JSONL第{i+1}行失败: {e}")
+            else:
+                # 尝试按JSONL格式读取
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                    
+                    preview.total_records = len(lines)
+                    
+                    for i, line in enumerate(lines[:preview_rows]):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                            preview.preview_rows.append(record)
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"解析第{i+1}行失败: {e}")
+                except Exception as e:
+                    preview.error = f"不支持的文件格式: {file_ext}"
+                    return preview
+            
+            # 提取所有列名
+            if preview.preview_rows:
+                all_keys = set()
+                for row in preview.preview_rows:
+                    if isinstance(row, dict):
+                        all_keys.update(row.keys())
+                preview.columns = sorted(list(all_keys))
+            
+            logger.info(f"JSON文件预览成功: {file_path}, 总记录数: {preview.total_records}")
+            
+        except Exception as e:
+            preview.error = f"预览JSON文件失败: {str(e)}"
+            logger.error(f"预览JSON文件失败: {e}")
+        
+        return preview
+    
+    def _preview_hf_dataset(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
+        """
+        预览HuggingFace数据集目录
+        
+        Args:
+            file_path: HuggingFace数据集目录路径
+            preview_rows: 预览行数
+            
+        Returns:
+            DatasetPreview: 数据集预览信息
+        """
+        preview = DatasetPreview(file_path=file_path)
+        
+        try:
             # 尝试加载数据集
             try:
                 from datasets import load_from_disk
@@ -191,7 +366,6 @@ class EnhancedAIQADataManager(PostgreSQLManager):
         except Exception as e:
             preview.error = f"预览数据集失败: {str(e)}"
             logger.error(f"预览数据集失败: {e}")
-            raise e
         
         return preview
     
@@ -336,7 +510,7 @@ class EnhancedAIQADataManager(PostgreSQLManager):
     
     def import_with_mapping(self, config: ImportConfig, progress_callback: Callable = None) -> ImportStats:
         """
-        使用字段映射导入数据
+        使用字段映射导入数据（支持HuggingFace数据集、JSON、JSONL文件）
         
         Args:
             config: 导入配置
@@ -368,6 +542,178 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                     stats.errors.append(f"分组不存在: ID={config.group_id}")
                     return stats
             
+            # 获取数据集名称
+            dataset_name = Path(config.file_path).name
+            
+            # 根据文件类型选择导入方式
+            if os.path.isfile(config.file_path):
+                # JSON/JSONL文件
+                return self._import_json_file(config, dataset_name, progress_callback, stats, start_time)
+            elif os.path.isdir(config.file_path):
+                # 目录：检查内容类型
+                json_files = self._find_json_files_in_dir(config.file_path)
+                if json_files:
+                    # 目录中包含JSON文件，使用第一个JSON文件
+                    logger.info(f"目录中发现JSON文件，使用第一个: {json_files[0]}")
+                    # 临时修改config的file_path
+                    original_path = config.file_path
+                    config.file_path = json_files[0]
+                    result = self._import_json_file(config, dataset_name, progress_callback, stats, start_time)
+                    config.file_path = original_path
+                    return result
+                else:
+                    # 尝试作为HuggingFace数据集加载
+                    return self._import_hf_dataset(config, dataset_name, progress_callback, stats, start_time)
+            else:
+                stats.errors.append(f"无效的文件路径: {config.file_path}")
+                stats.duration = (datetime.now() - start_time).total_seconds()
+                return stats
+                
+        except Exception as e:
+            stats.errors.append(f"导入错误: {str(e)}")
+        
+        stats.duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"导入完成: 成功={stats.success}, 失败={stats.failed}, 跳过={stats.skipped}")
+        
+        return stats
+    
+    def _import_json_file(self, config: ImportConfig, dataset_name: str, 
+                          progress_callback: Callable, stats: ImportStats, 
+                          start_time: datetime) -> ImportStats:
+        """
+        导入JSON或JSONL文件
+        """
+        try:
+            file_path = config.file_path
+            batch_size = config.options.get('batch_size', 1000)
+            skip_rows = config.options.get('skip_rows', 0)
+            unmapped_fields = config.options.get('unmapped_fields', 'ignore')
+            
+            # 读取所有记录
+            records = []
+            file_ext = os.path.splitext(file_path)[1].lower()
+            
+            if file_ext == '.jsonl':
+                # JSONL文件
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    for i, line in enumerate(f):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                            records.append(record)
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"解析JSONL第{i+1}行失败: {e}")
+                            
+            elif file_ext == '.json':
+                # JSON文件：先尝试作为普通JSON解析
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    
+                    if isinstance(data, list):
+                        records = data
+                    elif isinstance(data, dict):
+                        # 尝试查找常见的数据键
+                        data_keys = ['data', 'items', 'rows', 'records', 'examples', 'qa_pairs', 'questions']
+                        for key in data_keys:
+                            if key in data and isinstance(data[key], list):
+                                records = data[key]
+                                break
+                        if not records:
+                            records = [data]
+                    else:
+                        stats.errors.append(f"不支持的JSON格式: {type(data)}")
+                        stats.duration = (datetime.now() - start_time).total_seconds()
+                        return stats
+                        
+                except json.JSONDecodeError as e:
+                    # 如果JSON解析失败，尝试作为JSONL格式读取
+                    logger.info(f"JSON解析失败，尝试作为JSONL格式: {e}")
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        for i, line in enumerate(f):
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                record = json.loads(line)
+                                records.append(record)
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"解析JSONL第{i+1}行失败: {e}")
+            else:
+                # 尝试按JSONL格式读取
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        for i, line in enumerate(f):
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                record = json.loads(line)
+                                records.append(record)
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"解析第{i+1}行失败: {e}")
+                except Exception as e:
+                    stats.errors.append(f"不支持的文件格式: {file_ext}")
+                    stats.duration = (datetime.now() - start_time).total_seconds()
+                    return stats
+            
+            # 应用跳过行数
+            if skip_rows > 0:
+                records = records[skip_rows:]
+            
+            stats.total = len(records)
+            
+            # 批量导入
+            for i, record in enumerate(records):
+                try:
+                    # 转换数据格式
+                    qa_data = self._convert_with_mapping(
+                        record, config.group_id, dataset_name, config.mapping, unmapped_fields
+                    )
+                    
+                    if qa_data:
+                        # 使用现有的create_qa_data方法
+                        from src.sql_funs.ai_qa_data_crud import AIQADataManager
+                        with AIQADataManager() as manager:
+                            qa_id = manager.create_qa_data(**qa_data)
+                            if qa_id:
+                                stats.success += 1
+                            else:
+                                stats.failed += 1
+                    else:
+                        stats.skipped += 1
+                        
+                except Exception as e:
+                    stats.failed += 1
+                    stats.errors.append(f"记录导入错误: {str(e)[:100]}")
+                
+                # 进度回调
+                if progress_callback and (i + 1) % 100 == 0:
+                    progress_callback(i + 1, stats.total)
+                
+                if (i + 1) % 1000 == 0:
+                    logger.info(f"导入进度: {i + 1}/{stats.total}")
+            
+            # 更新分组统计
+            self._update_group_qa_count(config.group_id)
+            
+        except Exception as e:
+            stats.errors.append(f"导入JSON文件失败: {str(e)}")
+        
+        stats.duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"导入完成: 成功={stats.success}, 失败={stats.failed}, 跳过={stats.skipped}")
+        
+        return stats
+    
+    def _import_hf_dataset(self, config: ImportConfig, dataset_name: str,
+                           progress_callback: Callable, stats: ImportStats,
+                           start_time: datetime) -> ImportStats:
+        """
+        导入HuggingFace数据集
+        """
+        try:
             # 加载数据集
             from datasets import load_from_disk
             
@@ -380,8 +726,9 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                 if dataset is None:
                     raise e
             
-            # 获取数据集名称
-            dataset_name = Path(config.file_path).name
+            batch_size = config.options.get('batch_size', 1000)
+            skip_rows = config.options.get('skip_rows', 0)
+            unmapped_fields = config.options.get('unmapped_fields', 'ignore')
             
             # 处理所有分割
             total_records = 0
@@ -393,9 +740,6 @@ class EnhancedAIQADataManager(PostgreSQLManager):
             
             # 导入数据
             imported_count = 0
-            batch_size = config.options.get('batch_size', 1000)
-            skip_rows = config.options.get('skip_rows', 0)
-            unmapped_fields = config.options.get('unmapped_fields', 'ignore')
             
             for split_name in dataset.keys():
                 split_data = dataset[split_name]
@@ -408,12 +752,9 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                 for i in range(0, split_len, batch_size):
                     end_idx = min(i + batch_size, split_len)
                     
-                    # 使用select获取记录，而不是切片
-                    # 切片split_data[i:end_idx]返回的是dict(列名->值列表)
-                    # select返回的是Dataset，可以正确遍历
+                    # 使用select获取记录
                     batch_indices = list(range(i, end_idx))
                     if current_skip > 0:
-                        # 跳过指定行
                         skip_in_batch = min(current_skip, len(batch_indices))
                         batch_indices = batch_indices[skip_in_batch:]
                         current_skip -= skip_in_batch
@@ -457,6 +798,14 @@ class EnhancedAIQADataManager(PostgreSQLManager):
             # 更新分组统计
             self._update_group_qa_count(config.group_id)
             
+        except Exception as e:
+            stats.errors.append(f"导入数据集失败: {str(e)}")
+        
+            stats.duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"导入完成: 成功={stats.success}, 失败={stats.failed}, 跳过={stats.skipped}")
+            # 更新分组统计
+            self._update_group_qa_count(config.group_id)
+            return stats
         except ImportError:
             stats.errors.append("未安装datasets库，请运行: pip install datasets")
         except Exception as e:
