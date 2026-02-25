@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导入问答对数据 - {{ group_name }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+    <style>
+        .import-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .import-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .import-steps::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #e0e0e0;
+            z-index: 1;
+        }
+        
+        .step {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: #e0e0e0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active .step-circle {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .step.completed .step-circle {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .step-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .step.active .step-label {
+            color: #007bff;
+            font-weight: bold;
+        }
+        
+        .step.completed .step-label {
+            color: #28a745;
+        }
+        
+        .import-step-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            min-height: 400px;
+        }
+        
+        .import-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        
+        .btn-primary:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background-color: #1e7e34;
+        }
+        
+        .btn-success:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .file-upload-area:hover {
+            background-color: #f8f9fa;
+            border-color: #0056b3;
+        }
+        
+        .file-upload-area.dragover {
+            background-color: #e7f3ff;
+            border-color: #0056b3;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #007bff;
+            margin-bottom: 16px;
+        }
+        
+        .upload-text {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .upload-hint {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-selected {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .file-name {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .file-size {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .preview-table th,
+        .preview-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .preview-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .preview-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .mapping-table th,
+        .mapping-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .mapping-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .mapping-table tr.required {
+            background-color: #fff3cd;
+        }
+        
+        .mapping-table tr.required td:first-child::after {
+            content: ' *';
+            color: #dc3545;
+        }
+        
+        .field-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .field-select:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        
+        .progress-container {
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .import-results {
+            margin-top: 30px;
+        }
+        
+        .result-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .result-success {
+            border-left: 4px solid #28a745;
+        }
+        
+        .result-error {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .error-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .error-item {
+            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 14px;
+            color: #dc3545;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="import-container">
+    <!-- 返回按钮和标题 -->
+    <div class="page-header">
+        <button class="back-btn" onclick="goBack()">← 返回详情</button>
+        <h1>导入问答对数据 - {{ group_name }}</h1>
+    </div>
+    
+    <!-- 导入步骤 -->
+    <div class="import-steps">
+        <div class="step active" id="step1">
+            <div class="step-circle">1</div>
+            <div class="step-label">选择文件</div>
+        </div>
+        <div class="step" id="step2">
+            <div class="step-circle">2</div>
+            <div class="step-label">预览数据</div>
+        </div>
+        <div class="step" id="step3">
+            <div class="step-circle">3</div>
+            <div class="step-label">字段映射</div>
+        </div>
+        <div class="step" id="step4">
+            <div class="step-circle">4</div>
+            <div class="step-label">执行导入</div>
+        </div>
+    </div>
+    
+    <!-- 步骤1: 选择文件 -->
+    <div class="import-step-content" id="step1Content">
+        <h2>选择HuggingFace数据集文件</h2>
+        <p class="upload-hint">请选择HuggingFace数据集文件夹（包含dataset_dict.json等文件）或单个数据文件</p>
+        
+        <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击选择文件或文件夹，或拖拽到此处</div>
+            <div class="upload-hint">支持文件和文件夹上传</div>
+            <!-- 同时支持文件和文件夹选择 -->
+            <input type="file" id="fileInput" class="file-input" multiple 
+                   onchange="handleFileSelect(event)">
+        </div>
+        
+        <!-- 切换上传模式按钮 -->
+        <div style="text-align: center; margin-top: 15px;">
+            <button class="btn btn-secondary" onclick="switchUploadMode('folder')" id="folderModeBtn" style="margin-right: 10px;">
+                📁 选择文件夹
+            </button>
+            <button class="btn btn-secondary" onclick="switchUploadMode('file')" id="fileModeBtn">
+                📄 选择文件
+            </button>
+        </div>
+        
+        <div class="file-selected hidden" id="fileSelected">
+            <div class="file-info">
+                <div>
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                    <div class="file-count" id="fileCount"></div>
+                </div>
+                <button class="btn btn-secondary" onclick="clearFileSelection()">重新选择</button>
+            </div>
+        </div>
+        
+        <div class="alert alert-warning hidden" id="fileWarning">
+            <strong>注意：</strong> 请确保选择的是HuggingFace数据集文件夹或数据文件。
+        </div>
+        
+        <div class="import-actions">
+            <button class="btn btn-secondary" onclick="goBack()">取消</button>
+            <button class="btn btn-primary" id="nextStep1" onclick="nextStep(2)" disabled>下一步</button>
+        </div>
+    </div>
+    
+    <!-- 步骤2: 预览数据 -->
+    <div class="import-step-content hidden" id="step2Content">
+        <h2>数据预览</h2>
+        <p class="upload-hint" id="previewInfo">正在加载数据预览...</p>
+        
+        <div class="alert alert-error hidden" id="previewError">
+            <strong>错误：</strong> <span id="previewErrorMessage"></span>
+        </div>
+        
+        <div class="preview-table-container hidden" id="previewTableContainer">
+            <table class="preview-table" id="previewTable">
+                <thead>
+                    <tr id="previewTableHeader"></tr>
+                </thead>
+                <tbody id="previewTableBody"></tbody>
+            </table>
+            <div class="preview-info">
+                <p>总记录数: <span id="totalRecords">0</span> 条</p>
+                <p>显示前 <span id="previewRows">5</span> 条记录</p>
+            </div>
+        </div>
+        
+        <div class="import-actions">
+            <button class="btn btn-secondary" onclick="prevStep(1)">上一步</button>
+            <button class="btn btn-primary" id="nextStep2" onclick="nextStep(3)" disabled>下一步</button>
+        </div>
+    </div>
+    
+    <!-- 步骤3: 字段映射 -->
+    <div class="import-step-content hidden" id="step3Content">
+        <h2>字段映射配置</h2>
+        <p class="upload-hint">请将HuggingFace数据集的字段映射到问答对表的字段</p>
+        
+        <div class="alert alert-warning">
+            <strong>注意：</strong> 标有 * 的字段为必填项。同一HuggingFace字段不能映射到多个目标字段。
+        </div>
+        
+        <table class="mapping-table" id="mappingTable">
+            <thead>
+                <tr>
+                    <th width="30%">问答对表字段</th>
+                    <th width="40%">HuggingFace数据集字段</th>
+                    <th width="30%">说明</th>
+                </tr>
+            </thead>
+            <tbody id="mappingTableBody">
+                <!-- 映射行将通过JavaScript动态生成 -->
+            </tbody>
+        </table>
+        
+        <div class="mapping-options">
+            <h3>导入选项</h3>
+            <div class="options-grid">
+                <div class="option-item">
+                    <label for="batchSize">批次大小:</label>
+                    <input type="number" id="batchSize" value="1000" min="100" max="10000" step="100">
+                    <small>每批次处理的记录数</small>
+                </div>
+                <div class="option-item">
+                    <label for="skipRows">跳过行数:</label>
+                    <input type="number" id="skipRows" value="0" min="0">
+                    <small>从开始跳过的记录数</small>
+                </div>
+                <div class="option-item">
+                    <label for="unmappedFields">未映射字段:</label>
+                    <select id="unmappedFields">
+                        <option value="ignore">忽略</option>
+                        <option value="metadata">存入metadata</option>
+                    </select>
+                    <small>未映射字段的处理方式</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="import-actions">
+            <button class="btn btn-secondary" onclick="prevStep(2)">上一步</button>
+            <button class="btn btn-success" id="startImportBtn" onclick="startImport()" disabled>开始导入</button>
+        </div>
+    </div>
+    
+    <!-- 步骤4: 执行导入 -->
+    <div class="import-step-content hidden" id="step4Content">
+        <h2>执行导入</h2>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progressStatus">准备中...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+        </div>
+        
+        <div class="import-results hidden" id="importResults">
+            <div class="result-card result-success" id="successResult">
+                <h3>导入完成</h3>
+                <div class="result-stats" id="resultStats">
+                    <!-- 统计信息将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <div class="result-card result-error hidden" id="errorResult">
+                <h3>导入错误</h3>
+                <div id="errorMessage"></div>
+                <div class="error-list" id="errorList"></div>
+            </div>
+        </div>
+        
+        <div class="import-actions">
+            <button class="btn btn-secondary" onclick="prevStep(3)">上一步</button>
+            <button class="btn btn-primary" id="finishBtn" onclick="finishImport()" disabled>完成</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 全局变量
+let currentStep = 1;
+let groupId = {{ group_id }};
+let uploadedFilePath = null;
+let previewData = null;
+let mappingConfig = {};
+let importStats = null;
+
+// 步骤管理
+function updateSteps() {
+    for (let i = 1; i <= 4; i++) {
+        const step = document.getElementById(`step${i}`);
+        const content = document.getElementById(`step${i}Content`);
+        
+        if (i === currentStep) {
+            step.classList.add('active');
+            step.classList.remove('completed');
+            content.classList.remove('hidden');
+        } else if (i < currentStep) {
+            step.classList.remove('active');
+            step.classList.add('completed');
+            content.classList.add('hidden');
+        } else {
+            step.classList.remove('active');
+            step.classList.remove('completed');
+            content.classList.add('hidden');
+        }
+    }
+}
+
+function nextStep(step) {
+    if (step === 2 && !uploadedFilePath) {
+        alert('请先选择文件');
+        return;
+    }
+    
+    if (step === 3 && !previewData) {
+        alert('请先预览数据');
+        return;
+    }
+    
+    currentStep = step;
+    updateSteps();
+    
+    // 加载步骤内容
+    if (step === 2) {
+        loadPreview();
+    } else if (step === 3) {
+        loadMappingTable();
+    } else if (step === 4) {
+        startImportProcess();
+    }
+}
+
+function prevStep(step) {
+    currentStep = step;
+    updateSteps();
+}
+
+// 当前上传模式: 'folder' 或 'file'
+let currentUploadMode = 'folder';
+let selectedFiles = [];
+
+// 切换上传模式
+function switchUploadMode(mode) {
+    currentUploadMode = mode;
+    const fileInput = document.getElementById('fileInput');
+    
+    // 清空已选择的文件
+    clearFileSelection();
+    
+    // 更新按钮样式
+    const folderBtn = document.getElementById('folderModeBtn');
+    const fileBtn = document.getElementById('fileModeBtn');
+    
+    if (mode === 'folder') {
+        // 文件夹模式
+        fileInput.setAttribute('webkitdirectory', '');
+        fileInput.setAttribute('directory', '');
+        folderBtn.classList.remove('btn-secondary');
+        folderBtn.classList.add('btn-primary');
+        fileBtn.classList.remove('btn-primary');
+        fileBtn.classList.add('btn-secondary');
+        document.querySelector('.upload-text').textContent = '点击选择文件夹，或拖拽到此处';
+    } else {
+        // 文件模式
+        fileInput.removeAttribute('webkitdirectory');
+        fileInput.removeAttribute('directory');
+        fileBtn.classList.remove('btn-secondary');
+        fileBtn.classList.add('btn-primary');
+        folderBtn.classList.remove('btn-primary');
+        folderBtn.classList.add('btn-secondary');
+        document.querySelector('.upload-text').textContent = '点击选择文件，或拖拽到此处';
+    }
+}
+
+// 文件选择
+function handleFileSelect(event) {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    selectedFiles = files;
+    
+    // 检查是否为文件夹上传
+    const firstFile = files[0];
+    const relativePath = firstFile.webkitRelativePath || '';
+    const isFolderUpload = relativePath.includes('/');
+    
+    // 计算总大小和文件数量
+    let totalSize = 0;
+    files.forEach(file => {
+        totalSize += file.size;
+    });
+    
+    // 显示文件信息
+    let displayName;
+    if (isFolderUpload) {
+        // 文件夹上传，显示文件夹名
+        displayName = relativePath.split('/')[0];
+    } else {
+        // 单文件或多文件上传
+        if (files.length === 1) {
+            displayName = firstFile.name;
+        } else {
+            displayName = `${files.length} 个文件`;
+        }
+    }
+    
+    document.getElementById('fileName').textContent = displayName;
+    document.getElementById('fileSize').textContent = formatFileSize(totalSize);
+    document.getElementById('fileCount').textContent = `共 ${files.length} 个文件`;
+    document.getElementById('fileSelected').classList.remove('hidden');
+    document.getElementById('fileWarning').classList.remove('hidden');
+    
+    // 启用下一步按钮
+    document.getElementById('nextStep1').disabled = false;
+    
+    // 上传文件
+    uploadFile(files);
+}
+
+function clearFileSelection() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileSelected').classList.add('hidden');
+    document.getElementById('fileWarning').classList.add('hidden');
+    document.getElementById('nextStep1').disabled = true;
+    uploadedFilePath = null;
+    selectedFiles = [];
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 文件上传
+async function uploadFile(files) {
+    try {
+        const formData = new FormData();
+        
+        // 添加所有文件
+        for (let i = 0; i < files.length; i++) {
+            formData.append('file', files[i]);
+        }
+        
+        const response = await fetch(`/api/qa/groups/${groupId}/items/import/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            uploadedFilePath = result.file_path;
+            console.log('文件上传成功:', uploadedFilePath);
+        } else {
+            alert('文件上传失败: ' + result.message);
+            clearFileSelection();
+        }
+    } catch (error) {
+        console.error('上传文件失败:', error);
+        alert('上传文件失败: ' + error.message);
+        clearFileSelection();
+    }
+}
+
+// 数据预览
+async function loadPreview() {
+    try {
+        document.getElementById('previewInfo').textContent = '正在加载数据预览...';
+        document.getElementById('previewError').classList.add('hidden');
+        document.getElementById('previewTableContainer').classList.add('hidden');
+        
+        const response = await fetch(`/api/qa/groups/${groupId}/items/import/preview`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_path: uploadedFilePath,
+                preview_rows: 5
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            previewData = result.preview;
+            displayPreview();
+            document.getElementById('nextStep2').disabled = false;
+        } else {
+            document.getElementById('previewErrorMessage').textContent = result.message;
+            document.getElementById('previewError').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('加载预览失败:', error);
+        document.getElementById('previewErrorMessage').textContent = error.message;
+        document.getElementById('previewError').classList.remove('hidden');
+    }
+}
+
+function displayPreview() {
+    const tableHeader = document.getElementById('previewTableHeader');
+    const tableBody = document.getElementById('previewTableBody');
+    
+    // 清空表格
+    tableHeader.innerHTML = '';
+    tableBody.innerHTML = '';
+    
+    // 添加表头
+    previewData.columns.forEach(column => {
+        const th = document.createElement('th');
+        th.textContent = column;
+        tableHeader.appendChild(th);
+    });
+    
+    // 添加数据行
+    previewData.preview_rows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        
+        previewData.columns.forEach(column => {
+            const td = document.createElement('td');
+            let value = row[column];
+            
+            if (value === null || value === undefined) {
+                td.textContent = '';
+            } else if (typeof value === 'object') {
+                td.textContent = JSON.stringify(value).substring(0, 100) + '...';
+                td.title = JSON.stringify(value);
+            } else {
+                td.textContent = String(value).substring(0, 100);
+                if (String(value).length > 100) {
+                    td.title = String(value);
+                }
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tableBody.appendChild(tr);
+    });
+    
+    // 更新信息
+    document.getElementById('totalRecords').textContent = previewData.total_records;
+    document.getElementById('previewRows').textContent = previewData.preview_rows.length;
+    
+    // 显示表格
+    document.getElementById('previewInfo').textContent = '数据预览（前5行）';
+    document.getElementById('previewTableContainer').classList.remove('hidden');
+}
+
+// 字段映射
+function loadMappingTable() {
+    const tableBody = document.getElementById('mappingTableBody');
+    tableBody.innerHTML = '';
+    
+    // ai_qa_data表字段定义
+    const aiQaFields = [
+        { name: 'id', required: false, description: '主键，唯一标识' },
+        { name: 'question', required: true, description: '问题内容' },
+        { name: 'answers', required: true, description: '答案内容' },
+        { name: 'context', required: false, description: '上下文信息' },
+        { name: 'question_type', required: false, description: '问题类型' },
+        { name: 'source_dataset', required: false, description: '数据来源' },
+        { name: 'hf_dataset_id', required: false, description: 'HuggingFace原始ID' },
+        { name: 'language', required: false, description: '语言' },
+        { name: 'difficulty_level', required: false, description: '难度等级' },
+        { name: 'category', required: false, description: '分类标签' },
+        { name: 'sub_category', required: false, description: '子分类' },
+        { name: 'tags', required: false, description: '标签列表' },
+        { name: 'fixed_metadata', required: false, description: '固定元数据' },
+        { name: 'dynamic_metadata', required: false, description: '动态元数据' }
+    ];
+    
+    // 创建选项列表（包含智能建议）
+    const hfColumns = previewData.columns || [];
+    const suggestions = previewData.suggestions || {};
+    
+    aiQaFields.forEach(field => {
+        const tr = document.createElement('tr');
+        if (field.required) {
+            tr.classList.add('required');
+        }
+        
+        // 字段名
+        const tdName = document.createElement('td');
+        tdName.textContent = field.name;
+        tr.appendChild(tdName);
+        
+        // 字段选择
+        const tdSelect = document.createElement('td');
+        const select = document.createElement('select');
+        select.className = 'field-select';
+        select.dataset.field = field.name;
+        select.onchange = validateMapping;
+        
+        // 添加选项
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '请选择...';
+        select.appendChild(defaultOption);
+        
+        const ignoreOption = document.createElement('option');
+        ignoreOption.value = '不导入';
+        ignoreOption.textContent = '不导入';
+        select.appendChild(ignoreOption);
+        
+        const autoOption = document.createElement('option');
+        autoOption.value = '自动生成';
+        autoOption.textContent = '自动生成';
+        select.appendChild(autoOption);
+        
+        // 添加HuggingFace字段选项
+        hfColumns.forEach(column => {
+            const option = document.createElement('option');
+            option.value = column;
+            option.textContent = column;
+            
+            // 如果是智能建议，设置为默认选中
+            if (suggestions[field.name] === column) {
+                option.selected = true;
+                mappingConfig[field.name] = column;
+            }
+            
+            select.appendChild(option);
+        });
+        
+        tdSelect.appendChild(select);
+        tr.appendChild(tdSelect);
+        
+        // 说明
+        const tdDesc = document.createElement('td');
+        tdDesc.textContent = field.description;
+        tr.appendChild(tdDesc);
+        
+        tableBody.appendChild(tr);
+    });
+    
+    validateMapping();
+}
+
+function validateMapping() {
+    const selects = document.querySelectorAll('.field-select');
+    const usedFields = new Set();
+    let hasRequiredError = false;
+    
+    // 检查重复映射
+    selects.forEach(select => {
+        const value = select.value;
+        if (value && value !== '不导入' && value !== '自动生成') {
+            if (usedFields.has(value)) {
+                select.style.borderColor = '#dc3545';
+                select.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
+            } else {
+                select.style.borderColor = '';
+                select.style.boxShadow = '';
+                usedFields.add(value);
+            }
+        } else {
+            select.style.borderColor = '';
+            select.style.boxShadow = '';
+        }
+        
+        // 检查必填字段
+        const field = select.dataset.field;
+        if (field === 'question' || field === 'answers') {
+            if (!select.value || select.value === '不导入') {
+                hasRequiredError = true;
+            }
+        }
+        
+        // 更新映射配置
+        mappingConfig[field] = select.value;
+    });
+    
+    // 更新导入按钮状态
+    const importBtn = document.getElementById('startImportBtn');
+    importBtn.disabled = hasRequiredError || usedFields.size === 0;
+}
+
+// 导入执行
+async function startImport() {
+    currentStep = 4;
+    updateSteps();
+    startImportProcess();
+}
+
+async function startImportProcess() {
+    try {
+        const options = {
+            batch_size: parseInt(document.getElementById('batchSize').value) || 1000,
+            skip_rows: parseInt(document.getElementById('skipRows').value) || 0,
+            unmapped_fields: document.getElementById('unmappedFields').value || 'ignore'
+        };
+        
+        const response = await fetch(`/api/qa/groups/${groupId}/items/import/execute`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_path: uploadedFilePath,
+                mapping: mappingConfig,
+                options: options
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            importStats = result.stats;
+            displayImportResults();
+        } else {
+            showImportError(result.message);
+        }
+    } catch (error) {
+        console.error('导入失败:', error);
+        showImportError(error.message);
+    }
+}
+
+function displayImportResults() {
+    const resultsDiv = document.getElementById('importResults');
+    const statsDiv = document.getElementById('resultStats');
+    const progressFill = document.getElementById('progressFill');
+    const progressStatus = document.getElementById('progressStatus');
+    const progressPercent = document.getElementById('progressPercent');
+    const finishBtn = document.getElementById('finishBtn');
+    
+    // 更新进度条
+    const successRate = importStats.total > 0 ? (importStats.success / importStats.total) * 100 : 0;
+    progressFill.style.width = `${successRate}%`;
+    progressStatus.textContent = '导入完成';
+    progressPercent.textContent = `${Math.round(successRate)}%`;
+    
+    // 显示统计信息
+    statsDiv.innerHTML = `
+        <div class="stat-item">
+            <div class="stat-value">${importStats.total}</div>
+            <div class="stat-label">总记录数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color: #28a745">${importStats.success}</div>
+            <div class="stat-label">成功</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color: #dc3545">${importStats.failed}</div>
+            <div class="stat-label">失败</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">${importStats.skipped}</div>
+            <div class="stat-label">跳过</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">${importStats.duration.toFixed(2)}s</div>
+            <div class="stat-label">耗时</div>
+        </div>
+    `;
+    
+    // 显示错误信息（如果有）
+    if (importStats.error_count > 0) {
+        const errorResult = document.getElementById('errorResult');
+        const errorList = document.getElementById('errorList');
+        
+        errorList.innerHTML = '';
+        importStats.errors.forEach(error => {
+            const errorItem = document.createElement('div');
+            errorItem.className = 'error-item';
+            errorItem.textContent = error;
+            errorList.appendChild(errorItem);
+        });
+        
+        errorResult.classList.remove('hidden');
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    finishBtn.disabled = false;
+}
+
+function showImportError(message) {
+    const errorResult = document.getElementById('errorResult');
+    const errorMessage = document.getElementById('errorMessage');
+    const progressStatus = document.getElementById('progressStatus');
+    
+    errorMessage.textContent = message;
+    progressStatus.textContent = '导入失败';
+    errorResult.classList.remove('hidden');
+}
+
+// 完成导入
+function finishImport() {
+    // 清理临时文件
+    cleanupFiles();
+    
+    // 返回详情页
+    window.location.href = `/qa/groups/${groupId}`;
+}
+
+async function cleanupFiles() {
+    try {
+        if (uploadedFilePath) {
+            await fetch(`/api/qa/groups/${groupId}/items/import/cleanup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    file_path: uploadedFilePath
+                })
+            });
+        }
+    } catch (error) {
+        console.error('清理文件失败:', error);
+    }
+}
+
+// 返回按钮
+function goBack() {
+    // 清理临时文件
+    cleanupFiles();
+    
+    // 返回详情页
+    window.location.href = `/qa/groups/${groupId}`;
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    updateSteps();
+    
+    // 默认使用文件夹模式
+    switchUploadMode('folder');
+    
+    // 拖拽文件支持
+    const uploadArea = document.getElementById('fileUploadArea');
+    
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('dragover');
+        
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0) {
+            // 检查是否是文件夹
+            const item = items[0];
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            
+            if (entry && entry.isDirectory) {
+                // 是文件夹，切换到文件夹模式
+                switchUploadMode('folder');
+                // 遍历文件夹内容
+                traverseDirectory(entry).then(files => {
+                    const dataTransfer = new DataTransfer();
+                    files.forEach(file => dataTransfer.items.add(file));
+                    document.getElementById('fileInput').files = dataTransfer.files;
+                    
+                    // 触发change事件
+                    const event = new Event('change', { bubbles: true });
+                    document.getElementById('fileInput').dispatchEvent(event);
+                });
+            } else {
+                // 是文件，切换到文件模式
+                switchUploadMode('file');
+                const files = e.dataTransfer.files;
+                const dataTransfer = new DataTransfer();
+                for (let i = 0; i < files.length; i++) {
+                    dataTransfer.items.add(files[i]);
+                }
+                document.getElementById('fileInput').files = dataTransfer.files;
+                
+                // 触发change事件
+                const event = new Event('change', { bubbles: true });
+                document.getElementById('fileInput').dispatchEvent(event);
+            }
+        }
+    });
+});
+
+// 遍历文件夹获取所有文件
+function traverseDirectory(entry, path = '', files = []) {
+    return new Promise((resolve) => {
+        if (entry.isFile) {
+            entry.file(file => {
+                // 保留相对路径信息
+                Object.defineProperty(file, 'webkitRelativePath', {
+                    value: path + file.name,
+                    writable: false
+                });
+                files.push(file);
+                resolve(files);
+            });
+        } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            dirReader.readEntries(entries => {
+                let count = entries.length;
+                if (count === 0) {
+                    resolve(files);
+                } else {
+                    const promises = entries.map(childEntry => {
+                        return traverseDirectory(
+                            childEntry, 
+                            path + entry.name + '/', 
+                            files
+                        );
+                    });
+                    Promise.all(promises).then(() => resolve(files));
+                }
+            });
+        }
+    });
+}
+</script>
+</body>
+</html>

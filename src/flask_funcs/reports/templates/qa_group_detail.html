@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or '问答对组详情' }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+<div class="container">
+    <!-- 返回按钮和标题 -->
+    <div class="page-header">
+        <button class="back-btn" onclick="goBack()">← 返回列表</button>
+        <h1>{{ heading or '问答对组详情' }}</h1>
+    </div>
+    
+    <!-- 分组信息卡片 -->
+    <div class="group-info-card">
+        <div class="group-info-header">
+            <h2>{{ group_name }}</h2>
+            <div class="group-status">
+                <span class="status-badge {{ 'active' if group_is_active else 'inactive' }}">
+                    {{ '已激活' if group_is_active else '已停用' }}
+                </span>
+                <button class="status-toggle-btn" onclick="toggleGroupStatus()">
+                    {{ '停用' if group_is_active else '激活' }}
+                </button>
+            </div>
+        </div>
+        
+        <div class="group-info-body">
+            <div class="info-row">
+                <div class="info-item">
+                    <span class="info-label">分组ID:</span>
+                    <span class="info-value">{{ group_id }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">用途:</span>
+                    <span class="info-value">{{ group_purpose or '暂无' }}</span>
+                </div>
+            </div>
+            
+            <div class="info-row">
+                <div class="info-item">
+                    <span class="info-label">测试类型:</span>
+                    <span class="info-value">{{ group_test_type }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">语言:</span>
+                    <span class="info-value">{{ group_language }}</span>
+                </div>
+            </div>
+            
+            <div class="info-row">
+                <div class="info-item">
+                    <span class="info-label">难度范围:</span>
+                    <span class="info-value">{{ group_difficulty_range or '未设置' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">创建时间:</span>
+                    <span class="info-value">{{ group_statistics.created_at if group_statistics else '未知' }}</span>
+                </div>
+            </div>
+            
+            <div class="info-row">
+                <div class="info-item full-width">
+                    <span class="info-label">标签:</span>
+                    <div class="tags-container" id="groupTagsContainer">
+                        <!-- 标签将通过JavaScript动态加载 -->
+                        <span class="loading-tag">加载中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="group-info-footer">
+            <button class="action-btn edit-btn" onclick="editGroup()">编辑分组</button>
+            <button class="action-btn delete-btn" onclick="deleteGroup()">删除分组</button>
+            <button class="action-btn export-btn" onclick="exportGroupData()">导出数据</button>
+        </div>
+    </div>
+    
+    <!-- 统计信息卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalQACount">{{ group_statistics.total_qa if group_statistics else 0 }}</div>
+                <div class="stat-label">问答对总数</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📁</div>
+            <div class="stat-content">
+                <div class="stat-value" id="sourceCount">{{ group_statistics.source_count if group_statistics else 0 }}</div>
+                <div class="stat-label">数据源数量</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+                <div class="stat-value" id="avgDifficulty">{{ group_statistics.avg_difficulty if group_statistics else 0 }}</div>
+                <div class="stat-label">平均难度</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">🏷️</div>
+            <div class="stat-content">
+                <div class="stat-value" id="categoryCount">{{ group_statistics.category_count if group_statistics else 0 }}</div>
+                <div class="stat-label">分类数量</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 问答对管理区域 -->
+    <div class="qa-management-area">
+        <div class="qa-header">
+            <h3>问答对管理</h3>
+            <div class="qa-actions">
+                <button class="action-btn create-btn" onclick="showCreateQADialog()">创建问答对</button>
+                <button class="action-btn batch-create-btn" onclick="showBatchCreateDialog()">批量创建</button>
+                <button class="action-btn import-btn" onclick="showImportQADialog()">导入问答对</button>
+            </div>
+        </div>
+        
+        <!-- 批量操作工具栏 -->
+        <div class="batch-toolbar" id="batchToolbar" style="display: none;">
+            <div class="batch-info">
+                <span>已选择 <strong id="batchSelectedCount">0</strong> 项</span>
+            </div>
+            <div class="batch-actions">
+                <button class="batch-btn batch-delete-btn" onclick="batchDeleteQA()">
+                    <span class="btn-icon">🗑️</span> 批量删除
+                </button>
+                <button class="batch-btn batch-cancel-btn" onclick="clearBatchSelection()">
+                    <span class="btn-icon">✕</span> 取消选择
+                </button>
+            </div>
+        </div>
+        
+        <!-- 搜索和筛选区域 -->
+        <div class="search-filter-area">
+            <div class="search-box">
+                <input type="text" id="searchQuestion" placeholder="搜索问题内容..." class="search-input">
+                <button onclick="searchQA()" class="search-btn">搜索</button>
+                <button onclick="resetQASearch()" class="reset-btn">重置</button>
+                <button onclick="toggleBatchMode()" class="batch-mode-btn" id="batchModeBtn">批量操作</button>
+            </div>
+            
+            <div class="filter-box">
+                <select id="filterQuestionType" class="filter-select">
+                    <option value="">所有问题类型</option>
+                    <option value="factual">事实性问题</option>
+                    <option value="contextual">上下文问题</option>
+                    <option value="conceptual">概念性问题</option>
+                    <option value="reasoning">推理问题</option>
+                    <option value="application">应用问题</option>
+                    <option value="multi_choice">多选题</option>
+                </select>
+                
+                <select id="filterDifficulty" class="filter-select">
+                    <option value="">所有难度</option>
+                    <option value="1">1 - 非常简单</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5 - 中等</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10 - 非常困难</option>
+                </select>
+                
+                <select id="filterCategory" class="filter-select">
+                    <option value="">所有分类</option>
+                    <!-- 分类选项将通过JavaScript动态加载 -->
+                </select>
+            </div>
+        </div>
+        
+        <!-- 数据表格 -->
+        <div class="data-table-area">
+            <table class="data-table table-with-resizable-cols" id="qaTable">
+                <thead>
+                <tr>
+                    <th class="checkbox-col batch-checkbox" style="display: none;">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)">
+                    </th>
+                    <th class="resizable-col">ID</th>
+                    <th class="resizable-col">问题</th>
+                    <th class="resizable-col">答案</th>
+                    <th class="resizable-col">上下文</th>
+                    <th class="resizable-col">问题类型</th>
+                    <th class="resizable-col">难度</th>
+                    <th class="resizable-col">分类</th>
+                    <th class="resizable-col">标签</th>
+                    <th class="resizable-col">创建时间</th>
+                    <th class="resizable-col">操作</th>
+                </tr>
+                </thead>
+                <tbody id="qaTableBody">
+                <!-- 数据将通过JavaScript动态加载 -->
+                <tr>
+                    <td colspan="10" class="loading-cell">加载中...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页控件 -->
+        <div class="pagination-area" id="qaPaginationArea">
+            <div class="pagination-info" id="qaPaginationInfo">
+                第 <span id="qaCurrentPage">1</span> 页 / 共 <span id="qaTotalPages">1</span> 页，共 <span id="qaTotalItems">0</span> 条记录
+            </div>
+            <div class="pagination-controls">
+                <button class="pagination-btn first-btn" onclick="goToQAPage(1)" disabled>首页</button>
+                <button class="pagination-btn prev-btn" onclick="goToQAPrevPage()" disabled>上一页</button>
+                <div class="page-input">
+                    <input type="number" id="qaPageInput" min="1" value="1" onchange="goToQAPage(this.value)">
+                    <span>/ <span id="qaMaxPage">1</span></span>
+                </div>
+                <button class="pagination-btn next-btn" onclick="goToQANextPage()" disabled>下一页</button>
+                <button class="pagination-btn last-btn" onclick="goToQALastPage()" disabled>末页</button>
+            </div>
+            <div class="page-size-selector">
+                <span>每页显示：</span>
+                <select id="qaPageSizeSelect" onchange="changeQAPageSize(this.value)">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑分组对话框 -->
+<div id="editGroupDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>编辑分组</h3>
+            <span class="close" onclick="closeEditGroupDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editGroupForm">
+                <input type="hidden" id="editGroupId">
+                
+                <div class="form-group">
+                    <label for="editGroupName">分组名称 *</label>
+                    <input type="text" id="editGroupName" class="form-control" placeholder="请输入分组名称" required>
+                    <div class="form-error" id="editGroupNameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupPurpose">用途描述</label>
+                    <textarea id="editGroupPurpose" class="form-control" placeholder="请输入用途描述" rows="2"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="editGroupTestType">测试类型</label>
+                        <select id="editGroupTestType" class="form-control">
+                            <option value="accuracy">准确率测试</option>
+                            <option value="performance">性能测试</option>
+                            <option value="robustness">鲁棒性测试</option>
+                            <option value="comprehensive">综合测试</option>
+                            <option value="custom" selected>自定义</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="editGroupLanguage">语言</label>
+                        <select id="editGroupLanguage" class="form-control">
+                            <option value="zh" selected>中文</option>
+                            <option value="en">英文</option>
+                            <option value="multi">多语言</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupDifficultyRange">难度范围</label>
+                    <input type="text" id="editGroupDifficultyRange" class="form-control" placeholder="例如: 1-5, 3-8">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupTags">标签</label>
+                    <input type="text" id="editGroupTags" class="form-control" placeholder="输入标签，用逗号分隔">
+                    <div class="form-hint">多个标签用逗号分隔</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupMetadata">元数据（JSON格式）</label>
+                    <textarea id="editGroupMetadata" class="form-control" placeholder="请输入JSON格式的元数据" rows="4"></textarea>
+                    <div class="form-error" id="editGroupMetadataError"></div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeEditGroupDialog()">取消</button>
+            <button class="modal-btn submit-btn" onclick="submitEditGroup()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 创建问答对对话框 -->
+<div id="createQADialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>创建问答对</h3>
+            <span class="close" onclick="closeCreateQADialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="createQAForm">
+                <div class="form-group">
+                    <label for="qaQuestion">问题 *</label>
+                    <textarea id="qaQuestion" class="form-control" placeholder="请输入问题" rows="3" required></textarea>
+                    <div class="form-error" id="qaQuestionError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaAnswers">答案 *</label>
+                    <textarea id="qaAnswers" class="form-control" placeholder="请输入答案（支持JSON格式）" rows="3" required></textarea>
+                    <div class="form-hint">支持文本、JSON数组或JSON对象格式</div>
+                    <div class="form-error" id="qaAnswersError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaContext">上下文</label>
+                    <textarea id="qaContext" class="form-control" placeholder="请输入上下文信息" rows="2"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="qaQuestionType">问题类型</label>
+                        <select id="qaQuestionType" class="form-control">
+                            <option value="">请选择</option>
+                            <option value="factual">事实性问题</option>
+                            <option value="contextual">上下文问题</option>
+                            <option value="conceptual">概念性问题</option>
+                            <option value="reasoning">推理问题</option>
+                            <option value="application">应用问题</option>
+                            <option value="multi_choice">多选题</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="qaLanguage">语言</label>
+                        <select id="qaLanguage" class="form-control">
+                            <option value="zh" selected>中文</option>
+                            <option value="en">英文</option>
+                            <option value="multi">多语言</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="qaDifficulty">难度等级 (1-10)</label>
+                        <select id="qaDifficulty" class="form-control">
+                            <option value="">请选择</option>
+                            <option value="1">1 - 非常简单</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5 - 中等</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10 - 非常困难</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="qaCategory">分类</label>
+                        <input type="text" id="qaCategory" class="form-control" placeholder="请输入分类">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaSubCategory">子分类</label>
+                    <input type="text" id="qaSubCategory" class="form-control" placeholder="请输入子分类">
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaTags">标签</label>
+                    <input type="text" id="qaTags" class="form-control" placeholder="输入标签，用逗号分隔">
+                    <div class="form-hint">多个标签用逗号分隔</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaSourceDataset">源数据集</label>
+                    <input type="text" id="qaSourceDataset" class="form-control" placeholder="请输入源数据集名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="qaHFDatasetId">HuggingFace数据集ID</label>
+                    <input type="text" id="qaHFDatasetId" class="form-control" placeholder="请输入HuggingFace数据集ID">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeCreateQADialog()">取消</button>
+            <button class="modal-btn submit-btn" onclick="submitCreateQA()">创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑问答对对话框 -->
+<div id="editQADialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>编辑问答对</h3>
+            <span class="close" onclick="closeEditQADialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editQAForm">
+                <input type="hidden" id="editQAId">
+                
+                <div class="form-group">
+                    <label for="editQAQuestion">问题 *</label>
+                    <textarea id="editQAQuestion" class="form-control" placeholder="请输入问题" rows="3" required></textarea>
+                    <div class="form-error" id="editQAQuestionError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQAAnswers">答案 *</label>
+                    <textarea id="editQAAnswers" class="form-control" placeholder="请输入答案（支持JSON格式）" rows="3" required></textarea>
+                    <div class="form-hint">支持文本、JSON数组或JSON对象格式</div>
+                    <div class="form-error" id="editQAAnswersError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQAContext">上下文</label>
+                    <textarea id="editQAContext" class="form-control" placeholder="请输入上下文信息" rows="2"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="editQAQuestionType">问题类型</label>
+                        <select id="editQAQuestionType" class="form-control">
+                            <option value="">请选择</option>
+                            <option value="factual">事实性问题</option>
+                            <option value="contextual">上下文问题</option>
+                            <option value="conceptual">概念性问题</option>
+                            <option value="reasoning">推理问题</option>
+                            <option value="application">应用问题</option>
+                            <option value="multi_choice">多选题</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="editQALanguage">语言</label>
+                        <select id="editQALanguage" class="form-control">
+                            <option value="zh">中文</option>
+                            <option value="en">英文</option>
+                            <option value="multi">多语言</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="editQADifficulty">难度等级 (1-10)</label>
+                        <select id="editQADifficulty" class="form-control">
+                            <option value="">请选择</option>
+                            <option value="1">1 - 非常简单</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5 - 中等</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10 - 非常困难</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="editQACategory">分类</label>
+                        <input type="text" id="editQACategory" class="form-control" placeholder="请输入分类">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQASubCategory">子分类</label>
+                    <input type="text" id="editQASubCategory" class="form-control" placeholder="请输入子分类">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQATags">标签</label>
+                    <input type="text" id="editQATags" class="form-control" placeholder="输入标签，用逗号分隔">
+                    <div class="form-hint">多个标签用逗号分隔</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQASourceDataset">源数据集</label>
+                    <input type="text" id="editQASourceDataset" class="form-control" placeholder="请输入源数据集名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editQAHFDatasetId">HuggingFace数据集ID</label>
+                    <input type="text" id="editQAHFDatasetId" class="form-control" placeholder="请输入HuggingFace数据集ID">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeEditQADialog()">取消</button>
+            <button class="modal-btn submit-btn" onclick="submitEditQA()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除问答对确认对话框 -->
+<div id="deleteQAConfirmDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <span class="close" onclick="closeDeleteQAConfirmDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p id="deleteQAConfirmMessage">确定要删除这个问答对吗？</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeDeleteQAConfirmDialog()">取消</button>
+            <button class="modal-btn delete-btn" onclick="confirmDeleteQA()">删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- 批量创建对话框 -->
+<div id="batchCreateDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>批量创建问答对</h3>
+            <span class="close" onclick="closeBatchCreateDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="batchQAData">问答对数据（JSON格式） *</label>
+                <textarea id="batchQAData" class="form-control" placeholder='[{"question": "问题1", "answers": "答案1"}, {"question": "问题2", "answers": "答案2"}]' rows="10" required></textarea>
+                <div class="form-hint">每个对象应包含question和answers字段，其他字段可选</div>
+                <div class="form-error" id="batchQADataError"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeBatchCreateDialog()">取消</button>
+            <button class="modal-btn submit-btn" onclick="submitBatchCreate()">批量创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- 导入问答对对话框 -->
+<div id="importQADialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>导入问答对</h3>
+            <span class="close" onclick="closeImportQADialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="importQAType">导入类型</label>
+                <select id="importQAType" class="form-control" onchange="toggleQAImportOptions()">
+                    <option value="json">JSON文件</option>
+                    <option value="csv">CSV文件</option>
+                    <option value="huggingface">HuggingFace数据集</option>
+                </select>
+            </div>
+            
+            <!-- JSON/CSV文件上传 -->
+            <div id="qaFileUploadSection" class="import-section">
+                <div class="form-group">
+                    <label for="importQAFile">选择文件</label>
+                    <input type="file" id="importQAFile" class="form-control" accept=".json,.csv">
+                </div>
+            </div>
+            
+            <!-- HuggingFace数据集导入 -->
+            <div id="qaHuggingfaceSection" class="import-section" style="display: none;">
+                <div class="form-group">
+                    <label for="qaHFDatasetPath">数据集路径</label>
+                    <input type="text" id="qaHFDatasetPath" class="form-control" placeholder="例如: squad, glue/mrpc">
+                </div>
+                <div class="form-hint">可以是HuggingFace数据集名称或本地路径</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="importQABatchSize">批次大小</label>
+                <input type="number" id="importQABatchSize" class="form-control" value="1000" min="100" max="10000">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="closeImportQADialog()">取消</button>
+            <button class="modal-btn submit-btn" onclick="startQAImport()">开始导入</button>
+        </div>
+    </div>
+</div>
+
+<!-- 导入进度对话框 -->
+<div id="importQAProgressDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>导入进度</h3>
+        </div>
+        <div class="modal-body">
+            <div class="progress-container">
+                <div class="progress-bar" id="importQAProgressBar"></div>
+                <div class="progress-text" id="importQAProgressText">0%</div>
+            </div>
+            <div class="progress-details">
+                <div>总记录数: <span id="importQATotal">0</span></div>
+                <div>成功: <span id="importQASuccess">0</span></div>
+                <div>失败: <span id="importQAFailed">0</span></div>
+                <div>跳过: <span id="importQASkipped">0</span></div>
+                <div>耗时: <span id="importQADuration">0</span>秒</div>
+            </div>
+            <div class="error-list" id="importQAErrorList"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel-btn" onclick="cancelQAImport()">取消</button>
+            <button class="modal-btn close-btn" onclick="closeImportQAProgressDialog()" style="display: none;">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 预先设置全局变量，确保在DOMContentLoaded之前可用 -->
+<script>
+    window.currentGroupId = {{ group_id }};
+</script>
+
+<!-- 加载JavaScript文件 -->
+<script src="{{ js_path }}"></script>
+
+<script>
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化表格列宽调整
+        initResizableColumns();
+        
+        // 加载分组标签
+        loadGroupTags();
+        
+        // 加载问答对数据（成功后会自动加载分类选项）
+        loadQAData();
+    });
+    
+    // 返回列表
+    function goBack() {
+        window.location.href = '/qa/groups';
+    }
+</script>
+</body>
+</html>
