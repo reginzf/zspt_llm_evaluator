@@ -1,7 +1,9 @@
 from src.sql_funs.sql_base import PostgreSQLManager
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class CreateTables(PostgreSQLManager):
     # 通用字段定义
@@ -253,9 +255,9 @@ class CreateTables(PostgreSQLManager):
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "knowledge_base_id": "VARCHAR(100)",  # 新增：知识库ID字段
             "match_type": "VARCHAR(20) CHECK (match_type IN ('chunkTextMatch', 'chunkIdMatch'))",
-            "metric_task_id":"VARCHAR(20) PRIMARY KEY",
+            "metric_task_id": "VARCHAR(20) PRIMARY KEY",
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE",
-            "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"  # 可以为NULL
+            "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"
         }
         return self.create_table("ai_metric_tasks", columns)
 
@@ -297,6 +299,8 @@ class CreateTables(PostgreSQLManager):
         self.create_local_knowledge_file_upload_table()
         self.create_ai_qa_data_group_table()  # 新增AI问答对分组表
         self.create_ai_qa_data_table()  # 新增AI问答对数据表
+        self.create_llm_models_table()
+        self.create_llm_evaluation_reports_table()
 
     # ==================== AI问答对数据表 ====================
 
@@ -322,25 +326,26 @@ class CreateTables(PostgreSQLManager):
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "metadata": "JSONB DEFAULT '{}'::jsonb"  # 额外配置信息
         }
-        
+
         success = self.create_table("ai_qa_data_group", columns)
-        
+
         if success:
             # 创建索引
             self._create_ai_qa_data_group_indexes()
-        
+
         return success
-    
+
     def _create_ai_qa_data_group_indexes(self):
         """为ai_qa_data_group表创建索引"""
         indexes = [
             ("idx_qa_group_name", "CREATE INDEX idx_qa_group_name ON ai_qa_data_group(name)"),
             ("idx_qa_group_test_type", "CREATE INDEX idx_qa_group_test_type ON ai_qa_data_group(test_type)"),
-            ("idx_qa_group_is_active", "CREATE INDEX idx_qa_group_is_active ON ai_qa_data_group(is_active) WHERE is_active = TRUE"),
+            ("idx_qa_group_is_active",
+             "CREATE INDEX idx_qa_group_is_active ON ai_qa_data_group(is_active) WHERE is_active = TRUE"),
             ("idx_qa_group_created_at", "CREATE INDEX idx_qa_group_created_at ON ai_qa_data_group(created_at DESC)"),
             ("idx_qa_group_tags", "CREATE INDEX idx_qa_group_tags ON ai_qa_data_group USING GIN(tags)"),
         ]
-        
+
         for index_name, create_sql in indexes:
             try:
                 self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
@@ -398,7 +403,7 @@ class CreateTables(PostgreSQLManager):
             "PRIMARY KEY (id, created_month)": "",
             "FOREIGN KEY (group_id)": "REFERENCES ai_qa_data_group(id) ON DELETE CASCADE"
         }
-        
+
         try:
             # 检查并创建pgvector扩展
             try:
@@ -409,7 +414,7 @@ class CreateTables(PostgreSQLManager):
                 logger.warning("将继续创建表，但向量相关功能可能不可用")
                 # 从columns中移除向量字段
                 columns.pop("vector_embedding", None)
-            
+
             # 检查并创建pg_trgm扩展
             try:
                 self.cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
@@ -417,60 +422,60 @@ class CreateTables(PostgreSQLManager):
             except Exception as ext_error:
                 logger.warning(f"pg_trgm扩展创建失败: {ext_error}")
                 logger.warning("全文搜索功能可能受限")
-            
+
             self.connection.commit()
-            
+
             # 使用标准create_table方法创建表
             result = self.create_table("ai_qa_data", columns)
-            
+
             if result:
                 # 创建分区
                 self._create_ai_qa_data_partitions()
-                
+
                 # 创建索引
                 self._create_ai_qa_data_indexes()
-                
+
                 # 设置TOAST存储策略
                 self._set_ai_qa_data_toast_strategy()
-                
+
                 logger.info("表 ai_qa_data 创建成功")
                 return True
             else:
                 logger.error("使用create_table方法创建表 ai_qa_data 失败")
                 return False
-                
+
         except Exception as e:
             self.connection.rollback()
             logger.error(f"创建表 ai_qa_data 失败: {e}")
             return False
-    
+
     def _create_ai_qa_data_partitions(self):
         """创建ai_qa_data表的分区"""
         from datetime import datetime, timedelta
-        
+
         # 创建未来12个月的分区
         current_date = datetime.now()
-        
+
         for i in range(-3, 12):  # 包含前3个月和未来12个月
-            partition_date = current_date + timedelta(days=30*i)
+            partition_date = current_date + timedelta(days=30 * i)
             year_month = partition_date.strftime('%Y_%m')
             start_date = partition_date.replace(day=1).strftime('%Y-%m-%d')
-            
+
             # 计算下个月的第一天
             if partition_date.month == 12:
-                next_month = partition_date.replace(year=partition_date.year+1, month=1, day=1)
+                next_month = partition_date.replace(year=partition_date.year + 1, month=1, day=1)
             else:
-                next_month = partition_date.replace(month=partition_date.month+1, day=1)
+                next_month = partition_date.replace(month=partition_date.month + 1, day=1)
             end_date = next_month.strftime('%Y-%m-%d')
-            
+
             partition_name = f"ai_qa_data_{year_month}"
-            
+
             create_partition_sql = f"""
             CREATE TABLE IF NOT EXISTS {partition_name} 
             PARTITION OF ai_qa_data
             FOR VALUES FROM ('{start_date}') TO ('{end_date}');
             """
-            
+
             try:
                 self.cursor.execute(create_partition_sql)
                 self.connection.commit()
@@ -478,7 +483,7 @@ class CreateTables(PostgreSQLManager):
             except Exception as e:
                 self.connection.rollback()
                 logger.warning(f"分区 {partition_name} 创建失败: {e}")
-    
+
     def _create_ai_qa_data_indexes(self):
         """为ai_qa_data表创建索引"""
         indexes = [
@@ -486,27 +491,35 @@ class CreateTables(PostgreSQLManager):
             # 外键索引
             ("idx_qa_data_group_id", "CREATE INDEX idx_qa_data_group_id ON ai_qa_data(group_id)"),
             # 复合索引
-            ("idx_qa_data_group_difficulty", "CREATE INDEX idx_qa_data_group_difficulty ON ai_qa_data(group_id, difficulty_level)"),
+            ("idx_qa_data_group_difficulty",
+             "CREATE INDEX idx_qa_data_group_difficulty ON ai_qa_data(group_id, difficulty_level)"),
             ("idx_qa_data_group_category", "CREATE INDEX idx_qa_data_group_category ON ai_qa_data(group_id, category)"),
-            ("idx_qa_data_group_created", "CREATE INDEX idx_qa_data_group_created ON ai_qa_data(group_id, created_at DESC)"),
+            ("idx_qa_data_group_created",
+             "CREATE INDEX idx_qa_data_group_created ON ai_qa_data(group_id, created_at DESC)"),
             # 全文搜索索引
-            ("idx_qa_data_question_trgm", "CREATE INDEX idx_qa_data_question_trgm ON ai_qa_data USING GIN(question gin_trgm_ops)"),
-            ("idx_qa_data_context_trgm", "CREATE INDEX idx_qa_data_context_trgm ON ai_qa_data USING GIN(context gin_trgm_ops)"),
+            ("idx_qa_data_question_trgm",
+             "CREATE INDEX idx_qa_data_question_trgm ON ai_qa_data USING GIN(question gin_trgm_ops)"),
+            ("idx_qa_data_context_trgm",
+             "CREATE INDEX idx_qa_data_context_trgm ON ai_qa_data USING GIN(context gin_trgm_ops)"),
             # JSONB字段GIN索引
             ("idx_qa_data_answers", "CREATE INDEX idx_qa_data_answers ON ai_qa_data USING GIN(answers)"),
-            ("idx_qa_data_fixed_metadata", "CREATE INDEX idx_qa_data_fixed_metadata ON ai_qa_data USING GIN(fixed_metadata)"),
-            ("idx_qa_data_dynamic_metadata", "CREATE INDEX idx_qa_data_dynamic_metadata ON ai_qa_data USING GIN(dynamic_metadata)"),
+            ("idx_qa_data_fixed_metadata",
+             "CREATE INDEX idx_qa_data_fixed_metadata ON ai_qa_data USING GIN(fixed_metadata)"),
+            ("idx_qa_data_dynamic_metadata",
+             "CREATE INDEX idx_qa_data_dynamic_metadata ON ai_qa_data USING GIN(dynamic_metadata)"),
             ("idx_qa_data_tags", "CREATE INDEX idx_qa_data_tags ON ai_qa_data USING GIN(tags)"),
             # 向量索引（使用ivfflat）- 只在vector扩展可用时创建
-            ("idx_qa_data_vector", "CREATE INDEX idx_qa_data_vector ON ai_qa_data USING ivfflat (vector_embedding vector_cosine_ops)"),
+            ("idx_qa_data_vector",
+             "CREATE INDEX idx_qa_data_vector ON ai_qa_data USING ivfflat (vector_embedding vector_cosine_ops)"),
             # 条件索引
-            ("idx_qa_data_high_difficulty", "CREATE INDEX idx_qa_data_high_difficulty ON ai_qa_data(group_id, difficulty_level) WHERE difficulty_level >= 7"),
+            ("idx_qa_data_high_difficulty",
+             "CREATE INDEX idx_qa_data_high_difficulty ON ai_qa_data(group_id, difficulty_level) WHERE difficulty_level >= 7"),
             # 源数据集索引
             ("idx_qa_data_source", "CREATE INDEX idx_qa_data_source ON ai_qa_data(source_dataset, hf_dataset_id)"),
             # 语言索引
             ("idx_qa_data_language", "CREATE INDEX idx_qa_data_language ON ai_qa_data(language)"),
         ]
-        
+
         for index_name, create_sql in indexes:
             try:
                 self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
@@ -522,7 +535,7 @@ class CreateTables(PostgreSQLManager):
                     logger.warning(f"全文搜索索引 {index_name} 创建失败，可能是pg_trgm扩展未安装: {e}")
                 else:
                     logger.warning(f"索引 {index_name} 创建失败: {e}")
-    
+
     def _set_ai_qa_data_toast_strategy(self):
         """设置ai_qa_data表的TOAST存储策略"""
         toast_settings = [
@@ -536,7 +549,7 @@ class CreateTables(PostgreSQLManager):
             # 设置表的填充因子为90%，留出空间用于HOT更新
             ("ALTER TABLE ai_qa_data SET (fillfactor = 90)"),
         ]
-        
+
         for sql in toast_settings:
             try:
                 self.cursor.execute(sql)
@@ -544,7 +557,7 @@ class CreateTables(PostgreSQLManager):
             except Exception as e:
                 self.connection.rollback()
                 logger.warning(f"TOAST设置失败: {e}")
-    
+
     def create_ai_qa_data_partitions_for_month(self, year: int, month: int) -> bool:
         """
         为指定月份创建分区
@@ -557,23 +570,23 @@ class CreateTables(PostgreSQLManager):
             bool: 创建成功返回True
         """
         from datetime import datetime
-        
+
         year_month = f"{year}_{month:02d}"
         start_date = datetime(year, month, 1).strftime('%Y-%m-%d')
-        
+
         if month == 12:
             end_date = datetime(year + 1, 1, 1).strftime('%Y-%m-%d')
         else:
             end_date = datetime(year, month + 1, 1).strftime('%Y-%m-%d')
-        
+
         partition_name = f"ai_qa_data_{year_month}"
-        
+
         create_partition_sql = f"""
         CREATE TABLE IF NOT EXISTS {partition_name} 
         PARTITION OF ai_qa_data
         FOR VALUES FROM ('{start_date}') TO ('{end_date}');
         """
-        
+
         try:
             self.cursor.execute(create_partition_sql)
             self.connection.commit()
@@ -583,6 +596,58 @@ class CreateTables(PostgreSQLManager):
             self.connection.rollback()
             logger.error(f"分区 {partition_name} 创建失败: {e}")
             return False
+
+    def create_llm_models_table(self) -> bool:
+        """创建LLM模型配置表"""
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "VARCHAR(100) NOT NULL UNIQUE",
+            "type": "VARCHAR(50) NOT NULL",
+            "api_key": "TEXT NOT NULL",
+            "api_url": "VARCHAR(500) NOT NULL",
+            "model": "VARCHAR(100)",
+            "temperature": "DECIMAL(3,2) DEFAULT 0.7",
+            "max_tokens": "INTEGER DEFAULT 2048",
+            "timeout": "INTEGER DEFAULT 30",
+            "version": "VARCHAR(50)",
+            "status": "VARCHAR(20) DEFAULT 'unknown'",
+            "last_check": "TIMESTAMP",
+            "is_active": "BOOLEAN DEFAULT TRUE"
+        }
+        columns.update(self.COMMON_FIELDS)
+
+        success = self.create_table("ai_llm_models", columns)
+        if success:
+            logger.info("✓ llm_models 表创建成功")
+        return success
+
+    def create_llm_evaluation_reports_table(self) -> bool:
+        """创建LLM评估报告表"""
+        columns = {
+            "id": "SERIAL PRIMARY KEY",
+            "report_name": "VARCHAR(200) NOT NULL",
+            "model_name": "VARCHAR(100) NOT NULL",
+            "model_id": "INTEGER NOT NULL",
+            "group_id": "INTEGER NOT NULL",
+            "group_name": "VARCHAR(100)",
+            "report_path": "TEXT NOT NULL",
+            "qa_count": "INTEGER DEFAULT 0",
+            "qa_offset": "INTEGER DEFAULT 0",
+            "qa_limit": "INTEGER DEFAULT 0",
+            "exact_match": "DECIMAL(5,4)",
+            "f1_score": "DECIMAL(5,4)",
+            "semantic_similarity": "DECIMAL(5,4)",
+            "avg_inference_time": "DECIMAL(10,4)",
+            "evaluation_config": "JSONB DEFAULT '{}'::jsonb",
+            "status": "VARCHAR(20) DEFAULT 'completed'",
+            "error_message": "TEXT"
+        }
+        columns.update(self.COMMON_FIELDS)
+
+        success = self.create_table("ai_llm_evaluation_reports", columns)
+        if success:
+            logger.info("✓ llm_evaluation_reports 表创建成功")
+        return success
 
 
 if __name__ == '__main__':
