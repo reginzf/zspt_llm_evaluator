@@ -574,6 +574,12 @@ body.resizing {
     border-color: #667eea;
 }
 
+.page-input {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
 .pagination-input {
     width: 50px;
     padding: 6px;
