@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or '问答对组管理' }}</title>
+    <link rel="stylesheet" href="/static/css/common_components.css">
+    <link rel="stylesheet" href="/static/css/qa_management.css">
+</head>
+<body>
+<div class="common-container">
+    <h1 class="common-title">{{ heading or '问答对组管理' }}</h1>
+    
+    <!-- 搜索和筛选区域 -->
+    <div class="search-component">
+        <input type="text" id="searchKeyword" placeholder="搜索分组名称或用途..." class="search-input">
+        <button class="search-btn" onclick="searchGroups()">搜索</button>
+        <button class="reset-btn" onclick="resetSearch()">重置</button>
+    </div>
+    
+    <div class="filter-component">
+        <select id="filterTestType" class="filter-select">
+            <option value="">所有测试类型</option>
+            <option value="accuracy">准确率测试</option>
+            <option value="performance">性能测试</option>
+            <option value="robustness">鲁棒性测试</option>
+            <option value="comprehensive">综合测试</option>
+            <option value="custom">自定义测试</option>
+        </select>
+        
+        <select id="filterLanguage" class="filter-select">
+            <option value="">所有语言</option>
+            <option value="zh">中文</option>
+            <option value="en">英文</option>
+            <option value="multi">多语言</option>
+        </select>
+        
+        <select id="filterStatus" class="filter-select">
+            <option value="">所有状态</option>
+            <option value="true">已激活</option>
+            <option value="false">已停用</option>
+        </select>
+    </div>
+    
+    <!-- 操作按钮区域 -->
+    <div style="margin-bottom: 20px;">
+        <button class="common-btn btn-primary" onclick="showCreateGroupDialog()">创建分组</button>
+        <button class="common-btn btn-secondary" onclick="showImportDialog()">批量导入</button>
+        <button class="common-btn btn-info" onclick="loadGroups()">刷新</button>
+    </div>
+    
+    <!-- 数据表格 -->
+    <div style="overflow-x: auto;">
+        <table class="common-table" id="groupsTable">
+            <thead>
+            <tr>
+                <th class="resizable-col">ID</th>
+                <th class="resizable-col">名称</th>
+                <th class="resizable-col">用途</th>
+                <th class="resizable-col">测试类型</th>
+                <th class="resizable-col">语言</th>
+                <th class="resizable-col">难度范围</th>
+                <th class="resizable-col">标签</th>
+                <th class="resizable-col">问答对数量</th>
+                <th class="resizable-col">状态</th>
+                <th class="resizable-col">创建时间</th>
+                <th class="resizable-col">操作</th>
+            </tr>
+            </thead>
+            <tbody id="groupsTableBody">
+                <tr>
+                    <td colspan="11" class="loading-cell">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 分页控件 -->
+    <div class="pagination-component" id="paginationArea"></div>
+</div>
+
+<!-- 创建分组对话框 -->
+<div id="createGroupDialog" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>创建问答对分组</h3>
+            <button class="modal-close" onclick="closeCreateGroupDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="createGroupForm">
+                <div class="form-group">
+                    <label for="groupName">分组名称 *</label>
+                    <input type="text" id="groupName" class="form-control" placeholder="请输入分组名称" required>
+                    <div class="form-error" id="groupNameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="groupPurpose">用途描述</label>
+                    <textarea id="groupPurpose" class="form-control" placeholder="请输入分组用途描述" rows="3"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="groupTestType">测试类型 *</label>
+                        <select id="groupTestType" class="form-control" required>
+                            <option value="custom">自定义测试</option>
+                            <option value="accuracy">准确率测试</option>
+                            <option value="performance">性能测试</option>
+                            <option value="robustness">鲁棒性测试</option>
+                            <option value="comprehensive">综合测试</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="groupLanguage">语言 *</label>
+                        <select id="groupLanguage" class="form-control" required>
+                            <option value="zh" selected>中文</option>
+                            <option value="en">英文</option>
+                            <option value="multi">多语言</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="groupDifficultyRange">难度范围</label>
+                    <input type="text" id="groupDifficultyRange" class="form-control" placeholder="如: 1-5">
+                </div>
+                
+                <div class="form-group">
+                    <label for="groupTags">标签</label>
+                    <input type="text" id="groupTags" class="form-control" placeholder="输入标签，用逗号分隔">
+                    <div class="form-hint">多个标签用逗号分隔，如: 医疗,法律,金融</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="groupMetadata">额外配置（JSON格式）</label>
+                    <textarea id="groupMetadata" class="form-control" placeholder='{"key": "value"}' rows="3"></textarea>
+                    <div class="form-hint">可选的JSON格式配置信息</div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="common-btn btn-secondary" onclick="closeCreateGroupDialog()">取消</button>
+            <button class="common-btn btn-primary" onclick="submitCreateGroup()">创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑分组对话框 -->
+<div id="editGroupDialog" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>编辑问答对分组</h3>
+            <button class="modal-close" onclick="closeEditGroupDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editGroupForm">
+                <input type="hidden" id="editGroupId">
+                
+                <div class="form-group">
+                    <label for="editGroupName">分组名称 *</label>
+                    <input type="text" id="editGroupName" class="form-control" placeholder="请输入分组名称" required>
+                    <div class="form-error" id="editGroupNameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupPurpose">用途描述</label>
+                    <textarea id="editGroupPurpose" class="form-control" placeholder="请输入分组用途描述" rows="3"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="editGroupTestType">测试类型 *</label>
+                        <select id="editGroupTestType" class="form-control" required>
+                            <option value="custom">自定义测试</option>
+                            <option value="accuracy">准确率测试</option>
+                            <option value="performance">性能测试</option>
+                            <option value="robustness">鲁棒性测试</option>
+                            <option value="comprehensive">综合测试</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="editGroupLanguage">语言 *</label>
+                        <select id="editGroupLanguage" class="form-control" required>
+                            <option value="zh">中文</option>
+                            <option value="en">英文</option>
+                            <option value="multi">多语言</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupDifficultyRange">难度范围</label>
+                    <input type="text" id="editGroupDifficultyRange" class="form-control" placeholder="如: 1-5">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupTags">标签</label>
+                    <input type="text" id="editGroupTags" class="form-control" placeholder="输入标签，用逗号分隔">
+                    <div class="form-hint">多个标签用逗号分隔</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editGroupMetadata">额外配置（JSON格式）</label>
+                    <textarea id="editGroupMetadata" class="form-control" placeholder='{"key": "value"}' rows="3"></textarea>
+                    <div class="form-hint">可选的JSON格式配置信息</div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="common-btn btn-secondary" onclick="closeEditGroupDialog()">取消</button>
+            <button class="common-btn btn-primary" onclick="submitEditGroup()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认对话框 -->
+<div id="deleteConfirmDialog" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <button class="modal-close" onclick="closeDeleteConfirmDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="deleteConfirmMessage">确定要删除这个分组吗？</p>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="forceDeleteCheckbox">
+                    强制删除（删除关联的问答对数据）
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="common-btn btn-secondary" onclick="closeDeleteConfirmDialog()">取消</button>
+            <button class="common-btn btn-danger" onclick="confirmDeleteGroup()">删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- 导入对话框 -->
+<div id="importDialog" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>批量导入问答对</h3>
+            <button class="modal-close" onclick="closeImportDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="importGroupSelect">目标分组</label>
+                <select id="importGroupSelect" class="form-control">
+                    <option value="">请选择分组...</option>
+                    <!-- 分组选项将通过JavaScript动态加载 -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="importType">导入类型</label>
+                <select id="importType" class="form-control" onchange="toggleImportOptions()">
+                    <option value="json">JSON文件</option>
+                    <option value="csv">CSV文件</option>
+                    <option value="huggingface">HuggingFace数据集</option>
+                </select>
+            </div>
+            
+            <!-- JSON/CSV文件上传 -->
+            <div id="fileUploadSection" class="form-group">
+                <label for="importFile">选择文件</label>
+                <input type="file" id="importFile" class="form-control" accept=".json,.csv">
+            </div>
+            
+            <!-- HuggingFace数据集导入 -->
+            <div id="huggingfaceSection" class="form-group" style="display: none;">
+                <label for="hfDatasetPath">数据集路径</label>
+                <input type="text" id="hfDatasetPath" class="form-control" placeholder="例如: squad, glue/mrpc">
+                <div class="form-hint">可以是HuggingFace数据集名称或本地路径</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="importBatchSize">批次大小</label>
+                <input type="number" id="importBatchSize" class="form-control" value="1000" min="100" max="10000">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="common-btn btn-secondary" onclick="closeImportDialog()">取消</button>
+            <button class="common-btn btn-primary" onclick="startImport()">开始导入</button>
+        </div>
+    </div>
+</div>
+
+<!-- 加载JavaScript文件 -->
+<script src="/static/js/common_components.js"></script>
+<script src="/static/js/qa_groups_optimized.js"></script>
+</body>
+</html>
