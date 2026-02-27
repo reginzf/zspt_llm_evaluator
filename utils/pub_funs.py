@@ -119,6 +119,22 @@ def read_json_file(file_path: Union[str, Path],
         raise
 
 
+class NumpyJSONEncoder(json.JSONEncoder):
+    """支持 numpy 类型的 JSON 编码器"""
+    def default(self, obj):
+        # 处理 numpy 类型
+        if hasattr(obj, 'item'):  # numpy 标量类型
+            return obj.item()
+        if hasattr(obj, 'tolist'):  # numpy 数组
+            return obj.tolist()
+        # 处理其他常见类型
+        if isinstance(obj, set):
+            return list(obj)
+        if isinstance(obj, bytes):
+            return obj.decode('utf-8', errors='ignore')
+        return super().default(obj)
+
+
 def write_json_file(file_path: Union[str, Path],
                     data: Any,
                     encoding: str = 'utf-8',
@@ -126,7 +142,7 @@ def write_json_file(file_path: Union[str, Path],
                     indent: int = 2,
                     create_dirs: bool = True) -> bool:
     """
-    安全写入JSON文件
+    安全写入JSON文件（支持 numpy 类型）
 
     Args:
         file_path: JSON文件路径
@@ -147,7 +163,7 @@ def write_json_file(file_path: Union[str, Path],
             ensure_directory_exists(path)
 
         with open(path, 'w', encoding=encoding) as f:
-            json.dump(data, f, ensure_ascii=ensure_ascii, indent=indent)
+            json.dump(data, f, ensure_ascii=ensure_ascii, indent=indent, cls=NumpyJSONEncoder)
 
         print(f"✓ JSON文件已保存: {file_path}")
         return True
