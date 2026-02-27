@@ -18,12 +18,78 @@ logger = logging.getLogger(__name__)
 # 创建蓝图
 qa_data_group_bp = Blueprint('qa_data_group', __name__)
 
+# 常量定义
+VALID_TEST_TYPES = ['accuracy', 'performance', 'robustness', 'comprehensive', 'custom']
+VALID_LANGUAGES = ['zh', 'en', 'multi']
+
+
+def validate_group_data(data, is_update=False):
+    """
+    验证分组数据的有效性
+    
+    Args:
+        data: 分组数据
+        is_update: 是否为更新操作
+        
+    Returns:
+        tuple: (是否有效, 错误消息)
+    """
+    # 验证测试类型
+    if 'test_type' in data:
+        if data['test_type'] not in VALID_TEST_TYPES:
+            return False, f'无效的测试类型: {data["test_type"]}，有效值: {", ".join(VALID_TEST_TYPES)}'
+    
+    # 验证语言
+    if 'language' in data:
+        if data['language'] not in VALID_LANGUAGES:
+            return False, f'无效的语言: {data["language"]}，有效值: {", ".join(VALID_LANGUAGES)}'
+    
+    # 验证难度范围格式（简单验证）
+    if 'difficulty_range' in data and data['difficulty_range']:
+        difficulty_range = data['difficulty_range']
+        if '-' not in difficulty_range:
+            return False, '难度范围格式应为 "最小值-最大值"，例如: "1-5"'
+    
+    return True, ""
+
+
+def get_pagination_params():
+    """
+    获取分页参数
+    
+    Returns:
+        tuple: (page, limit)
+    """
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+        return max(1, page), max(1, min(limit, 100))  # 限制最大每页100条
+    except ValueError:
+        return 1, 20
+
+
+def get_boolean_param(param_name, default=None):
+    """
+    获取布尔型参数
+    
+    Args:
+        param_name: 参数名
+        default: 默认值
+        
+    Returns:
+        bool or None: 解析后的布尔值
+    """
+    param_value = request.args.get(param_name)
+    if param_value is None:
+        return default
+    
+    return param_value.lower() in ('true', '1', 'yes', 'on')
+
 
 @qa_data_group_bp.route('/api/qa/groups', methods=['GET'])
 def get_qa_groups():
     """
     分页查询问答对组列表
-    
     Query Parameters:
         page: 页码，默认1
         limit: 每页数量，默认20
@@ -38,47 +104,35 @@ def get_qa_groups():
     """
     try:
         # 获取查询参数
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 20))
+        page, limit = get_pagination_params()
         keyword = request.args.get('keyword')
         test_type = request.args.get('test_type')
         language = request.args.get('language')
-        is_active_param = request.args.get('is_active')
+        is_active = get_boolean_param('is_active')
         order_by = request.args.get('order_by', 'created_at DESC')
-        
-        # 处理激活状态参数
-        is_active = None
-        if is_active_param is not None:
-            is_active = is_active_param.lower() == 'true'
         
         # 计算偏移量
         offset = (page - 1) * limit
         
         with AIQADataGroupManager() as manager:
-            # 构建筛选条件
-            filters = {}
-            if keyword:
-                filters['name'] = keyword
-            if test_type:
-                filters['test_type'] = test_type
-            if language:
-                filters['language'] = language
-            if is_active is not None:
-                filters['is_active'] = is_active
-            
             # 获取分组列表
             groups = manager.list_groups(
-                name=filters.get('name'),
-                test_type=filters.get('test_type'),
-                is_active=filters.get('is_active'),
-                language=filters.get('language'),
+                name=keyword,
+                test_type=test_type,
+                is_active=is_active,
+                language=language,
                 order_by=order_by,
                 limit=limit,
                 offset=offset
             )
             
             # 获取总数
-            total = manager.count_groups(**filters)
+            total = manager.count_groups(
+                name=keyword,
+                test_type=test_type,
+                is_active=is_active,
+                language=language
+            )
             
             # 计算总页数
             pages = (total + limit - 1) // limit if limit > 0 else 0
@@ -136,6 +190,14 @@ def create_qa_group():
                 'message': f'缺少必要字段: {missing_field}'
             }), 400
         
+        # 验证数据有效性
+        is_valid, error_msg = validate_group_data(data)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'message': error_msg
+            }), 400
+        
         # 提取参数
         name = data.get('name')
         purpose = data.get('purpose')
@@ -144,14 +206,6 @@ def create_qa_group():
         difficulty_range = data.get('difficulty_range')
         tags = data.get('tags', [])
         metadata = data.get('metadata', {})
-        
-        # 验证测试类型
-        valid_test_types = ['accuracy', 'performance', 'robustness', 'comprehensive', 'custom']
-        if test_type not in valid_test_types:
-            return jsonify({
-                'success': False,
-                'message': f'无效的测试类型: {test_type}，有效值: {", ".join(valid_test_types)}'
-            }), 400
         
         with AIQADataGroupManager() as manager:
             # 检查名称是否已存在
