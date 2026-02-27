@@ -305,13 +305,27 @@
                             </div>
                             <div style="margin-left: 24px;">
                                 <label style="font-size: 12px; color: #666;">计算方式:</label>
-                                <select id="coverageCalType" class="form-control" style="margin-top: 4px;">
+                                <select id="coverageCalType" class="form-control" style="margin-top: 4px;" onchange="toggleWeightedConfig('coverage')">
                                     <option value="simple">simple (默认简单)</option>
                                     <option value="rouge">rouge (ROUGE)</option>
                                     <option value="sentence">sentence (句子)</option>
                                     <option value="weighted">weighted (加权)</option>
                                 </select>
                                 <p style="font-size: 11px; color: #999; margin-top: 4px;">答案覆盖率计算方式: simple(默认简单), rouge(ROUGE), sentence(句子), weighted(加权)</p>
+                                <!-- weighted权重配置 -->
+                                <div id="coverageWeightedConfig" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px;">
+                                    <label style="font-size: 11px; color: #666; font-weight: 600;">权重配置 (和必须为1):</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">rouge</span>
+                                            <input type="number" id="coverageWeight0" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.5" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">sentence</span>
+                                            <input type="number" id="coverageWeight1" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.5" min="0" max="1" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -323,7 +337,7 @@
                             </div>
                             <div style="margin-left: 24px;">
                                 <label style="font-size: 12px; color: #666;">计算方式:</label>
-                                <select id="relevanceType" class="form-control" style="margin-top: 4px;">
+                                <select id="relevanceType" class="form-control" style="margin-top: 4px;" onchange="toggleWeightedConfig('relevance')">
                                     <option value="">word_overlap (默认词汇重叠)</option>
                                     <option value="semantic">semantic (语义)</option>
                                     <option value="tfidf">tfidf (TF-IDF)</option>
@@ -331,6 +345,24 @@
                                     <option value="rouge">rouge (ROUGE)</option>
                                 </select>
                                 <p style="font-size: 11px; color: #999; margin-top: 4px;">答案相关性计算方式: word_overlap(默认词汇重叠), semantic(语义), tfidf(TF-IDF), weighted(加权), rouge(ROUGE)</p>
+                                <!-- weighted权重配置 -->
+                                <div id="relevanceWeightedConfig" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px;">
+                                    <label style="font-size: 11px; color: #666; font-weight: 600;">权重配置 (和必须为1):</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">word_overlap</span>
+                                            <input type="number" id="relevanceWeight0" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.4" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">semantic</span>
+                                            <input type="number" id="relevanceWeight1" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.4" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">tfidf</span>
+                                            <input type="number" id="relevanceWeight2" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.2" min="0" max="1" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -342,7 +374,7 @@
                             </div>
                             <div style="margin-left: 24px;">
                                 <label style="font-size: 12px; color: #666;">计算方式:</label>
-                                <select id="utilizationCalType" class="form-control" style="margin-top: 4px;">
+                                <select id="utilizationCalType" class="form-control" style="margin-top: 4px;" onchange="toggleWeightedConfig('utilization')">
                                     <option value="simple">simple (默认简单)</option>
                                     <option value="semantic">semantic (语义)</option>
                                     <option value="tfidf">tfidf (TF-IDF)</option>
@@ -351,6 +383,32 @@
                                     <option value="weighted">weighted (加权)</option>
                                 </select>
                                 <p style="font-size: 11px; color: #999; margin-top: 4px;">上下文利用率计算方式: simple(默认简单), semantic(语义), tfidf(TF-IDF), rouge(ROUGE), ngram(N-gram), weighted(加权)</p>
+                                <!-- weighted权重配置 -->
+                                <div id="utilizationWeightedConfig" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px;">
+                                    <label style="font-size: 11px; color: #666; font-weight: 600;">权重配置 (和必须为1):</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">semantic</span>
+                                            <input type="number" id="utilizationWeight0" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.3" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">tfidf</span>
+                                            <input type="number" id="utilizationWeight1" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.3" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">rouge</span>
+                                            <input type="number" id="utilizationWeight2" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.2" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">ngram</span>
+                                            <input type="number" id="utilizationWeight3" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.2" min="0" max="1" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 8px;">
+                                        <label style="font-size: 11px; color: #666;">N-gram N值:</label>
+                                        <input type="number" id="utilizationN" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px; display: inline-block; margin-left: 5px;" value="2" min="1" max="5" step="1">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -362,7 +420,7 @@
                             </div>
                             <div style="margin-left: 24px;">
                                 <label style="font-size: 12px; color: #666;">计算方式:</label>
-                                <select id="completenessCalType" class="form-control" style="margin-top: 4px;">
+                                <select id="completenessCalType" class="form-control" style="margin-top: 4px;" onchange="toggleWeightedConfig('completeness')">
                                     <option value="simple">simple (默认简单)</option>
                                     <option value="coverage">coverage (覆盖度)</option>
                                     <option value="entities">entities (实体)</option>
@@ -370,6 +428,24 @@
                                     <option value="weighted">weighted (加权)</option>
                                 </select>
                                 <p style="font-size: 11px; color: #999; margin-top: 4px;">答案完整性计算方式: simple(默认简单), coverage(覆盖度), entities(实体), rouge(ROUGE), weighted(加权)</p>
+                                <!-- weighted权重配置 -->
+                                <div id="completenessWeightedConfig" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px;">
+                                    <label style="font-size: 11px; color: #666; font-weight: 600;">权重配置 (和必须为1):</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">coverage</span>
+                                            <input type="number" id="completenessWeight0" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.5" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">entities</span>
+                                            <input type="number" id="completenessWeight1" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.25" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">rouge</span>
+                                            <input type="number" id="completenessWeight2" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.25" min="0" max="1" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -381,7 +457,7 @@
                             </div>
                             <div style="margin-left: 24px;">
                                 <label style="font-size: 12px; color: #666;">计算方式:</label>
-                                <select id="concisenessType" class="form-control" style="margin-top: 4px;">
+                                <select id="concisenessType" class="form-control" style="margin-top: 4px;" onchange="toggleWeightedConfig('conciseness')">
                                     <option value="">ratio (默认长度比例)</option>
                                     <option value="semantic">semantic (语义压缩度)</option>
                                     <option value="rouge">rouge (ROUGE压缩度)</option>
@@ -389,6 +465,24 @@
                                     <option value="weighted">weighted (加权)</option>
                                 </select>
                                 <p style="font-size: 11px; color: #999; margin-top: 4px;">答案简洁性计算方式: ratio(默认长度比例), semantic(语义压缩度), rouge(ROUGE压缩度), density(信息密度), weighted(加权)</p>
+                                <!-- weighted权重配置 -->
+                                <div id="concisenessWeightedConfig" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px;">
+                                    <label style="font-size: 11px; color: #666; font-weight: 600;">权重配置 (和必须为1):</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">ratio</span>
+                                            <input type="number" id="concisenessWeight0" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.4" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">semantic</span>
+                                            <input type="number" id="concisenessWeight1" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.4" min="0" max="1" step="0.1">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <span style="font-size: 11px;">rouge</span>
+                                            <input type="number" id="concisenessWeight2" class="form-control" style="width: 60px; padding: 2px 5px; font-size: 11px;" value="0.2" min="0" max="1" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -633,6 +727,27 @@ function toggleMatchTypes() {
     }
 }
 
+// 切换weighted配置显示/隐藏
+function toggleWeightedConfig(prefix) {
+    const select = document.getElementById(prefix + 'CalType') || document.getElementById(prefix + 'Type');
+    const configDiv = document.getElementById(prefix + 'WeightedConfig');
+    if (select && configDiv) {
+        configDiv.style.display = select.value === 'weighted' ? 'block' : 'none';
+    }
+}
+
+// 获取权重配置
+function getWeightsConfig(prefix, count) {
+    const weights = [];
+    for (let i = 0; i < count; i++) {
+        const input = document.getElementById(prefix + 'Weight' + i);
+        if (input) {
+            weights.push(parseFloat(input.value) || 0);
+        }
+    }
+    return weights;
+}
+
 // 获取匹配类型配置
 function getMatchTypesConfig() {
     const matchTypes = {};
@@ -664,31 +779,60 @@ function getMatchTypesConfig() {
     // 答案覆盖率
     if (document.getElementById('enableCoverage').checked) {
         const calType = document.getElementById('coverageCalType').value;
-        matchTypes.calculate_answer_coverage = { cal_type: calType };
+        const config = { cal_type: calType };
+        // 如果是weighted，添加权重配置
+        if (calType === 'weighted') {
+            config.weights = getWeightsConfig('coverage', 2);
+        }
+        matchTypes.calculate_answer_coverage = config;
     }
     
     // 答案相关性
     if (document.getElementById('enableRelevance').checked) {
         const relType = document.getElementById('relevanceType').value;
-        matchTypes.calculate_answer_relevance = relType ? { rel_type: relType } : {};
+        const config = relType ? { rel_type: relType } : {};
+        // 如果是weighted，添加权重配置
+        if (relType === 'weighted') {
+            config.weights = getWeightsConfig('relevance', 3);
+        }
+        matchTypes.calculate_answer_relevance = config;
     }
     
     // 上下文利用率
     if (document.getElementById('enableUtilization').checked) {
         const calType = document.getElementById('utilizationCalType').value;
-        matchTypes.calculate_context_utilization = { cal_type: calType };
+        const config = { cal_type: calType };
+        // 如果是weighted，添加权重配置和N值
+        if (calType === 'weighted') {
+            config.weights = getWeightsConfig('utilization', 4);
+            const nInput = document.getElementById('utilizationN');
+            if (nInput) {
+                config.n = parseInt(nInput.value) || 2;
+            }
+        }
+        matchTypes.calculate_context_utilization = config;
     }
     
     // 答案完整性
     if (document.getElementById('enableCompleteness').checked) {
         const calType = document.getElementById('completenessCalType').value;
-        matchTypes.calculate_completeness = { cal_type: calType };
+        const config = { cal_type: calType };
+        // 如果是weighted，添加权重配置
+        if (calType === 'weighted') {
+            config.weights = getWeightsConfig('completeness', 3);
+        }
+        matchTypes.calculate_completeness = config;
     }
     
     // 答案简洁性
     if (document.getElementById('enableConciseness').checked) {
         const concisenessType = document.getElementById('concisenessType').value;
-        matchTypes.calculate_conciseness = concisenessType ? { conciseness_type: concisenessType } : {};
+        const config = concisenessType ? { conciseness_type: concisenessType } : {};
+        // 如果是weighted，添加权重配置
+        if (concisenessType === 'weighted') {
+            config.weights = getWeightsConfig('conciseness', 3);
+        }
+        matchTypes.calculate_conciseness = config;
     }
     
     return matchTypes;
