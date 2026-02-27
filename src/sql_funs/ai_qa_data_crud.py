@@ -44,6 +44,13 @@ class AIQADataManager(PostgreSQLManager):
     
     TABLE_NAME = "ai_qa_data"
     
+    # 精确匹配字段列表
+    EXACT_MATCH_FIELDS = ['group_id', 'question_type', 'difficulty_level', 'category', 'language', 'source_dataset', 'hf_dataset_id']
+    # 部分匹配字段列表
+    PARTIAL_MATCH_FIELDS = ['question', 'context']
+    # 允许查询的所有字段
+    ALLOWED_FIELDS = EXACT_MATCH_FIELDS + PARTIAL_MATCH_FIELDS + ['tags']
+    
     def __init__(self):
         super().__init__()
         self.group_manager = AIQADataGroupManager()
@@ -459,13 +466,19 @@ class AIQADataManager(PostgreSQLManager):
         Returns:
             Optional[Dict]: 问答对数据字典
         """
+        # 构建查询条件
+        where_conditions = {"id": qa_id}
         if created_month:
-            query = f"SELECT * FROM {self.TABLE_NAME} WHERE id = %s AND created_month = %s"
-            result = self.execute_query(query, (qa_id, created_month))
-        else:
-            query = f"SELECT * FROM {self.TABLE_NAME} WHERE id = %s"
-            result = self.execute_query(query, (qa_id,))
+            where_conditions["created_month"] = created_month
+            
+        query, params = self.gen_select_query(
+            self.TABLE_NAME,
+            exact_match_fields=['id', 'created_month'],
+            allowed_fileds=['id', 'created_month'],
+            **where_conditions
+        )
         
+        result = self.execute_query(query, params)
         if result:
             return self._row_to_dict(result[0])
         return None
@@ -480,9 +493,14 @@ class AIQADataManager(PostgreSQLManager):
         Returns:
             Optional[Dict]: 问答对数据字典
         """
-        query = f"SELECT * FROM {self.TABLE_NAME} WHERE qa_uuid = %s"
-        result = self.execute_query(query, (qa_uuid,))
+        query, params = self.gen_select_query(
+            self.TABLE_NAME,
+            exact_match_fields=['qa_uuid'],
+            allowed_fileds=['qa_uuid'],
+            qa_uuid=qa_uuid
+        )
         
+        result = self.execute_query(query, params)
         if result:
             return self._row_to_dict(result[0])
         return None
@@ -512,56 +530,54 @@ class AIQADataManager(PostgreSQLManager):
         Returns:
             List[Dict]: 问答对数据字典列表
         """
-        conditions = []
-        params = []
+        # 定义字段匹配类型
+        exact_match_fields = ['group_id', 'question_type', 'difficulty_level', 'category', 'language']
+        partial_match_fields = ['question', 'context']
+        allowed_fields = exact_match_fields + partial_match_fields
         
-        if group_id:
-            conditions.append("group_id = %s")
-            params.append(group_id)
+        # 构建查询参数（移除None值）
+        query_params = {}
+        if group_id is not None:
+            query_params['group_id'] = group_id
+        if question_type is not None:
+            query_params['question_type'] = question_type
+        if difficulty_level is not None:
+            query_params['difficulty_level'] = difficulty_level
+        if category is not None:
+            query_params['category'] = category
+        if language is not None:
+            query_params['language'] = language
+        if question_keyword is not None:
+            query_params['question'] = question_keyword
+        if context_keyword is not None:
+            query_params['context'] = context_keyword
         
-        if question_type:
-            conditions.append("question_type = %s")
-            params.append(question_type)
+        # 使用gen_select_query生成基础查询
+        query, params = self.gen_select_query(
+            self.TABLE_NAME,
+            order_by=order_by,
+            limit=limit,
+            exact_match_fields=exact_match_fields,
+            partial_match_fields=partial_match_fields,
+            allowed_fileds=allowed_fields,
+            **query_params
+        )
         
-        if difficulty_level:
-            conditions.append("difficulty_level = %s")
-            params.append(difficulty_level)
-        
-        if category:
-            conditions.append("category = %s")
-            params.append(category)
-        
-        if language:
-            conditions.append("language = %s")
-            params.append(language)
-        
+        # 处理tags筛选（JSONB包含查询，需要特殊处理）
         if tags:
-            # 使用JSONB包含查询
-            conditions.append("tags @> %s")
-            params.append(json.dumps(tags))
+            tags_condition = f"tags @> '{json.dumps(tags)}'::jsonb"
+            if 'WHERE' in query:
+                # 在WHERE子句后插入tags条件
+                query = query.replace('WHERE', f"WHERE {tags_condition} AND ")
+            else:
+                # 如果没有WHERE子句，添加一个
+                query = query.replace(f'FROM {self.TABLE_NAME}', f"FROM {self.TABLE_NAME} WHERE {tags_condition}")
         
-        if question_keyword:
-            conditions.append("question ILIKE %s")
-            params.append(f"%{question_keyword}%")
-        
-        if context_keyword:
-            conditions.append("context ILIKE %s")
-            params.append(f"%{context_keyword}%")
-        
-        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-        
-        query = f"SELECT * FROM {self.TABLE_NAME} {where_clause}"
-        
-        if order_by:
-            query += f" ORDER BY {order_by}"
-        
-        if limit:
-            query += f" LIMIT {limit}"
-        
+        # 处理offset（gen_select_query不支持offset，需要手动添加）
         if offset:
             query += f" OFFSET {offset}"
         
-        result = self.execute_query(query, tuple(params) if params else None)
+        result = self.execute_query(query, params)
         
         if result:
             return [self._row_to_dict(row) for row in result]
@@ -580,18 +596,19 @@ class AIQADataManager(PostgreSQLManager):
         Returns:
             List[Dict]: 相似问题列表
         """
-        conditions = []
+        # 构建基础查询条件
+        where_conditions = []
         params = []
         
         if group_id:
-            conditions.append("group_id = %s")
+            where_conditions.append("group_id = %s")
             params.append(group_id)
         
         # 使用相似度搜索
-        conditions.append("question %% %s")  # pg_trgm的相似度操作符
+        where_conditions.append("question %% %s")  # pg_trgm的相似度操作符
         params.append(question)
         
-        where_clause = "WHERE " + " AND ".join(conditions)
+        where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
         query = f"""
         SELECT *, similarity(question, %s) as sim_score
@@ -618,34 +635,43 @@ class AIQADataManager(PostgreSQLManager):
         Returns:
             int: 问答对数量
         """
-        # 使用gen_select_query方法生成COUNT查询
-        exact_match_fields = {'group_id', 'question_type', 'category', 'language', 'difficulty_level'}
-        partial_match_fields = {'question', 'context'}
-        allowed_fields = exact_match_fields | partial_match_fields
+        # 构建查询条件和参数
+        conditions = []
+        params = []
         
-        # 构建COUNT查询
-        base_query = f"SELECT COUNT(*) FROM {self.TABLE_NAME}"
+        # 清理过滤条件，移除None值
+        clean_filters = {k: v for k, v in filters.items() if v is not None}
         
-        if filters:
-            # 移除None值的过滤条件
-            clean_filters = {k: v for k, v in filters.items() if v is not None}
-            if clean_filters:
-                where_query, params = self.gen_select_query(
-                    self.TABLE_NAME,
-                    exact_match_fields=list(exact_match_fields),
-                    partial_match_fields=list(partial_match_fields),
-                    allowed_fileds=list(allowed_fields),
-                    **clean_filters
-                )
-                # 提取WHERE子句部分
-                where_clause = where_query.split('WHERE ', 1)[1] if 'WHERE ' in where_query else ''
-                query = f"{base_query} WHERE {where_clause}"
-                result = self.execute_query(query, params)
+        for field, value in clean_filters.items():
+            # 检查字段是否允许查询
+            if field not in self.ALLOWED_FIELDS:
+                logger.warning(f"跳过不允许的查询字段: {field}")
+                continue
+                
+            if field in self.EXACT_MATCH_FIELDS:
+                conditions.append(f"{field} = %s")
+                params.append(value)
+            elif field in self.PARTIAL_MATCH_FIELDS:
+                conditions.append(f"{field} ILIKE %s")
+                params.append(f"%{value}%")
+            elif field == 'tags':
+                # JSONB包含查询
+                if isinstance(value, list):
+                    conditions.append("tags @> %s")
+                    params.append(json.dumps(value))
+                else:
+                    logger.warning(f"tags字段需要列表类型，收到: {type(value)}")
             else:
-                result = self.execute_query(base_query)
-        else:
-            result = self.execute_query(base_query)
+                # 默认使用精确匹配
+                conditions.append(f"{field} = %s")
+                params.append(value)
         
+        # 构建查询
+        query = f"SELECT COUNT(*) FROM {self.TABLE_NAME}"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        result = self.execute_query(query, tuple(params) if params else None)
         return result[0][0] if result else 0
     
     # ==================== 更新操作 ====================
@@ -682,6 +708,7 @@ class AIQADataManager(PostgreSQLManager):
             return False
         
         try:
+            # 使用PostgreSQLManager的update方法
             result = self.update(self.TABLE_NAME, data, id=qa_id)
             if result:
                 logger.info(f"问答对更新成功: ID={qa_id}")
@@ -707,6 +734,7 @@ class AIQADataManager(PostgreSQLManager):
             qa_data = self.get_qa_data_by_id(qa_id)
             group_id = qa_data.get('group_id') if qa_data else None
             
+            # 使用PostgreSQLManager的delete方法
             success = self.delete(self.TABLE_NAME, id=qa_id)
             
             if success and group_id:
@@ -731,16 +759,13 @@ class AIQADataManager(PostgreSQLManager):
             int: 删除的记录数
         """
         try:
-            # 使用PostgreSQLManager的execute_query方法执行批量删除
-            query = f"DELETE FROM {self.TABLE_NAME} WHERE group_id = %s"
-            result = self.execute_query(query, (group_id,))
+            # 使用PostgreSQLManager的delete方法
+            success = self.delete(self.TABLE_NAME, group_id=group_id)
             
-            if result is True:
-                # 查询删除的记录数（需要重新查询，因为execute_query不返回rowcount）
-                count_query = f"SELECT COUNT(*) FROM {self.TABLE_NAME} WHERE group_id = %s"
-                # 由于我们刚删除了这些记录，所以应该返回0，但我们可以通过之前的统计来估算
+            if success:
+                # 获取删除的行数
                 deleted_count = self.cursor.rowcount if hasattr(self.cursor, 'rowcount') else 0
-                logger.info(f"分组 {group_id} 下的问答对删除成功")
+                logger.info(f"分组 {group_id} 下的问答对删除成功，删除了 {deleted_count} 条记录")
                 
                 # 更新分组统计
                 self._update_group_qa_count(group_id)
@@ -807,13 +832,9 @@ class AIQADataManager(PostgreSQLManager):
     def _update_group_qa_count(self, group_id: int):
         """更新分组的问答对数量统计"""
         try:
-            # 确保数据库连接是打开的
-            if not self.connection or self.connection.closed:
-                self.connect()
-            
             count = self.count_qa_data(group_id=group_id)
             
-            # 确保group_manager的连接也是打开的
+            # 确保group_manager的连接是打开的
             if not self.group_manager.connection or self.group_manager.connection.closed:
                 self.group_manager.connect()
             
