@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM评估报告 - {{ filename }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+    <style>
+        /* 报告特定样式 */
+        .report-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        .report-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        .report-meta {
+            opacity: 0.9;
+            font-size: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .back-btn:hover {
+            background: #5a6268;
+        }
+        .model-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .model-header {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .model-header h2 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .model-version {
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 25px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+        .metric-value.success {
+            color: #28a745;
+        }
+        .metric-value.warning {
+            color: #ffc107;
+        }
+        .metric-value.danger {
+            color: #dc3545;
+        }
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .config-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        .config-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .config-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .match-types-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .match-type-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+        }
+        .qa-table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        .qa-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .qa-table th, .qa-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .qa-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        .qa-table tr:hover {
+            background: #f8f9fa;
+        }
+        .success-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .success-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .success-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .question-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .answer-cell {
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .expandable {
+            cursor: pointer;
+            color: #667eea;
+        }
+        .expandable:hover {
+            text-decoration: underline;
+        }
+        .details-row {
+            background: #f8f9fa;
+        }
+        .details-content {
+            padding: 15px;
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .details-label {
+            font-weight: 500;
+            color: #666;
+        }
+        .details-value {
+            color: #333;
+        }
+        .token-usage {
+            font-size: 12px;
+            color: #666;
+        }
+        .metric-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .metric-badge.high {
+            background: #d4edda;
+            color: #155724;
+        }
+        .metric-badge.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .metric-badge.low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/llm/models" class="back-btn">← 返回模型列表</a>
+        
+        <div class="report-header">
+            <h1>🤖 LLM评估报告</h1>
+            <div class="report-meta">
+                <div class="meta-item">
+                    <strong>文件名:</strong> {{ filename }}
+                </div>
+                <div class="meta-item">
+                    <strong>生成时间:</strong> {{ timestamp }}
+                </div>
+                <div class="meta-item">
+                    <strong>评估模型数:</strong> {{ total_agents }}
+                </div>
+                <div class="meta-item">
+                    <strong>问答对总数:</strong> {{ total_qa_pairs }}
+                </div>
+            </div>
+        </div>
+
+        {% for model in model_results %}
+        <div class="model-section">
+            <div class="model-header">
+                <h2>{{ model.model_name }}</h2>
+                <div class="model-version">
+                    <span>版本: {{ model.model_version }}</span>
+                    <span>模型: {{ model.model_config.model }}</span>
+                    <span>温度: {{ model.model_config.temperature }}</span>
+                    <span>Max Tokens: {{ model.model_config.max_tokens }}</span>
+                    <span>超时: {{ model.model_config.timeout }}秒</span>
+                </div>
+            </div>
+
+            <div class="section-title">📊 基础统计</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">总样本数</div>
+                    <div class="metric-value">{{ model.metrics.total_samples }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">成功预测</div>
+                    <div class="metric-value success">{{ model.metrics.successful_predictions }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">失败预测</div>
+                    <div class="metric-value {% if model.metrics.failed_predictions > 0 %}danger{% else %}success{% endif %}">
+                        {{ model.metrics.failed_predictions }}
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">成功率</div>
+                    <div class="metric-value success">{{ model.metrics.success_rate }}</div>
+                </div>
+            </div>
+
+            <div class="section-title">🎯 准确性指标</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">精确匹配 (EM)</div>
+                    <div class="metric-value">{{ model.metrics.exact_match }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">F1分数</div>
+                    <div class="metric-value">{{ model.metrics.f1_score }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">部分匹配</div>
+                    <div class="metric-value">{{ model.metrics.partial_match }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">语义相似度</div>
+                    <div class="metric-value">{{ model.metrics.semantic_similarity }}</div>
+                </div>
+            </div>
+
+            <div class="section-title">📚 知识库能力指标</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">答案覆盖率</div>
+                    <div class="metric-value">{{ model.metrics.answer_coverage }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">答案相关性</div>
+                    <div class="metric-value">{{ model.metrics.answer_relevance }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">上下文利用率</div>
+                    <div class="metric-value">{{ model.metrics.context_utilization }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">答案完整性</div>
+                    <div class="metric-value">{{ model.metrics.answer_completeness }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">答案简洁性</div>
+                    <div class="metric-value">{{ model.metrics.answer_conciseness }}</div>
+                </div>
+            </div>
+
+            <div class="section-title">⏱️ 效率指标</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">平均推理时间</div>
+                    <div class="metric-value">{{ model.metrics.avg_inference_time }}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">总推理时间</div>
+                    <div class="metric-value">{{ model.metrics.total_inference_time }}</div>
+                </div>
+            </div>
+
+            <div class="section-title">⚙️ 评估配置</div>
+            <div class="config-grid">
+                <div class="config-item">
+                    <div class="config-label">采样数量</div>
+                    <div class="config-value">{{ model.evaluation_config.sample_size }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">并行处理</div>
+                    <div class="config-value">{{ model.evaluation_config.parallel and '是' or '否' }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">重试次数</div>
+                    <div class="config-value">{{ model.evaluation_config.retry_attempts }}</div>
+                </div>
+            </div>
+            
+            {% if model.evaluation_config.match_types %}
+            <div class="match-types-list">
+                {% for mt in model.evaluation_config.match_types %}
+                <span class="match-type-tag">{{ mt.name }}: {{ mt.config }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="section-title">📝 模型配置详情</div>
+            <div class="config-grid">
+                <div class="config-item">
+                    <div class="config-label">API URL</div>
+                    <div class="config-value">{{ model.model_config.api_url }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">模型类型</div>
+                    <div class="config-value">{{ model.model_config.type }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">温度</div>
+                    <div class="config-value">{{ model.model_config.temperature }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">最大令牌数</div>
+                    <div class="config-value">{{ model.model_config.max_tokens }}</div>
+                </div>
+                <div class="config-item">
+                    <div class="config-label">超时时间</div>
+                    <div class="config-value">{{ model.model_config.timeout }}秒</div>
+                </div>
+            </div>
+
+            {% if model.qa_details %}
+            <div class="section-title">📝 问答对详情 ({{ model.qa_details|length }}条)</div>
+            <div class="qa-table-container">
+                <table class="qa-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>问题</th>
+                            <th>预测答案</th>
+                            <th>推理时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qa in model.qa_details %}
+                        <tr>
+                            <td>{{ qa.question_id }}</td>
+                            <td class="question-cell" title="{{ qa.question }}">{{ qa.question }}</td>
+                            <td class="answer-cell" title="{{ qa.predicted_answer }}">{{ qa.predicted_answer }}</td>
+                            <td>{{ qa.inference_time }}</td>
+                            <td>
+                                {% if qa.success %}
+                                <span class="success-badge success">✓ 成功</span>
+                                {% else %}
+                                <span class="success-badge failed">✗ 失败</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="javascript:void(0)" class="expandable" onclick="toggleDetails('details-{{ model.model_name }}-{{ loop.index }}')">查看详情</a>
+                            </td>
+                        </tr>
+                        <tr id="details-{{ model.model_name }}-{{ loop.index }}" class="details-row" style="display: none;">
+                            <td colspan="6">
+                                <div class="details-content">
+                                    <div class="details-grid">
+                                        <div>
+                                            <div class="details-label">问题ID</div>
+                                            <div class="details-value">{{ qa.question_id }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="details-label">推理时间</div>
+                                            <div class="details-value">{{ qa.inference_time }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="details-label">状态</div>
+                                            <div class="details-value">
+                                                {% if qa.success %}
+                                                <span class="success-badge success">成功</span>
+                                                {% else %}
+                                                <span class="success-badge failed">失败</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if qa.error_message %}
+                                        <div>
+                                            <div class="details-label">错误信息</div>
+                                            <div class="details-value" style="color: #dc3545;">{{ qa.error_message }}</div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div style="margin-top: 15px;">
+                                        <div class="details-label">上下文</div>
+                                        <div class="details-value" style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; border-radius: 6px;">{{ qa.context }}</div>
+                                    </div>
+                                    <div style="margin-top: 15px;">
+                                        <div class="details-label">预测答案</div>
+                                        <div class="details-value" style="white-space: pre-wrap; background: #e8f5e8; padding: 10px; border-radius: 6px;">{{ qa.predicted_answer }}</div>
+                                    </div>
+                                    <div style="margin-top: 15px;">
+                                        <div class="details-label">参考答案</div>
+                                        <div class="details-value" style="white-space: pre-wrap; background: #fff3cd; padding: 10px; border-radius: 6px;">{{ qa.ground_truth|join(' | ') }}</div>
+                                    </div>
+                                    {% if qa.metadata %}
+                                    <div style="margin-top: 15px;">
+                                        <div class="details-label">元数据</div>
+                                        <div class="details-value">
+                                            <pre style="background: #f8f9fa; padding: 10px; border-radius: 6px; font-size: 12px;">{{ qa.metadata|tojson(indent=2) }}</pre>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="no-data">暂无问答对详情数据</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function toggleDetails(id) {
+            const row = document.getElementById(id);
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
