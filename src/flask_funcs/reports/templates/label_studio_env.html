@@ -43,7 +43,7 @@
                     <td>{{ env.label_studio_id }}</td>
                     <td>{{ env.label_studio_url }}</td>
                     <td>
-                        <span class="password-text" style="display: inline;">{% for i in range(env.label_studio_api_key|length) %}*{% endfor %}</span>
+                        <span class="password-text" style="display: inline;">********</span>
                         <span class="password-toggle" style="cursor: pointer; margin-left: 10px;"
                               onclick="togglePasswordVisibility(this, '{{ env.label_studio_api_key }}')">👁️</span>
                     </td>

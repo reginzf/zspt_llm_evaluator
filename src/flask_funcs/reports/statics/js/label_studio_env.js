@@ -131,16 +131,16 @@ function bindFormSubmitHandler() {
 
 function togglePasswordVisibility(element, fullText) {
     const passwordSpan = element.previousElementSibling;
-    if (passwordSpan.style.display === 'none') {
-        // 显示星号掩码
-        passwordSpan.style.display = 'inline';
-        passwordSpan.textContent = '*'.repeat(fullText.length);
-        element.textContent = '👁️';
-    } else {
-        // 显示真实密码
-        passwordSpan.style.display = 'inline';
+    const isCurrentlyMasked = passwordSpan.textContent.startsWith('**');
+    
+    if (isCurrentlyMasked) {
+        // 当前是星号掩码，显示真实API Key
         passwordSpan.textContent = fullText;
         element.textContent = '🔒';
+    } else {
+        // 当前是真实API Key，显示星号掩码
+        passwordSpan.textContent = '*******';
+        element.textContent = '👁️';
     }
 }
 
