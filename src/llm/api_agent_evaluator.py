@@ -138,7 +138,7 @@ class MetricsCalculator:
             try:
                 vectorizer = TfidfVectorizer()
                 tfidf_matrix = vectorizer.fit_transform([pred, truth])
-                similarity = (tfidf_matrix * tfidf_matrix.T).A[0, 1]
+                similarity = (tfidf_matrix * tfidf_matrix.T).toarray()[0, 1]
                 return similarity >= 0.9  # 90%以上相似度认为匹配
             except Exception as e:
                 logger.warning(f"TF-IDF匹配计算失败: {e}")
@@ -359,7 +359,7 @@ class MetricsCalculator:
                 
                 for truth in ground_truth:
                     tfidf_matrix = vectorizer.fit_transform([prediction, truth])
-                    similarity = (tfidf_matrix * tfidf_matrix.T).A[0, 1]
+                    similarity = (tfidf_matrix * tfidf_matrix.T).toarray()[0, 1]
                     best_similarity = max(best_similarity, similarity)
                 
                 return max(0.0, min(1.0, best_similarity))
@@ -473,7 +473,7 @@ class MetricsCalculator:
                 
                 for truth in ground_truth:
                     tfidf_matrix = vectorizer.fit_transform([prediction, truth])
-                    similarity = (tfidf_matrix * tfidf_matrix.T).A[0, 1]
+                    similarity = (tfidf_matrix * tfidf_matrix.T).toarray()[0, 1]
                     best_similarity = max(best_similarity, similarity)
                 
                 return max(0.0, min(1.0, best_similarity))
@@ -534,14 +534,15 @@ class MetricsCalculator:
             return sim_sentence_transformer(prediction, ground_truth)
 
     @staticmethod
-    def calculate_answer_coverage(prediction: str, ground_truth: List[str], cal_type=None) -> float:
+    def calculate_answer_coverage(prediction: str, ground_truth: List[str], cal_type=None, weights: List[float] = None) -> float:
         """
         计算答案覆盖率（预测答案包含标准答案信息的程度）
         
         Args:
             prediction: 预测答案
             ground_truth: 标准答案列表
-            cal_type: 计算方式 None，rouge，sentence
+            cal_type: 计算方式 None，rouge，sentence，weighted
+            weights: 权重列表，仅在 cal_type='weighted' 时使用，默认[0.5, 0.5]
         Returns:
             覆盖率 (0-1)
         """
@@ -601,13 +602,14 @@ class MetricsCalculator:
         elif cal_type == 'sentence':
             return cal_sentence(prediction, ground_truth)
         elif cal_type == 'weighted':
-            weights = [0.5, 0.5]
-            return cal_weighted(prediction, ground_truth, weights)
+            # 使用传入的权重或默认值
+            effective_weights = weights if weights is not None else [0.5, 0.5]
+            return cal_weighted(prediction, ground_truth, effective_weights)
         else:
             return cal_simple(prediction, ground_truth)
 
     @staticmethod
-    def calculate_answer_relevance(prediction: str, question: str, context: str, rel_type=None) -> float:
+    def calculate_answer_relevance(prediction: str, question: str, context: str, rel_type=None, weights: List[float] = None) -> float:
         """
         计算答案与问题的相关性
         
@@ -617,6 +619,7 @@ class MetricsCalculator:
             context: 上下文
             rel_type: 相关性计算类型 None(默认词汇重叠), semantic(语义), tfidf(TF-IDF), 
                      weighted(加权组合), rouge(ROUGE)
+            weights: 权重列表，仅在 rel_type='weighted' 时使用，默认[0.4, 0.4, 0.2]
             
         Returns:
             相关性分数 (0-1)
@@ -676,11 +679,11 @@ class MetricsCalculator:
                 
                 # 计算与问题的相关性
                 question_matrix = vectorizer.fit_transform([prediction, question])
-                question_sim = (question_matrix * question_matrix.T).A[0, 1]
+                question_sim = (question_matrix * question_matrix.T).toarray()[0, 1]
                 
                 # 计算与上下文的相关性
                 context_matrix = vectorizer.fit_transform([prediction, context])
-                context_sim = (context_matrix * context_matrix.T).A[0, 1]
+                context_sim = (context_matrix * context_matrix.T).toarray()[0, 1]
                 
                 # 加权组合
                 relevance = 0.3 * question_sim + 0.7 * context_sim
@@ -730,7 +733,7 @@ class MetricsCalculator:
         elif rel_type == 'tfidf':
             return rel_tfidf(prediction, question, context)
         elif rel_type == 'weighted':
-            return rel_weighted(prediction, question, context)
+            return rel_weighted(prediction, question, context, weights)
         elif rel_type == 'rouge':
             return rel_rouge(prediction, question, context)
         else:
@@ -1152,7 +1155,7 @@ class MetricsCalculator:
             return 0.0
 
     @staticmethod
-    def calculate_conciseness(prediction: str, ground_truth: List[str], conciseness_type=None) -> float:
+    def calculate_conciseness(prediction: str, ground_truth: List[str], conciseness_type=None, weights: List[float] = None) -> float:
         """
         计算答案简洁性
         
@@ -1161,6 +1164,7 @@ class MetricsCalculator:
             ground_truth: 标准答案列表
             conciseness_type: 简洁性计算类型 None(默认长度比例), ratio(长度比例), 
                              semantic(语义压缩度), rouge(ROUGE压缩度), weighted(加权组合)
+            weights: 权重列表，仅在 conciseness_type='weighted' 时使用，默认[0.4, 0.4, 0.2]
             
         Returns:
             简洁性分数 (0-1)
@@ -1280,7 +1284,7 @@ class MetricsCalculator:
         elif conciseness_type == 'rouge':
             return conciseness_rouge_compression(prediction, ground_truth)
         elif conciseness_type == 'weighted':
-            return conciseness_weighted(prediction, ground_truth)
+            return conciseness_weighted(prediction, ground_truth, weights)
         elif conciseness_type == 'density':
             return conciseness_information_density(prediction, ground_truth)
         else:
