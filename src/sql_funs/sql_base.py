@@ -339,7 +339,7 @@ class PostgreSQLManager:
         """
         插入数据到指定表
         
-        将传入的数据字典插入到指定表中，支持自动处理 JSON 类型数据。
+        将传入的数据字典插入到指定表中，支持自动处理 JSON 类型和 numpy 类型数据。
         使用参数化查询防止 SQL 注入攻击。
         
         Args:
@@ -349,14 +349,26 @@ class PostgreSQLManager:
         Returns:
             bool: 插入成功返回 True，失败返回 False
         """
+        
+        def convert_value(value):
+            """转换值为 PostgreSQL 适配的类型"""
+            if value is None:
+                return None
+            # 处理 numpy 类型
+            if hasattr(value, 'item'):  # numpy 标量类型（numpy.float32, numpy.int64 等）
+                return value.item()
+            if hasattr(value, 'tolist'):  # numpy 数组
+                return json.dumps(value.tolist(), ensure_ascii=False)
+            # 处理字典和列表
+            if isinstance(value, (list, dict)):
+                return json.dumps(value, ensure_ascii=False)
+            return value
+        
         try:
-            # 处理 JSON 数据，将字典和列表转换为 JSON 字符串
+            # 处理数据，转换 numpy 类型和 JSON 数据
             processed_data = {}
             for key, value in data.items():
-                if isinstance(value, (list, dict)):
-                    processed_data[key] = json.dumps(value, ensure_ascii=False)
-                else:
-                    processed_data[key] = value
+                processed_data[key] = convert_value(value)
 
             # 构建插入语句的列名和值
             columns = list(processed_data.keys())
