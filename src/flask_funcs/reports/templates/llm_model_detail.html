@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ model_name }} - 模型详情</title>
+    <link rel="stylesheet" href="/static/css/qa_management.css">
+    <style>
+        .status-connected { color: #28a745; }
+        .status-error { color: #dc3545; }
+        .status-unknown { color: #6c757d; }
+        .config-item {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .config-label {
+            width: 150px;
+            font-weight: 500;
+            color: #666;
+        }
+        .config-value {
+            flex: 1;
+        }
+        .api-key-mask {
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 返回按钮和标题 -->
+    <div class="page-header">
+        <button class="back-btn" onclick="goBack()">← 返回模型列表</button>
+        <h1 id="pageTitle">模型详情</h1>
+    </div>
+    
+    <!-- 模型信息卡片 -->
+    <div class="group-info-card">
+        <div class="group-info-header">
+            <h2 id="modelName">{{ model_name }}</h2>
+            <div class="group-status">
+                <span id="statusBadge" class="status-badge">加载中...</span>
+            </div>
+        </div>
+        
+        <div class="group-info-body">
+            <h3>基本信息</h3>
+            <div id="configContainer">
+                <div class="config-item">
+                    <span class="config-label">模型类型:</span>
+                    <span class="config-value" id="modelType">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">API地址:</span>
+                    <span class="config-value" id="apiUrl">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">API密钥:</span>
+                    <span class="config-value api-key-mask" id="apiKey">********</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">模型名称:</span>
+                    <span class="config-value" id="modelVersion">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">温度参数:</span>
+                    <span class="config-value" id="temperature">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">最大Token数:</span>
+                    <span class="config-value" id="maxTokens">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">超时时间:</span>
+                    <span class="config-value" id="timeout">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">版本号:</span>
+                    <span class="config-value" id="version">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">创建时间:</span>
+                    <span class="config-value" id="createdAt">-</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">最近检测:</span>
+                    <span class="config-value" id="lastCheck">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="group-info-footer">
+            <button class="action-btn edit-btn" onclick="checkConnection()">检测连通性</button>
+            <button class="action-btn create-btn" onclick="showEvaluateDialog()">开始评估</button>
+            <button class="action-btn delete-btn" onclick="deleteModel()">删除模型</button>
+        </div>
+    </div>
+    
+    <!-- 统计信息卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+                <div class="stat-value" id="evalCount">0</div>
+                <div class="stat-label">评估次数</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+                <div class="stat-value" id="avgExactMatch">-</div>
+                <div class="stat-label">平均精确匹配</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+                <div class="stat-value" id="avgF1Score">-</div>
+                <div class="stat-label">平均F1分数</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史报告列表 -->
+    <div class="qa-management-area">
+        <div class="qa-header">
+            <h3>历史评估报告</h3>
+            <div class="qa-actions">
+                <button class="action-btn refresh-btn" onclick="loadReports()">刷新</button>
+            </div>
+        </div>
+        
+        <div class="data-table-area">
+            <table class="data-table" id="reportsTable">
+                <thead>
+                <tr>
+                    <th>报告名称</th>
+                    <th>评估时间</th>
+                    <th>问答对组</th>
+                    <th>问答对数量</th>
+                    <th>精确匹配</th>
+                    <th>F1分数</th>
+                    <th>语义相似度</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="reportsTableBody">
+                <tr>
+                    <td colspan="8" class="loading-cell">加载中...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页控件 -->
+        <div class="pagination-area" id="paginationArea">
+            <div class="pagination-info" id="paginationInfo">
+                第 <span id="currentPage">1</span> 页 / 共 <span id="totalPages">1</span> 页
+            </div>
+            <div class="pagination-controls">
+                <button class="pagination-btn" onclick="goToPage(1)">首页</button>
+                <button class="pagination-btn" onclick="goToPrevPage()">上一页</button>
+                <button class="pagination-btn" onclick="goToNextPage()">下一页</button>
+                <button class="pagination-btn" onclick="goToLastPage()">末页</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评估配置对话框 -->
+<div id="evaluateDialog" class="modal">
+    <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header">
+            <h3>配置评估参数</h3>
+            <span class="close" onclick="closeEvaluateDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="evaluateForm">
+                <div class="form-group">
+                    <label for="groupSelect">选择问答对组 *</label>
+                    <select id="groupSelect" class="form-control" required>
+                        <option value="">加载中...</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="offset">起始位置</label>
+                        <input type="number" id="offset" class="form-control" min="0" value="0">
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="limit">评估数量</label>
+                        <input type="number" id="limit" class="form-control" min="1" value="100">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="parallel">并行处理</label>
+                        <select id="parallel" class="form-control">
+                            <option value="false">顺序处理</option>
+                            <option value="true">并行处理</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="maxWorkers">并行工作数</label>
+                        <input type="number" id="maxWorkers" class="form-control" min="1" max="10" value="4">
+                    </div>
+                </div>
+                
+                <!-- 匹配类型配置 -->
+                <div class="form-group">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="toggleMatchTypes()">
+                        <span id="matchTypesToggle">▼</span> 高级评估指标配置（匹配类型）
+                    </label>
+                    <div id="matchTypesContainer" style="margin-top: 10px;">
+                        <!-- 精确匹配 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableExactMatch" checked>
+                                <label for="enableExactMatch" style="margin: 0; font-weight: 500;">精确匹配 (Exact Match)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">匹配方式:</label>
+                                <select id="exactMatchType" class="form-control" style="margin-top: 4px;">
+                                    <option value="normalized">normalized (默认标准化)</option>
+                                    <option value="strict">strict (严格匹配)</option>
+                                    <option value="fuzzy">fuzzy (模糊匹配)</option>
+                                    <option value="semantic">semantic (语义匹配)</option>
+                                    <option value="rouge">rouge (ROUGE匹配)</option>
+                                    <option value="tfidf">tfidf (TF-IDF匹配)</option>
+                                    <option value="keyword">keyword (关键词匹配)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">精确匹配计算方式: normalized(默认标准化), strict(严格匹配), fuzzy(模糊匹配), semantic(语义匹配), rouge(ROUGE匹配), tfidf(TF-IDF匹配), keyword(关键词匹配)</p>
+                            </div>
+                        </div>
+
+                        <!-- F1分数 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableF1Score" checked>
+                                <label for="enableF1Score" style="margin: 0; font-weight: 500;">F1分数 (F1 Score)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="f1CalType" class="form-control" style="margin-top: 4px;">
+                                    <option value="">word (默认词汇)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                    <option value="semantic">semantic (语义)</option>
+                                    <option value="jaccard">jaccard (Jaccard)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">F1分数计算方式: word(默认词汇), rouge(ROUGE), semantic(语义), jaccard(Jaccard)</p>
+                            </div>
+                        </div>
+
+                        <!-- 部分匹配 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enablePartialMatch" checked>
+                                <label for="enablePartialMatch" style="margin: 0; font-weight: 500;">部分匹配 (Partial Match)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">匹配方式:</label>
+                                <select id="partialMatchType" class="form-control" style="margin-top: 4px;">
+                                    <option value="">word_overlap (默认词汇重叠)</option>
+                                    <option value="semantic">semantic (语义)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                    <option value="tfidf">tfidf (TF-IDF)</option>
+                                    <option value="jaccard">jaccard (Jaccard)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">部分匹配计算方式: word_overlap(默认词汇重叠), semantic(语义), rouge(ROUGE), tfidf(TF-IDF), jaccard(Jaccard)</p>
+                            </div>
+                        </div>
+
+                        <!-- 语义相似度 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableSemanticSim" checked>
+                                <label for="enableSemanticSim" style="margin: 0; font-weight: 500;">语义相似度 (Semantic Similarity)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="semanticSimType" class="form-control" style="margin-top: 4px;">
+                                    <option value="">sentence_transformer (默认SentenceTransformer)</option>
+                                    <option value="bert">bert (BERT)</option>
+                                    <option value="tfidf">tfidf (TF-IDF)</option>
+                                    <option value="word2vec">word2vec (Word2Vec)</option>
+                                    <option value="jaccard">jaccard (Jaccard)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">语义相似度计算方式: sentence_transformer(默认), bert(BERT), tfidf(TF-IDF), word2vec(Word2Vec), jaccard(Jaccard)</p>
+                            </div>
+                        </div>
+
+                        <!-- 答案覆盖率 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableCoverage" checked>
+                                <label for="enableCoverage" style="margin: 0; font-weight: 500;">答案覆盖率 (Answer Coverage)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="coverageCalType" class="form-control" style="margin-top: 4px;">
+                                    <option value="simple">simple (默认简单)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                    <option value="sentence">sentence (句子)</option>
+                                    <option value="weighted">weighted (加权)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">答案覆盖率计算方式: simple(默认简单), rouge(ROUGE), sentence(句子), weighted(加权)</p>
+                            </div>
+                        </div>
+
+                        <!-- 答案相关性 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableRelevance" checked>
+                                <label for="enableRelevance" style="margin: 0; font-weight: 500;">答案相关性 (Answer Relevance)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="relevanceType" class="form-control" style="margin-top: 4px;">
+                                    <option value="">word_overlap (默认词汇重叠)</option>
+                                    <option value="semantic">semantic (语义)</option>
+                                    <option value="tfidf">tfidf (TF-IDF)</option>
+                                    <option value="weighted">weighted (加权)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">答案相关性计算方式: word_overlap(默认词汇重叠), semantic(语义), tfidf(TF-IDF), weighted(加权), rouge(ROUGE)</p>
+                            </div>
+                        </div>
+
+                        <!-- 上下文利用率 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableUtilization" checked>
+                                <label for="enableUtilization" style="margin: 0; font-weight: 500;">上下文利用率 (Context Utilization)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="utilizationCalType" class="form-control" style="margin-top: 4px;">
+                                    <option value="simple">simple (默认简单)</option>
+                                    <option value="semantic">semantic (语义)</option>
+                                    <option value="tfidf">tfidf (TF-IDF)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                    <option value="ngram">ngram (N-gram)</option>
+                                    <option value="weighted">weighted (加权)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">上下文利用率计算方式: simple(默认简单), semantic(语义), tfidf(TF-IDF), rouge(ROUGE), ngram(N-gram), weighted(加权)</p>
+                            </div>
+                        </div>
+
+                        <!-- 答案完整性 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableCompleteness" checked>
+                                <label for="enableCompleteness" style="margin: 0; font-weight: 500;">答案完整性 (Answer Completeness)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="completenessCalType" class="form-control" style="margin-top: 4px;">
+                                    <option value="simple">simple (默认简单)</option>
+                                    <option value="coverage">coverage (覆盖度)</option>
+                                    <option value="entities">entities (实体)</option>
+                                    <option value="rouge">rouge (ROUGE)</option>
+                                    <option value="weighted">weighted (加权)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">答案完整性计算方式: simple(默认简单), coverage(覆盖度), entities(实体), rouge(ROUGE), weighted(加权)</p>
+                            </div>
+                        </div>
+
+                        <!-- 答案简洁性 -->
+                        <div class="match-type-item" style="padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" id="enableConciseness" checked>
+                                <label for="enableConciseness" style="margin: 0; font-weight: 500;">答案简洁性 (Answer Conciseness)</label>
+                            </div>
+                            <div style="margin-left: 24px;">
+                                <label style="font-size: 12px; color: #666;">计算方式:</label>
+                                <select id="concisenessType" class="form-control" style="margin-top: 4px;">
+                                    <option value="">ratio (默认长度比例)</option>
+                                    <option value="semantic">semantic (语义压缩度)</option>
+                                    <option value="rouge">rouge (ROUGE压缩度)</option>
+                                    <option value="density">density (信息密度)</option>
+                                    <option value="weighted">weighted (加权)</option>
+                                </select>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">答案简洁性计算方式: ratio(默认长度比例), semantic(语义压缩度), rouge(ROUGE压缩度), density(信息密度), weighted(加权)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn secondary" onclick="closeEvaluateDialog()">取消</button>
+            <button class="modal-btn primary" onclick="startEvaluation()">开始评估</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 全局变量
+const modelName = '{{ model_name }}';
+let currentPage = 1;
+let pageSize = 20;
+let totalPages = 1;
+let modelConfig = null;
+
+const API_BASE = '/api/llm';
+const QA_API_BASE = '/api/qa';
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadModelDetail();
+    loadReports();
+});
+
+// 加载模型详情
+function loadModelDetail() {
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modelConfig = data.data.config;
+                renderModelDetail(data.data);
+            } else {
+                showError('获取模型详情失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('获取模型详情失败:', error);
+            showError('获取模型详情失败');
+        });
+}
+
+// 渲染模型详情
+function renderModelDetail(data) {
+    const config = data.config;
+    
+    // 更新标题
+    document.getElementById('pageTitle').textContent = config.name + ' - 模型详情';
+    document.getElementById('modelName').textContent = config.name;
+    
+    // 更新状态
+    const statusBadge = document.getElementById('statusBadge');
+    if (config.status === 'connected') {
+        statusBadge.textContent = '✓ 已连接';
+        statusBadge.className = 'status-badge active';
+    } else if (config.status === 'error') {
+        statusBadge.textContent = '✗ 连接失败';
+        statusBadge.className = 'status-badge inactive';
+    } else {
+        statusBadge.textContent = '? 未检测';
+        statusBadge.className = 'status-badge';
+    }
+    
+    // 更新配置信息
+    document.getElementById('modelType').textContent = config.type || '-';
+    document.getElementById('apiUrl').textContent = config.api_url || '-';
+    document.getElementById('modelVersion').textContent = config.model || '-';
+    document.getElementById('temperature').textContent = config.temperature || '-';
+    document.getElementById('maxTokens').textContent = config.max_tokens || '-';
+    document.getElementById('timeout').textContent = (config.timeout || '-') + '秒';
+    document.getElementById('version').textContent = config.version || '-';
+    document.getElementById('createdAt').textContent = formatDate(config.created_at);
+    document.getElementById('lastCheck').textContent = formatDate(config.last_check);
+    
+    // 更新统计信息
+    document.getElementById('evalCount').textContent = data.evaluation_count || 0;
+}
+
+// 加载报告列表
+function loadReports() {
+    const tableBody = document.getElementById('reportsTableBody');
+    tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载中...</td></tr>';
+    
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}/reports?page=${currentPage}&limit=${pageSize}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderReportsTable(data.data.rows);
+                updatePagination(data.data);
+                
+                // 更新统计
+                updateStats(data.data.rows);
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载失败</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('加载报告列表失败:', error);
+            tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载失败</td></tr>';
+        });
+}
+
+// 渲染报告表格
+function renderReportsTable(reports) {
+    const tableBody = document.getElementById('reportsTableBody');
+    
+    if (reports.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">暂无评估报告</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    reports.forEach(report => {
+        // 处理报告路径：将反斜杠转换为正斜杠，确保在HTML属性中正确显示
+        const reportPath = (report.report_path || '').replace(/\\/g, '/');
+        html += `
+        <tr>
+            <td>${escapeHtml(report.report_name)}</td>
+            <td>${formatDate(report.created_at)}</td>
+            <td>${escapeHtml(report.group_name || '-')}</td>
+            <td>${report.qa_count || 0}</td>
+            <td>${report.exact_match ? (report.exact_match * 100).toFixed(2) + '%' : '-'}</td>
+            <td>${report.f1_score ? (report.f1_score * 100).toFixed(2) + '%' : '-'}</td>
+            <td>${report.semantic_similarity ? (report.semantic_similarity * 100).toFixed(2) + '%' : '-'}</td>
+            <td>
+                <button class="action-btn edit-btn" onclick="viewReport('${reportPath}')" title="查看">👁</button>
+            </td>
+        </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+// 更新统计
+function updateStats(reports) {
+    if (reports.length === 0) return;
+    
+    let totalExactMatch = 0;
+    let totalF1Score = 0;
+    let count = 0;
+    
+    reports.forEach(r => {
+        if (r.exact_match !== null) {
+            totalExactMatch += r.exact_match;
+            count++;
+        }
+        if (r.f1_score !== null) {
+            totalF1Score += r.f1_score;
+        }
+    });
+    
+    if (count > 0) {
+        document.getElementById('avgExactMatch').textContent = (totalExactMatch / count * 100).toFixed(2) + '%';
+        document.getElementById('avgF1Score').textContent = (totalF1Score / count * 100).toFixed(2) + '%';
+    }
+}
+
+// 更新分页
+function updatePagination(data) {
+    totalPages = data.pages || 1;
+    currentPage = data.page || 1;
+    
+    document.getElementById('currentPage').textContent = currentPage;
+    document.getElementById('totalPages').textContent = totalPages;
+}
+
+// 分页跳转
+function goToPage(page) {
+    page = parseInt(page);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    loadReports();
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadReports();
+    }
+}
+
+function goToNextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        loadReports();
+    }
+}
+
+function goToLastPage() {
+    currentPage = totalPages;
+    loadReports();
+}
+
+// 检测连通性
+function checkConnection() {
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}/check`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('模型连接正常');
+            loadModelDetail();
+        } else {
+            showError(result.message);
+        }
+    })
+    .catch(error => {
+        console.error('检测连通性失败:', error);
+        showError('检测连通性失败');
+    });
+}
+
+// 显示评估对话框
+function showEvaluateDialog() {
+    document.getElementById('evaluateDialog').classList.add('active');
+    loadGroups();
+}
+
+// 关闭评估对话框
+function closeEvaluateDialog() {
+    document.getElementById('evaluateDialog').classList.remove('active');
+}
+
+// 切换匹配类型配置显示
+function toggleMatchTypes() {
+    const container = document.getElementById('matchTypesContainer');
+    const toggle = document.getElementById('matchTypesToggle');
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+        toggle.textContent = '▼';
+    } else {
+        container.style.display = 'none';
+        toggle.textContent = '▶';
+    }
+}
+
+// 获取匹配类型配置
+function getMatchTypesConfig() {
+    const matchTypes = {};
+    
+    // 精确匹配
+    if (document.getElementById('enableExactMatch').checked) {
+        const matchType = document.getElementById('exactMatchType').value;
+        matchTypes.calculate_exact_match = { match_type: matchType };
+    }
+    
+    // F1分数
+    if (document.getElementById('enableF1Score').checked) {
+        const calType = document.getElementById('f1CalType').value;
+        matchTypes.calculate_f1_score = calType ? { cal_type: calType } : {};
+    }
+    
+    // 部分匹配
+    if (document.getElementById('enablePartialMatch').checked) {
+        const matchType = document.getElementById('partialMatchType').value;
+        matchTypes.calculate_partial_match = matchType ? { match_type: matchType } : {};
+    }
+    
+    // 语义相似度
+    if (document.getElementById('enableSemanticSim').checked) {
+        const simType = document.getElementById('semanticSimType').value;
+        matchTypes.calculate_semantic_similarity = simType ? { sim_type: simType } : {};
+    }
+    
+    // 答案覆盖率
+    if (document.getElementById('enableCoverage').checked) {
+        const calType = document.getElementById('coverageCalType').value;
+        matchTypes.calculate_answer_coverage = { cal_type: calType };
+    }
+    
+    // 答案相关性
+    if (document.getElementById('enableRelevance').checked) {
+        const relType = document.getElementById('relevanceType').value;
+        matchTypes.calculate_answer_relevance = relType ? { rel_type: relType } : {};
+    }
+    
+    // 上下文利用率
+    if (document.getElementById('enableUtilization').checked) {
+        const calType = document.getElementById('utilizationCalType').value;
+        matchTypes.calculate_context_utilization = { cal_type: calType };
+    }
+    
+    // 答案完整性
+    if (document.getElementById('enableCompleteness').checked) {
+        const calType = document.getElementById('completenessCalType').value;
+        matchTypes.calculate_completeness = { cal_type: calType };
+    }
+    
+    // 答案简洁性
+    if (document.getElementById('enableConciseness').checked) {
+        const concisenessType = document.getElementById('concisenessType').value;
+        matchTypes.calculate_conciseness = concisenessType ? { conciseness_type: concisenessType } : {};
+    }
+    
+    return matchTypes;
+}
+
+// 加载问答对组列表
+function loadGroups() {
+    fetch(`${QA_API_BASE}/groups?limit=100`)
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('groupSelect');
+            if (data.success && data.data.rows) {
+                let html = '<option value="">请选择问答对组</option>';
+                data.data.rows.forEach(group => {
+                    html += `<option value="${group.id}">${escapeHtml(group.name)} (${group.qa_count || 0}条)</option>`;
+                });
+                select.innerHTML = html;
+            } else {
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+        })
+        .catch(error => {
+            console.error('加载问答对组失败:', error);
+            document.getElementById('groupSelect').innerHTML = '<option value="">加载失败</option>';
+        });
+}
+
+// 开始评估
+function startEvaluation() {
+    const groupId = document.getElementById('groupSelect').value;
+    const offset = parseInt(document.getElementById('offset').value) || 0;
+    const limit = parseInt(document.getElementById('limit').value) || 100;
+    const parallel = document.getElementById('parallel').value === 'true';
+    const maxWorkers = parseInt(document.getElementById('maxWorkers').value) || 4;
+    
+    if (!groupId) {
+        showError('请选择问答对组');
+        return;
+    }
+    
+    // 获取匹配类型配置
+    const matchTypes = getMatchTypesConfig();
+    
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}/evaluate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            group_id: parseInt(groupId),
+            offset: offset,
+            limit: limit,
+            parallel: parallel,
+            max_workers: maxWorkers,
+            match_types: matchTypes
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('评估任务已启动，请等待完成');
+            closeEvaluateDialog();
+            // 刷新报告列表
+            setTimeout(() => loadReports(), 2000);
+        } else {
+            showError(result.message);
+        }
+    })
+    .catch(error => {
+        console.error('启动评估失败:', error);
+        showError('启动评估失败');
+    });
+}
+
+// 查看报告
+function viewReport(reportPath) {
+    // 使用LLM评估报告专用路由
+    // 处理Windows路径：将反斜杠转换为正斜杠
+    let normalizedPath = reportPath.replace(/\\/g, '/');
+    
+    // 移除 evaluation_results 前缀（包括各种变体）
+    // 可能的输入: "evaluation_results\xxx.json", "evaluation_results/xxx.json", "evaluation_resultsxxx.json"
+    if (normalizedPath.includes('evaluation_results')) {
+        // 提取 evaluation_results 之后的部分
+        const idx = normalizedPath.indexOf('evaluation_results');
+        const afterPrefix = normalizedPath.substring(idx + 'evaluation_results'.length);
+        // 如果后面跟着斜杠或反斜杠，移除它
+        normalizedPath = afterPrefix.replace(/^[\\\/]+/, '');
+    }
+    
+    // 如果此时路径仍然以目录分隔符开头，移除它
+    normalizedPath = normalizedPath.replace(/^[\\\/]+/, '');
+    
+    window.open(`/llm/report/${encodeURIComponent(normalizedPath)}`, '_blank');
+}
+
+// 删除模型
+function deleteModel() {
+    if (!confirm(`确定要删除模型 "${modelName}" 吗？`)) {
+        return;
+    }
+    
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('模型删除成功');
+            goBack();
+        } else {
+            showError(result.message);
+        }
+    })
+    .catch(error => {
+        console.error('删除模型失败:', error);
+        showError('删除模型失败');
+    });
+}
+
+// 返回
+function goBack() {
+    window.location.href = '/llm/models';
+}
+
+// 工具函数
+function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString();
+}
+
+function showSuccess(message) {
+    alert('✅ ' + message);
+}
+
+function showError(message) {
+    alert('❌ ' + message);
+}
+</script>
+</body>
+</html>
