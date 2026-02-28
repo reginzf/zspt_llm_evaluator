@@ -129,7 +129,7 @@ function createTaskRow(task) {
             <button class="task-action-btn report-btn" onclick="showReportDialog('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
                 报告
             </button>
-            <button class="task-action-btn delete-btn" onclick="deleteTask('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
+            <button class="task-action-btn delete-btn" onclick="deleteMetricTask('${task.metric_task_id ? escapeHtml(task.metric_task_id) : ''}')">
                 删除
             </button>
         </td>
@@ -705,8 +705,8 @@ function hideCreateMetricTaskModal() {
     document.getElementById('createMetricTaskModal').style.display = 'none';
 }
 
-// 删除任务函数
-function deleteTask(metricTaskId) {
+// 删除指标任务函数
+function deleteMetricTask(metricTaskId) {
     if (!metricTaskId) {
         alert('任务ID不能为空');
         return;

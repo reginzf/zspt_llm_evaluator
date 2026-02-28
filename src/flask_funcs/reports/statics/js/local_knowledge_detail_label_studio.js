@@ -136,7 +136,7 @@ function createAnnotationTaskRow(task, envId = null) {
                 <button class="task-action-btn annotate-btn" onclick="showAnnotationDialog('${task.task_id}')">标注</button>
                 <button class="task-action-btn edit-btn" onclick="${editClickHandler}">编辑</button>
                 <button class="task-action-btn sync-btn" onclick="syncTask('${task.task_id}')">同步</button>
-                <button class="task-action-btn delete-btn" onclick="deleteTask(${deleteBtnParams})">删除</button>
+                <button class="task-action-btn delete-btn" onclick="deleteLabelStudioTask(${deleteBtnParams})">删除</button>
             </div>
         </td>
     `;
@@ -812,8 +812,8 @@ function saveTask() {
     });
 }
 
-// 删除任务
-function deleteTask(taskId, envId) {
+// 删除Label Studio任务
+function deleteLabelStudioTask(taskId, envId) {
     if (confirm('确定要删除这个标注任务吗？')) {
         fetch('/local_knowledge_detail/label_studio/delete_project', {
             method: 'DELETE',
