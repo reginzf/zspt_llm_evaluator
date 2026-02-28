@@ -241,7 +241,7 @@ function showUploadDialog(knoId) {
 
 function deleteFile(knolId, knolName) {
     if (confirm(`确定要删除文件 "${knolName}" 吗？`)) {
-        fetch(`/local_knowledge_doc/delete/${knolId}`, {
+        fetch(`/local_knowledge_detail/local_knowledge_doc/delete/${knolId}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
@@ -266,7 +266,7 @@ function editFile(knolId, knolName, currentDescribe) {
         const formData = new FormData();
         formData.append('knol_describe', newDescribe);
 
-        fetch(`/local_knowledge_doc/edit/${knolId}`, {
+        fetch(`/local_knowledge_detail/local_knowledge_doc/edit/${knolId}`, {
             method: 'PUT',
             body: formData
         })
@@ -355,3 +355,145 @@ document.addEventListener('DOMContentLoaded', function() {
     // 默认加载文件列表
     loadFileList();
 });
+
+// ========== 绑定知识库相关函数 ==========
+
+// 显示绑定对话框
+function showBindDialog() {
+    document.getElementById('bindDialog').style.display = 'block';
+    loadEnvironments();
+}
+
+// 关闭绑定对话框
+function closeBindDialog() {
+    document.getElementById('bindDialog').style.display = 'none';
+    // 清空选择框
+    document.getElementById('bindEnvironmentSelect').value = '';
+    document.getElementById('bindKnowledgeBaseSelect').innerHTML = '<option value="">请先选择环境</option>';
+}
+
+// 加载环境列表
+function loadEnvironments() {
+    fetch('/environment/list/', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data) {
+            const envSelect = document.getElementById('bindEnvironmentSelect');
+            envSelect.innerHTML = '<option value="">请选择环境</option>';
+            data.data.forEach(env => {
+                const option = document.createElement('option');
+                option.value = env.zlpt_base_id;
+                option.textContent = env.zlpt_name + ' / ' + env.zlpt_base_id;
+                envSelect.appendChild(option);
+            });
+        } else {
+            console.error('获取环境列表失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('加载环境列表时出错:', error);
+    });
+}
+
+// 根据选择的环境加载知识库列表（绑定对话框专用）
+function loadBindKnowledgeBases() {
+    console.log('loadBindKnowledgeBases called');
+    const envSelect = document.getElementById('bindEnvironmentSelect');
+    const kbSelect = document.getElementById('bindKnowledgeBaseSelect');
+    const selectedEnvId = envSelect.value;
+    
+    console.log('Selected env ID:', selectedEnvId);
+
+    // 清空知识库选择框
+    kbSelect.innerHTML = '<option value="">加载中...</option>';
+
+    if (!selectedEnvId) {
+        kbSelect.innerHTML = '<option value="">请先选择环境</option>';
+        return;
+    }
+
+    // 通过API获取指定环境下的知识库列表
+    console.log('Fetching knowledge bases for env:', selectedEnvId);
+    fetch('/environment_detail_list', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            zlpt_id: selectedEnvId
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success && data.data) {
+            kbSelect.innerHTML = '<option value="">请选择知识库</option>';
+            data.data.forEach(kb => {
+                console.log('Adding knowledge base:', kb.knowledge_name, kb.knowledge_id);
+                const option = document.createElement('option');
+                option.value = kb.knowledge_id;
+                option.textContent = kb.knowledge_name + ' / ' + kb.knowledge_id;
+                kbSelect.appendChild(option);
+            });
+        } else {
+            console.error('获取知识库列表失败:', data.message);
+            kbSelect.innerHTML = '<option value="">加载失败</option>';
+        }
+    })
+    .catch(error => {
+        console.error('加载知识库列表时出错:', error);
+        kbSelect.innerHTML = '<option value="">加载出错</option>';
+    });
+}
+
+// 执行绑定操作
+function bindKnowledge() {
+    const envSelect = document.getElementById('bindEnvironmentSelect');
+    const kbSelect = document.getElementById('bindKnowledgeBaseSelect');
+
+    const selectedEnvId = envSelect.value;
+    const selectedKbId = kbSelect.value;
+
+    if (!selectedEnvId || !selectedKbId) {
+        alert('请先选择环境和知识库');
+        return;
+    }
+
+    const knoId = document.getElementById('knowledge-id').textContent.trim();
+
+    // 调用绑定API
+    fetch('/local_knowledge/bind', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            local_kno_id: knoId,
+            kb_id: selectedKbId,
+            env_id: selectedEnvId,
+            action: 'bind'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('绑定成功');
+            closeBindDialog();
+            loadBindingStatus(); // 重新加载绑定状态
+        } else {
+            alert('绑定失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('绑定知识库时出错:', error);
+        alert('绑定过程中发生错误: ' + error.message);
+    });
+}

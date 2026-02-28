@@ -6,7 +6,7 @@ function showUploadDialogFromJS(knoId) {
     document.getElementById('uploadDialog').style.display = 'block';
 }
 
-// 上传文件功能 - 用于详细页面
+// 上传文件功能 - 用于详细页面（仅使用MinIO存储）
 function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const files = fileInput.files;
@@ -24,6 +24,8 @@ function uploadFile() {
     }
 
     formData.append('kno_id', window.currentKnoId);
+    // 强制使用MinIO存储
+    formData.append('storage_type', 'minio');
 
     fetch('/local_knowledge/upload', {
         method: 'POST',

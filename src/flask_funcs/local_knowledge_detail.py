@@ -537,3 +537,71 @@ def _update_database_records(sync_data, know_client):
             k_crud.knowledge_insert(doc_record['docId'], doc_record['docName'], doc_record['fileFormat'],
                                     doc_record['description'], doc_record['docName'], sync_data['content_code'],
                                     sync_data['knowledge_id'])
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_doc/delete/<knol_id>', methods=['DELETE'])
+def delete_local_knowledge_file(knol_id):
+    """删除本地知识库中的单个文件（仅支持MinIO存储）"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取文件记录信息
+            file_records = crud.get_local_knowledge_file_list(knol_id=knol_id)
+            if not file_records:
+                return jsonify({'status': 'error', 'message': '未找到对应的文件记录'}), 404
+
+            file_record = file_records[0]  # 获取第一个结果
+            # file_record 结构: (id, knol_id, knol_name, knol_describe, knol_path, ls_status, created_at, updated_at, kno_id)
+            knol_path_str = file_record[4]  # knol_path 是第5列 (索引4)
+            knol_name = file_record[2]  # knol_name 是第3列 (索引2)
+            knowledge_id = file_record[8]  # kno_id 是第9列 (索引8)
+
+            # 获取知识库路径信息以构建完整文件路径
+            knowledge_list = crud.get_local_knowledge(kno_id=knowledge_id)
+            if not knowledge_list:
+                return jsonify({'status': 'error', 'message': '未找到对应的主知识库信息'}), 404
+
+            knowledge_detail = knowledge_list[0]
+            knowledge_path = knowledge_detail[4]  # kno_path 是第5列 (索引4)
+
+            # 构建MinIO中的对象名称
+            object_name = f"{knowledge_path}/{knol_name}"
+            
+            # 从MinIO删除文件
+            minio_client = MinIOClient(bucket_name=UPLOAD_DIR)
+            delete_success = minio_client.delete_file(object_name)
+            
+            if delete_success:
+                logger.info(f"MinIO文件已删除: {object_name}")
+            else:
+                logger.warning(f"MinIO文件删除失败: {object_name}")
+
+            # 删除数据库记录
+            success = crud.local_knowledge_list_delete(knol_id=knol_id)
+
+            if success:
+                return jsonify({'status': 'success', 'message': '文件删除成功'})
+            else:
+                return jsonify({'status': 'error', 'message': '文件删除失败'}), 500
+    except Exception as e:
+        logger.error(f"删除文件时发生错误: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'删除文件时发生错误: {str(e)}'}), 500
+
+
+@local_knowledge_detail_bp.route('/local_knowledge_doc/edit/<knol_id>', methods=['PUT'])
+def edit_local_knowledge_file(knol_id):
+    """编辑本地知识库中的单个文件（仅支持编辑描述）"""
+    try:
+        # 从请求中获取新的描述
+        knol_describe = request.form.get('knol_describe')
+
+        with LocalKnowledgeCrud() as crud:
+            # 更新数据库记录
+            success = crud.local_knowledge_list_update(knol_id=knol_id, knol_describe=knol_describe)
+
+            if success:
+                return jsonify({'status': 'success', 'message': '文件描述更新成功'})
+            else:
+                return jsonify({'status': 'error', 'message': '文件描述更新失败'}), 500
+    except Exception as e:
+        logger.error(f"更新文件描述时发生错误: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'更新文件描述时发生错误: {str(e)}'}), 500
