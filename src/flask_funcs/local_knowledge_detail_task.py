@@ -371,7 +371,7 @@ def update_task_match_type():
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/delete_task', methods=['DELETE'])
 def delete_task():
     """
-    删除指标任务及其相关报告
+    删除标注任务及其相关指标任务和报告
     """
     try:
         data = request.get_json()
@@ -379,11 +379,22 @@ def delete_task():
         if not metric_task_id:
             return jsonify({"success": False, "message": "缺少metric_task_id参数"}), 400
         
+        task_id = None
+        # 尝试通过metric_task_id获取指标任务信息
         with MetricTasksCRUD() as mt_crud:
-            # 首先查询该任务的所有报告
+            metric_tasks = mt_crud.metric_task_list(metric_task_id=metric_task_id)
+            if metric_tasks and len(metric_tasks) > 0:
+                # 如果找到指标任务，提取关联的task_id
+                task_id = metric_tasks[0][0]  # metric_task_list返回的元组中task_id在第0列
+                logger.info(f"找到指标任务，关联的task_id: {task_id}")
+            else:
+                # 如果没有找到指标任务，将metric_task_id视为task_id
+                task_id = metric_task_id
+                logger.info(f"未找到指标任务，将metric_task_id视为task_id: {task_id}")
+            
+            # 删除所有相关的报告文件和记录（通过metric_task_id查询）
             reports = mt_crud.report_list(metric_task_id=metric_task_id)
             
-            # 删除所有相关的报告文件和记录
             for report in reports:
                 report_info = mt_crud._report_to_json(report)
                 report_id = report_info['report_id']
@@ -408,13 +419,19 @@ def delete_task():
                     mt_crud.report_delete(report_id)
                     logger.info(f"报告记录已删除: {report_id}")
             
-            # 删除指标任务本身
-            success = mt_crud.metric_task_delete(metric_task_id)
-            if success:
+            # 删除指标任务（如果存在）
+            if metric_tasks and len(metric_tasks) > 0:
+                mt_crud.metric_task_delete(metric_task_id)
                 logger.info(f"指标任务删除成功: {metric_task_id}")
+        
+        # 使用LabelStudioCrud删除标注任务
+        with LabelStudioCrud() as ls_crud:
+            success = ls_crud.annotation_task_delete(task_id)
+            if success:
+                logger.info(f"标注任务删除成功: {task_id}")
                 return jsonify({"success": True, "message": "任务删除成功"})
             else:
-                logger.error(f"指标任务删除失败: {metric_task_id}")
+                logger.error(f"标注任务删除失败: {task_id}")
                 return jsonify({"success": False, "message": "任务删除失败"}), 500
                 
     except Exception as e:
