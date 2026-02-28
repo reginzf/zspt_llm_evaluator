@@ -14,7 +14,7 @@ class CreateTables(PostgreSQLManager):
 
     # 问题表的通用字段定义
     QUESTION_TABLE_FIELDS = {
-        "id": "SERIAL PRIMARY KEY",
+        "id": "SERIAL",
         "question_id": "VARCHAR(100) NOT NULL",
         "question_set_id": "VARCHAR(100) NOT NULL",
         "question_type": "VARCHAR(50) NOT NULL CHECK (question_type IN ('factual', 'contextual', 'conceptual', 'reasoning', 'application'))",
@@ -34,7 +34,7 @@ class CreateTables(PostgreSQLManager):
     def create_environment_table(self) -> bool:
         """1. 创建环境信息表"""
         columns = {
-            "zlpt_base_id": "VARCHAR(100) PRIMARY KEY",
+            "zlpt_base_id": "VARCHAR(100) NOT NULL",
             "zlpt_name": "VARCHAR(200) NOT NULL",
             "zlpt_base_url": "VARCHAR(500) NOT NULL",
             "key1": "TEXT",
@@ -50,7 +50,7 @@ class CreateTables(PostgreSQLManager):
     def create_knowledge_base_table(self) -> bool:
         """2. 创建知识库表"""
         columns = {
-            "knowledge_id": "VARCHAR(100) PRIMARY KEY",
+            "knowledge_id": "VARCHAR(100) NOT NULL",
             "knowledge_name": "VARCHAR(200) NOT NULL",
             "kno_root_id": "VARCHAR(100)",
             "chunk_size": "INTEGER DEFAULT 500",
@@ -70,7 +70,7 @@ class CreateTables(PostgreSQLManager):
     def create_knowledge_path_table(self) -> bool:
         """3. 创建知识库目录表"""
         columns = {
-            "kno_path_id": "VARCHAR(100) PRIMARY KEY",
+            "kno_path_id": "VARCHAR(100) NOT NULL",
             "kno_path_name": "VARCHAR(200) NOT NULL",
             "knowledge_id": "VARCHAR(100) NOT NULL",
             "parent": "VARCHAR(100)",
@@ -84,7 +84,7 @@ class CreateTables(PostgreSQLManager):
     def create_label_studio_table(self) -> bool:
         """4. 创建 label-studio 信息表"""
         columns = {
-            "label_studio_id": "VARCHAR(100) PRIMARY KEY",
+            "label_studio_id": "VARCHAR(100) NOT NULL",
             "label_studio_url": "VARCHAR(500) NOT NULL",
             "label_studio_api_key": "VARCHAR(200) NOT NULL",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
@@ -97,7 +97,7 @@ class CreateTables(PostgreSQLManager):
     def create_knowledge_table(self) -> bool:
         """5. 创建知识表"""
         columns = {
-            "doc_id": "VARCHAR(100) PRIMARY KEY",
+            "doc_id": "VARCHAR(100) NOT NULL",
             "doc_name": "VARCHAR(200) NOT NULL",
             "doc_type": "VARCHAR(50) NOT NULL",
             "doc_describe": "TEXT",
@@ -113,7 +113,7 @@ class CreateTables(PostgreSQLManager):
     def create_question_config_table(self) -> bool:
         """6. 创建问题配置文件表"""
         columns = {
-            "question_id": "VARCHAR(100) PRIMARY KEY",
+            "question_id": "VARCHAR(100) NOT NULL",
             "question_name": "VARCHAR(200) NOT NULL",
             "knowledge_id": "VARCHAR(100)",
             "last_updated": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",  # 最后更新时间
@@ -146,7 +146,7 @@ class CreateTables(PostgreSQLManager):
 
     def create_local_knowledge(self) -> bool:
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "kno_id": "VARCHAR(100) NOT NULL UNIQUE",
             "kno_name": "VARCHAR(200) NOT NULL",
             "kno_describe": "TEXT",  # 描述
@@ -164,7 +164,7 @@ class CreateTables(PostgreSQLManager):
 
     def create_local_knowledge_list(self) -> bool:
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "knol_id": "VARCHAR(100) NOT NULL UNIQUE",
             "knol_name": "VARCHAR(200) NOT NULL",
             "knol_describe": "TEXT",  # 描述
@@ -180,7 +180,7 @@ class CreateTables(PostgreSQLManager):
     def create_local_knowledge_file_upload_table(self) -> bool:
         """创建本地知识库文件上传记录表"""
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "knol_id": "VARCHAR(100) NOT NULL",  # 本地知识库文件ID，关联ai_local_knowledge_list表
             "knowledge_base_id": "VARCHAR(100) NOT NULL",  # 知识库ID，关联ai_knowledge_base表
             "upload_status": "INTEGER DEFAULT 1",  # 上传状态: 0-已上传, 1-未上传, 2-上传中
@@ -197,7 +197,7 @@ class CreateTables(PostgreSQLManager):
     def create_knowledge_bind_table(self) -> bool:
         """创建知识库绑定关系表"""
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "kno_id": "VARCHAR(100) NOT NULL",  # ai_local_knowledge表的kno_id
             "knowledge_id": "VARCHAR(100) NOT NULL",  # ai_knowledge_base表的knowledge_id
             "bind_status": "INTEGER DEFAULT 0 CHECK (bind_status IN (0, 1, 2, 3, 4))",
@@ -211,7 +211,7 @@ class CreateTables(PostgreSQLManager):
     def create_label_studio_bind_table(self):
         """创建本地知识库与Label Studio绑定关系表"""
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "kno_id": "VARCHAR(100) NOT NULL",  # ai_local_knowledge表的kno_id
             "label_studio_id": "VARCHAR(100) NOT NULL",  # ai_label_studio_info表的label_studio_id
             "bind_status": "INTEGER DEFAULT 0 CHECK (bind_status IN (0, 1, 2, 3, 4))",
@@ -225,7 +225,7 @@ class CreateTables(PostgreSQLManager):
     def create_annotation_tasks_table(self):
         """创建标注任务表"""
         columns = {
-            "task_id": "VARCHAR(100) PRIMARY KEY",
+            "task_id": "VARCHAR(100) NOT NULL",
             "task_name": "VARCHAR(200) NOT NULL",
             "local_knowledge_id": "VARCHAR(100) NOT NULL",
             "question_set_id": "VARCHAR(100) NOT NULL",
@@ -236,7 +236,7 @@ class CreateTables(PostgreSQLManager):
             "task_status": "VARCHAR(20) DEFAULT '未开始' CHECK (task_status IN ('未开始', '进行中', '已完成'))",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "knowledge_base_id": "VARCHAR(100) NOT NULL",
+            "knowledge_base_id": "VARCHAR(100)",
             "annotation_type": "VARCHAR(20) CHECK (annotation_type IN ('llm', 'manual', 'mlb'))",
             "FOREIGN KEY (local_knowledge_id)": "REFERENCES ai_local_knowledge(kno_id) ON DELETE CASCADE",
             "FOREIGN KEY (question_set_id)": "REFERENCES ai_question_config(question_id) ON DELETE CASCADE",
@@ -248,14 +248,14 @@ class CreateTables(PostgreSQLManager):
     def create_metric_tasks_table(self):
         """11. 创建指标任务表"""
         columns = {
-            "task_id": "VARCHAR(100)",
+            "task_id": "VARCHAR(100) NOT NULL",
             "status": "VARCHAR(20) NOT NULL DEFAULT '初始化'",
             "search_type": "VARCHAR(50) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
             "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             "knowledge_base_id": "VARCHAR(100)",  # 新增：知识库ID字段
             "match_type": "VARCHAR(20) CHECK (match_type IN ('chunkTextMatch', 'chunkIdMatch'))",
-            "metric_task_id": "VARCHAR(20) PRIMARY KEY",
+            "metric_task_id": "VARCHAR(20)",
             "FOREIGN KEY (task_id)": "REFERENCES ai_annotation_tasks(task_id) ON DELETE CASCADE",
             "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"
         }
@@ -264,7 +264,7 @@ class CreateTables(PostgreSQLManager):
     def create_report_table(self):
         """12. 创建报告表"""
         columns = {
-            "report_id": "VARCHAR(100) PRIMARY KEY",
+            "report_id": "VARCHAR(100) NOT NULL",
             "search_type": "VARCHAR(20) CHECK (search_type IN ('vectorSearch', 'hybridSearch', 'augmentedSearch'))",
             "filepath": "VARCHAR(500) NOT NULL",
             "task_id": "VARCHAR(100)",
@@ -311,7 +311,7 @@ class CreateTables(PostgreSQLManager):
         用于管理问答对分组，前端可创建不同的测试用途分组
         """
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "group_uuid": "UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL",
             "name": "VARCHAR(200) NOT NULL",
             "purpose": "TEXT",  # 用途描述
@@ -389,7 +389,7 @@ class CreateTables(PostgreSQLManager):
             # 动态可扩展元数据
             "dynamic_metadata": "JSONB DEFAULT '{}'::jsonb",
             # 向量化字段（可选）
-            "vector_embedding": "VECTOR(768)",  # 使用pgvector扩展，维度可配置
+
             # 统计字段
             "question_length": "INTEGER",  # 问题长度
             "answer_length": "INTEGER",  # 答案长度
@@ -400,7 +400,7 @@ class CreateTables(PostgreSQLManager):
             # 分区键
             "created_month": "DATE NOT NULL",
             # 主键和外键约束
-            "PRIMARY KEY (id, created_month)": "",
+
             "FOREIGN KEY (group_id)": "REFERENCES ai_qa_data_group(id) ON DELETE CASCADE"
         }
 
@@ -600,7 +600,7 @@ class CreateTables(PostgreSQLManager):
     def create_llm_models_table(self) -> bool:
         """创建LLM模型配置表"""
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "name": "VARCHAR(100) NOT NULL UNIQUE",
             "type": "VARCHAR(50) NOT NULL",
             "api_key": "TEXT NOT NULL",
@@ -624,7 +624,7 @@ class CreateTables(PostgreSQLManager):
     def create_llm_evaluation_reports_table(self) -> bool:
         """创建LLM评估报告表"""
         columns = {
-            "id": "SERIAL PRIMARY KEY",
+            "id": "SERIAL",
             "report_name": "VARCHAR(200) NOT NULL",
             "model_name": "VARCHAR(100) NOT NULL",
             "model_id": "INTEGER NOT NULL",
