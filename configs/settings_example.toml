@@ -8,6 +8,12 @@ SQL_USER = 'labelstudio'
 SQL_PASSWORD = 'Labelstudio123'
 # 测试知识
 KNOWLEDGE_LOCAL_PATH = 'D:\pyworkplace\git_place\ai-ken\tests'
+# MinIO文件存储配置
+MINIO_ENDPOINT = '10.210.2.223:9000'
+MINIO_ACCESS_KEY = 'admin'
+MINIO_SECRET_KEY = 'admin123'
+MINIO_BUCKET_NAME = 'knowledge-files'
+MINIO_SECURE = false
 # 当使用text计算时的参数
 OVERLAP_THRESHOLD = 0.8   # 字符串重叠阈值
 SIMILARITY_THRESHOLD = 0.7  # 语义相似度阈值

@@ -11,7 +11,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from utils.pub_funs import read_json_file
+from src.utils.pub_funs import read_json_file
 
 
 # ==================== 数据模型 ====================

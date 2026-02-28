@@ -9,15 +9,14 @@ from env_config_init import REPORT_PATH
 from typing import Callable, List, Dict, Any
 
 from src.zlpt.login import LoginManager
-from src.zlpt.api.knowledge_base import KnowledgeBase, Retrieve
+from src.zlpt.api.knowledge_base import KnowledgeBase
 from src.zlpt.api.project import Project
 
 from src.label_studio_api import LabelStudioXMLGenerator, create_tasks
 from src.label_studio_api.task import get_tasks_with_specific_choice
 from src.label_studio_api.label_studio_client import LabelStudioLogin
 from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
-from utils.zl_to_label_studio import doc_slices_format_for_label_studio
-from utils.pub_funs import write_json_file
+from src.utils.pub_funs import write_json_file
 from src.sql_funs import Environment_Crud, LabelStudioCrud
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 from check_chunk.checkers.AlignmentBasedChecker import AlignmentBasedChecker
@@ -39,6 +38,45 @@ __all__ = [
 ]
 CHUNK_ID_PATH = '$.data.records..chunk_id'
 CHUNK_TEXT_PATH = '$.data.records..chunk_text'
+# 模板定义
+LABEL_STUDIO_TEMPLATE = {
+    "text": "",
+    # 自定义字段
+    "size": None,
+    "chunk_title": "",
+    "chunk_id": "",
+    "score": None,
+    "metaData": None,
+    "fileName": "",
+    "start_at": None
+}
+
+
+def doc_slices_format_for_label_studio(records):
+    """
+    将文档切片转换为label studio 的格式
+    :param doc_name:
+    :param records:KnowledgeBasePage.doc_get_chunk_all的返回
+    :return:
+    """
+    res = []
+    print(records)
+    for data in records:
+        # 去掉title和固定字段，剩余为text
+
+        item = LABEL_STUDIO_TEMPLATE.copy()
+        item.update({
+            "text": data["chunk_text"],
+            # 自定义字段
+            "size": data["chunk_size"],
+            "chunk_title": data["chunk_title"],
+            "chunk_id": data["chunk_id"],
+            "score": None,
+            "metaData": None,
+            "fileName": data["doc_title"],
+        })
+        res.append(item)
+    return res
 
 
 def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size, chunk_overlap):

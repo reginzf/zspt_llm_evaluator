@@ -3,7 +3,7 @@ import os
 import logging
 
 from env_config_init import REPORT_PATH
-from utils.pub_funs import load_metric_data
+from src.utils.pub_funs import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
 from src.flask_funcs.reports.flask_metrics_dashboard_renderer import MetricsDashboardRenderer
 from src.flask_funcs.common_utils import get_directory_structure

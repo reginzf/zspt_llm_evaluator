@@ -4,10 +4,8 @@ metric_all数据可视化展示模块
 """
 
 import pandas as pd
-import numpy as np
 from typing import Dict, Any, Optional
 import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import warnings
@@ -504,7 +502,7 @@ class MetricsVisualizer:
 
 
 if __name__ == '__main__':
-    from utils.pub_funs import load_metric_data
+    from src.utils.pub_funs import load_metric_data
     from pathlib import Path
 
     data = load_metric_data(

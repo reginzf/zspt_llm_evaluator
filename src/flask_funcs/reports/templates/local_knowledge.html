@@ -29,7 +29,10 @@
             <tbody>
             {% for item in knowledge_data %}
             <tr>
-                <td>{{ item.kno_name }}/{{ item.kno_id }}</td>
+                <td style="cursor: pointer; color: #667eea; text-decoration: underline;"
+                    onclick="location.href='/local_knowledge_detail/{{ item.kno_id }}/{{ item.kno_name }}'">
+                    {{ item.kno_name }}/{{ item.kno_id }}
+                </td>
                 <td>{{ item.kno_describe or '暂无描述' }}</td>
                 <td class="knowledge-domain-cell" 
                     data-knowledge-domain="{{ item.knowledge_domain | default('', true) }}" 

@@ -3,7 +3,7 @@ import requests
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 import urllib3
-from utils.logger import logger
+from src.utils.logger import logger
 import threading
 import time
 from datetime import datetime, timedelta

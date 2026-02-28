@@ -1,6 +1,6 @@
 from label_studio_ml.model import LabelStudioMLBase
 from flask import Flask, request, jsonify
-from utils.logger import logger
+from src.utils.logger import logger
 import torch
 from transformers import AutoTokenizer, AutoModel
 

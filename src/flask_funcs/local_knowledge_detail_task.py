@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from src.sql_funs import MetricTasksCRUD, LabelStudioCrud, QuestionsCRUD
 import datetime
 import logging
-from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, zlpt_login, Retrieve, ls_login
+from src.zlpt_temp import cal_metric_by_chunk_id_fullmatch, zlpt_login, ls_login
+from src.zlpt.api.knowledge_base import Retrieve
 from concurrent.futures import ThreadPoolExecutor
 from src.flask_funcs.common_utils import generate_unique_id
 from src.zlpt_temp import cal_metric_by_chunk_text_overlay_and_similarity

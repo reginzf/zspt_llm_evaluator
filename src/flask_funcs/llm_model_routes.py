@@ -716,7 +716,7 @@ def view_llm_evaluation_report(filename):
     从 evaluation_results 目录加载LLM评估报告并渲染为HTML页面
     """
     import os
-    from utils.pub_funs import read_json_file
+    from src.utils.pub_funs import read_json_file
     from src.flask_funcs.reports.flask_llm_evaluation_renderer import LLMEvaluationRenderer
 
     try:

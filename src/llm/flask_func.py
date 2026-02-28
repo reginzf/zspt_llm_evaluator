@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any, Optional
 from env_config_init import PROJECT_ROOT
 from src.llm.api_agent_evaluator import LLMEvaluator, run_evaluation
-from utils.pub_funs import read_json_file
+from src.utils.pub_funs import read_json_file
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)

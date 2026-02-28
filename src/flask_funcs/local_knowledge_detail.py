@@ -1,21 +1,23 @@
-from pathlib import Path
-
 import jsonpath
-from flask import Blueprint, request, jsonify
+import tempfile
+
 import os
 import logging
-from env_config_init import settings
-from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, KnowledgeCrud
+from flask import Blueprint, request, jsonify
 
+from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, KnowledgeCrud
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
     generate_unique_id
 from src.zlpt_temp import zlpt_upload_files, zlpt_login, KnowledgeBase
+from src.utils.minio_client import MinIOClient
 
 # 创建logger
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_detail_bp = Blueprint('local_knowledge_detail', __name__)
+
+UPLOAD_DIR = 'knowledge-files'
 
 
 @local_knowledge_detail_bp.route('/local_knowledge_detail/<kno_id>/<kno_name>')
@@ -131,7 +133,7 @@ def api_local_knowledge_detail():
 
 @local_knowledge_detail_bp.route('/local_knowledge/upload', methods=['POST'])
 def upload_local_knowledge():
-    """上传文件到本地知识库"""
+    """上传文件到本地知识库（仅使用MinIO存储）"""
     try:
         # 获取上传的文件列表和本地知识库的id
         files = request.files.getlist('files')  # 获取多个文件
@@ -148,18 +150,29 @@ def upload_local_knowledge():
                 return jsonify({"status": "error", "message": "未找到对应的知识库"}), 404
             knowledge_detail = knowledge_list[0]  # 获取第一个结果
             logger.info(f"获取知识库信息: {knowledge_detail}")
-            # 根据知识库中对应名称和kno_path获取文件夹的路径
-            kno_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / knowledge_detail[4]
 
-            # 使用通用的文件上传处理函数
-            result = handle_file_upload(files, kno_path, {'kno_id': kno_id, 'knowledge_detail': knowledge_detail})
+            # 使用MinIO存储：kno_path作为MinIO中的前缀
+            target_path = knowledge_detail[4]  # kno_path作为MinIO前缀
+            logger.info(f"使用MinIO存储，前缀: {target_path}")
+
+            # 使用通用的文件上传处理函数（强制使用MinIO）
+            result = handle_file_upload(files, str(target_path),
+                                        {'kno_id': kno_id, 'knowledge_detail': knowledge_detail},
+                                        use_minio=True)
+
             # 更新结果到sql
             success_file_names = result['success_file_names']
             for success_file_name in success_file_names:
                 logger.info(f"更新知识列表: {success_file_name}")
-                crud.local_knowledge_list_insert(generate_unique_id('knol', 8), success_file_name, '', str(kno_path), 1,
-                                                 kno_id)
-            return jsonify({"status": "success", "message": result['message']})
+                # MinIO模式下存储相对路径（前缀）
+                knol_path = str(target_path) + '/' + success_file_name
+
+                crud.local_knowledge_list_insert(generate_unique_id('knol', 8),
+                                                 success_file_name, '', knol_path, 1, kno_id)
+
+            return jsonify({"status": "success",
+                            "message": f"{result['message']} (存储方式: MinIO)",
+                            "storage_type": "minio"})
     except Exception as e:
         logger.error(f"上传文件时发生错误: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -239,7 +252,9 @@ def get_local_knowledge_bindings():
 
 @local_knowledge_detail_bp.route('/local_knowledge_detail/sync', methods=['POST'])
 def local_knowledge_sync():
-    """同步本地知识库到知识库"""
+    """同步本地知识库到知识库（支持MinIO和本地文件）"""
+    temp_files = []  # 记录临时文件用于清理
+
     try:
         data = request.get_json()
         # 验证必要参数
@@ -256,6 +271,10 @@ def local_knowledge_sync():
         sync_data = _prepare_sync_data(local_kno_id, knowledge_id)
         if isinstance(sync_data, tuple):  # 错误情况
             return sync_data
+
+        # 记录需要清理的临时文件
+        temp_files = sync_data.get('temp_files', [])
+
         zlpt_user = zlpt_login(None, None, knowledge_id)
         know_client = KnowledgeBase(zlpt_user)
         # 上传文件到知识库
@@ -279,6 +298,10 @@ def local_knowledge_sync():
     except Exception as e:
         logger.error(f"同步知识库时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'同步知识库时发生错误: {str(e)}'}), 500
+    finally:
+        # 清理临时文件
+        if temp_files:
+            _cleanup_temp_files(temp_files)
 
 
 def _prepare_sync_data(local_kno_id, knowledge_id):
@@ -308,12 +331,22 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             # 获取已经上传的文件列表
             uploaded_files = lk_crud.get_local_knowledge_file_upload(knowledge_base_id=knowledge_id)
             uploaded_files = [file[1] for file in uploaded_files]
+
             # 构建文件路径列表
             file_path_all = []
+            temp_files_created = []  # 记录创建的临时文件
+
             for file in local_files:
                 if file[2] not in uploaded_files:
-                    file_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, local_knowledge_info['kno_path'], file[2])
-                    file_path_all.append(file_path)
+                    # MinIO文件：需要先下载到临时目录
+                    file_storage_path = file[4]  # knol_path字段
+                    temp_path = _download_minio_file_to_temp(file_storage_path)
+                    if temp_path:
+                        file_path_all.append(temp_path)
+                        temp_files_created.append(temp_path)
+                    else:
+                        logger.warning(f"无法下载MinIO文件: {file_storage_path}")
+
             logger.info(f"构建文件路径列表: {file_path_all}")
             # 获取知识库配置信息
             logger.info(f"获取知识库 {knowledge_id} 的配置信息")
@@ -372,6 +405,7 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
                 'local_files': local_files,
                 'uploaded_files': uploaded_files,
                 'file_path_all': file_path_all,
+                'temp_files': temp_files_created,  # 返回临时文件列表用于清理
                 'knowledge_base_info': knowledge_base_info,
                 'content_code': content_code,
                 'knowledge_id': knowledge_id
@@ -409,6 +443,61 @@ def _update_local_file_status(local_files, uploaded_files, knowledge_id):
                     logger.warning(f"更新文件 {file[1]} 状态失败")
                 else:
                     logger.info(f"成功更新文件 {file[1]} 状态为 0")
+
+
+def _download_minio_file_to_temp(minio_path):
+    """从MinIO下载文件到临时目录
+    
+    Args:
+        minio_path: MinIO中的文件路径
+        
+    Returns:
+        str: 临时文件路径，失败返回None
+    """
+
+    try:
+        # 获取MinIO客户端
+        minio_client = MinIOClient(bucket_name=UPLOAD_DIR)
+
+        # 从路径中提取对象名称
+        object_name = minio_path.lstrip('/')
+
+        # 创建临时文件
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.basename(object_name))
+        temp_file.close()
+
+        # 下载文件
+        if minio_client.download_file(object_name, temp_file.name):
+            logger.info(f"成功下载MinIO文件: {object_name} -> {temp_file.name}")
+            return temp_file.name
+        else:
+            # 下载失败，清理临时文件
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+            return None
+
+    except Exception as e:
+        logger.error(f"下载MinIO文件失败: {e}")
+        return None
+
+
+def _cleanup_temp_files(file_paths):
+    """清理临时文件
+    
+    Args:
+        file_paths: 临时文件路径列表
+    """
+    import os
+
+    for file_path in file_paths:
+        try:
+            if os.path.exists(file_path) and 'tmp' in file_path.lower():
+                os.unlink(file_path)
+                logger.info(f"清理临时文件: {file_path}")
+        except Exception as e:
+            logger.warning(f"清理临时文件失败 {file_path}: {e}")
 
 
 def _update_database_records(sync_data, know_client):
