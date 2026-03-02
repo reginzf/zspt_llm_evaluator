@@ -334,13 +334,43 @@ class KnowledgeBase(BaseClient):
              "chunk_title": "#什么是OSPF？#OSPF基础概念#OSPF支持的网络类型",
              "knowledge_id": "KLB_f1b895e57a3e4851939483e11f84ee6a"},....]
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         res = self.doc_detail(docId)
-        total_size = res['data']['document']['sliceNum']
-        doc_name = res['data']['document']['docName']
+        
+        # 检查API返回结果
+        if not res:
+            logger.error(f"获取文档详情失败: docId={docId}, 返回为空")
+            raise ValueError(f"获取文档详情失败: docId={docId}")
+        
+        if res.get('code') != 200:
+            logger.error(f"获取文档详情失败: docId={docId}, code={res.get('code')}, msg={res.get('msg')}")
+            raise ValueError(f"获取文档详情失败: {res.get('msg', '未知错误')}")
+        
+        if not res.get('data'):
+            logger.error(f"获取文档详情失败: docId={docId}, data为空")
+            raise ValueError(f"获取文档详情失败: 文档数据为空")
+        
+        if not res['data'].get('document'):
+            logger.error(f"获取文档详情失败: docId={docId}, document为空")
+            raise ValueError(f"获取文档详情失败: 文档信息为空")
+        
+        total_size = res['data']['document'].get('sliceNum', 0)
+        doc_name = res['data']['document'].get('docName', '')
+        
+        if total_size == 0:
+            logger.warning(f"文档切片数量为0: docId={docId}")
+            return doc_name, []
+        
         page = 1
         data = []
         while page < math.ceil(total_size / size) + 1:
-            data.extend(self.doc_page_list(docId, total_size, current=page, size=size)['data']['records'])
+            page_res = self.doc_page_list(docId, total_size, current=page, size=size)
+            if page_res and page_res.get('data') and page_res['data'].get('records'):
+                data.extend(page_res['data']['records'])
+            else:
+                logger.warning(f"获取文档分页列表失败: docId={docId}, page={page}")
             page += 1
         return doc_name, data
 

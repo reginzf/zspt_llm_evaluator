@@ -61,7 +61,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from utils.pub_funs import write_json_file, read_json_file, ensure_directory_exists
+from src.utils.pub_funs import write_json_file, read_json_file, ensure_directory_exists
 from .config_manager import ConfigManager
 
 

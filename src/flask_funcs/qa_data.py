@@ -8,9 +8,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 import os
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, Optional
+import tempfile
 from src.sql_funs.ai_qa_data_crud import AIQADataManager
 from src.sql_funs.ai_qa_data_crud_enhanced import EnhancedAIQADataManager, DatasetPreview, ImportConfig
 from src.sql_funs.ai_qa_data_group_crud import AIQADataGroupManager
@@ -695,7 +693,7 @@ def import_from_huggingface(group_id: int):
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/upload', methods=['POST'])
 def upload_huggingface_file(group_id: int):
     """
-    上传HuggingFace数据集文件或文件夹
+    上传HuggingFace数据集文件或文件夹到MinIO
     
     Args:
         group_id: 分组ID
@@ -732,57 +730,32 @@ def upload_huggingface_file(group_id: int):
                     'message': f'分组不存在: ID={group_id}'
                 }), 404
         
-        # 创建临时目录
-        project_root = Path(__file__).parent.parent.parent
-        temp_base = project_root / "temp_uploads"
-        temp_base.mkdir(exist_ok=True)
+        # 使用MinIO上传文件
+        from src.flask_funcs.common_utils import handle_qa_data_file_upload
         
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        temp_dir = temp_base / f"hf_upload_{timestamp}"
-        temp_dir.mkdir(exist_ok=True)
+        result = handle_qa_data_file_upload(
+            files=uploaded_files,
+            group_id=group_id,
+            related_info={'upload_type': 'huggingface_dataset'}
+        )
         
-        # 保存所有文件
-        saved_files = []
-        folder_name = None
-        
-        for uploaded_file in uploaded_files:
-            if uploaded_file.filename:
-                # 检查文件名是否包含路径（文件夹上传时会有相对路径）
-                if '/' in uploaded_file.filename:
-                    # 文件夹上传，保持目录结构
-                    file_path = os.path.join(str(temp_dir), uploaded_file.filename)
-                    # 提取文件夹名称
-                    if folder_name is None:
-                        folder_name = uploaded_file.filename.split('/')[0]
-                else:
-                    # 单文件上传，放到根目录
-                    file_path = os.path.join(str(temp_dir), uploaded_file.filename)
-                
-                # 确保目录存在
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
-                uploaded_file.save(file_path)
-                saved_files.append(file_path)
-                logger.info(f"文件保存成功: {file_path}")
-        
-        if not saved_files:
+        if not result['success']:
             return jsonify({
                 'success': False,
-                'message': '没有成功保存任何文件'
+                'message': result['message']
             }), 400
         
-        # 判断是文件还是文件夹上传
-        is_folder_upload = folder_name is not None
-        
-        # 返回临时目录路径（HuggingFace数据集需要目录）
+        # 返回MinIO路径信息
         return jsonify({
             'success': True,
-            'file_path': str(temp_dir),
-            'is_folder': is_folder_upload,
-            'folder_name': folder_name,
-            'file_count': len(saved_files),
-            'message': f'上传成功，共{len(saved_files)}个文件' + 
-                      (f'（文件夹: {folder_name}）' if is_folder_upload else '')
+            'file_path': result['virtual_path'],  # 虚拟路径用于兼容
+            'minio_prefix': result['target_prefix'],  # MinIO前缀
+            'saved_files': result['saved_files'],  # 保存的文件列表
+            'is_folder': result['is_folder'],
+            'folder_name': result['folder_name'],
+            'file_count': result['success_count'],
+            'storage_type': 'minio',
+            'message': result['message']
         })
             
     except Exception as e:
@@ -796,18 +769,22 @@ def upload_huggingface_file(group_id: int):
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/preview', methods=['POST'])
 def preview_huggingface_dataset(group_id: int):
     """
-    预览HuggingFace数据集
+    预览HuggingFace数据集（支持MinIO存储）
     
     Args:
         group_id: 分组ID
         
     Request Body:
-        file_path: 文件路径（必填）
+        file_path: 文件路径（必填，支持MinIO虚拟路径或本地路径）
+        minio_prefix: MinIO前缀（可选，用于从MinIO下载）
+        saved_files: 保存的文件列表（可选，包含MinIO对象名）
         preview_rows: 预览行数，默认5
         
     Returns:
         JSON: {success: bool, preview: dict, message: str}
     """
+    temp_downloaded_files = []
+    
     try:
         data = request.get_json()
         if not data:
@@ -824,6 +801,8 @@ def preview_huggingface_dataset(group_id: int):
             }), 400
         
         preview_rows = data.get('preview_rows', 5)
+        minio_prefix = data.get('minio_prefix')
+        saved_files = data.get('saved_files', [])
         
         # 检查分组是否存在
         with AIQADataGroupManager() as group_manager:
@@ -833,9 +812,54 @@ def preview_huggingface_dataset(group_id: int):
                     'message': f'分组不存在: ID={group_id}'
                 }), 404
         
+        # 判断是否为MinIO路径
+        is_minio_path = '/minio/' in file_path or minio_prefix is not None
+        
+        if is_minio_path and saved_files:
+            # 从MinIO下载文件到临时目录
+            from src.flask_funcs.common_utils import download_minio_file_to_temp
+            from src.utils.minio_client import get_qa_raw_files_client
+            
+            minio_client = get_qa_raw_files_client()
+            
+            # 创建临时目录
+            temp_dir = tempfile.mkdtemp(prefix='qa_preview_')
+            
+            # 下载所有文件
+            for file_info in saved_files:
+                object_name = file_info.get('object_name')
+                relative_path = file_info.get('relative_path', file_info.get('original_name'))
+                
+                if object_name:
+                    # 下载文件
+                    temp_path = download_minio_file_to_temp(object_name, bucket_name='qa-raw-files')
+                    if temp_path:
+                        # 构建目标路径保持目录结构
+                        target_path = os.path.join(temp_dir, relative_path)
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        # 移动文件到正确位置
+                        import shutil
+                        shutil.move(temp_path, target_path)
+                        temp_downloaded_files.append(target_path)
+                        logger.info(f"文件下载并移动成功: {target_path}")
+                    else:
+                        logger.error(f"从MinIO下载文件失败: {object_name}")
+            
+            # 使用临时目录作为预览路径
+            if temp_downloaded_files:
+                preview_path = temp_dir
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '从MinIO下载文件失败'
+                }), 500
+        else:
+            # 使用本地路径
+            preview_path = file_path
+        
         # 预览数据集
         with EnhancedAIQADataManager() as manager:
-            preview = manager.preview_huggingface_dataset(file_path, preview_rows)
+            preview = manager.preview_huggingface_dataset(preview_path, preview_rows)
             
             if preview.error:
                 return jsonify({
@@ -855,6 +879,7 @@ def preview_huggingface_dataset(group_id: int):
                     'columns': preview.columns,
                     'suggestions': suggestions
                 },
+                'temp_path': preview_path if is_minio_path else None,
                 'message': '数据集预览成功'
             })
             
@@ -864,19 +889,26 @@ def preview_huggingface_dataset(group_id: int):
             'success': False,
             'message': f'预览数据集失败: {str(e)}'
         }), 500
+    finally:
+        # 清理临时下载的文件（保留临时目录供后续导入使用）
+        # 临时目录将在 cleanup_import_files 中清理
+        pass
 
 
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/execute', methods=['POST'])
 def execute_import_with_mapping(group_id: int):
     """
-    执行带字段映射的导入
+    执行带字段映射的导入（支持MinIO存储）
     
     Args:
         group_id: 分组ID
         
     Request Body:
-        file_path: 文件路径（必填）
+        file_path: 文件路径（必填，支持本地路径或MinIO虚拟路径）
         mapping: 字段映射配置（必填）
+        minio_prefix: MinIO前缀（可选）
+        saved_files: 保存的文件列表（可选，包含MinIO对象名）
+        temp_path: 临时目录路径（可选，预览时已下载）
         options: 导入选项
             - batch_size: 批次大小，默认1000
             - skip_rows: 跳过的行数，默认0
@@ -885,6 +917,8 @@ def execute_import_with_mapping(group_id: int):
     Returns:
         JSON: {success: bool, stats: dict, message: str}
     """
+    temp_downloaded_files = []
+    
     try:
         data = request.get_json()
         if not data:
@@ -908,6 +942,9 @@ def execute_import_with_mapping(group_id: int):
             }), 400
         
         options = data.get('options', {})
+        minio_prefix = data.get('minio_prefix')
+        saved_files = data.get('saved_files', [])
+        temp_path = data.get('temp_path')
         
         # 检查分组是否存在
         with AIQADataGroupManager() as group_manager:
@@ -917,9 +954,54 @@ def execute_import_with_mapping(group_id: int):
                     'message': f'分组不存在: ID={group_id}'
                 }), 404
         
+        # 判断是否为MinIO路径
+        is_minio_path = '/minio/' in file_path or minio_prefix is not None
+        
+        if is_minio_path:
+            if temp_path and os.path.exists(temp_path):
+                # 使用预览时已经下载的临时目录
+                import_path = temp_path
+                logger.info(f"使用预览时下载的临时目录: {import_path}")
+            else:
+                # 需要从MinIO下载文件
+                from src.flask_funcs.common_utils import download_minio_file_to_temp
+                
+                # 创建临时目录
+                temp_dir = tempfile.mkdtemp(prefix='qa_import_')
+                
+                # 下载所有文件
+                for file_info in saved_files:
+                    object_name = file_info.get('object_name')
+                    relative_path = file_info.get('relative_path', file_info.get('original_name'))
+                    
+                    if object_name:
+                        temp_file_path = download_minio_file_to_temp(object_name, bucket_name='qa-raw-files')
+                        if temp_file_path:
+                            # 构建目标路径保持目录结构
+                            target_path = os.path.join(temp_dir, relative_path)
+                            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                            # 移动文件到正确位置
+                            import shutil
+                            shutil.move(temp_file_path, target_path)
+                            temp_downloaded_files.append(target_path)
+                            logger.info(f"文件下载并移动成功: {target_path}")
+                        else:
+                            logger.error(f"从MinIO下载文件失败: {object_name}")
+                
+                if not temp_downloaded_files:
+                    return jsonify({
+                        'success': False,
+                        'message': '从MinIO下载文件失败'
+                    }), 500
+                
+                import_path = temp_dir
+        else:
+            # 使用本地路径
+            import_path = file_path
+        
         # 创建导入配置
         config = ImportConfig(
-            file_path=file_path,
+            file_path=import_path,
             group_id=group_id,
             mapping=mapping,
             options=options
@@ -940,6 +1022,7 @@ def execute_import_with_mapping(group_id: int):
                     'error_count': len(stats.errors),
                     'errors': stats.errors[:10]  # 只返回前10个错误
                 },
+                'temp_path': import_path if is_minio_path else None,
                 'message': f'导入完成，成功{stats.success}条，失败{stats.failed}条'
             })
             
@@ -954,13 +1037,16 @@ def execute_import_with_mapping(group_id: int):
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/cleanup', methods=['POST'])
 def cleanup_import_files(group_id: int):
     """
-    清理导入的临时文件
+    清理导入的临时文件（支持本地和MinIO存储）
     
     Args:
         group_id: 分组ID
         
     Request Body:
-        file_path: 文件路径（必填）
+        file_path: 文件路径（必填，支持本地路径或MinIO虚拟路径）
+        minio_prefix: MinIO前缀（可选，用于清理MinIO文件）
+        saved_files: 保存的文件列表（可选，包含MinIO对象名）
+        temp_path: 临时目录路径（可选，用于清理本地临时文件）
         
     Returns:
         JSON: {success: bool, message: str}
@@ -980,21 +1066,47 @@ def cleanup_import_files(group_id: int):
                 'message': 'file_path参数不能为空'
             }), 400
         
-        # 清理文件 - 不检查分组是否存在，因为可能是公共临时目录
-        try:
-            with EnhancedAIQADataManager() as manager:
-                manager.cleanup_temp_files(file_path)
-                
-                return jsonify({
-                    'success': True,
-                    'message': '文件清理成功'
-                })
-        except Exception as cleanup_error:
-            logger.error(f"清理文件时出错: {cleanup_error}")
-            return jsonify({
-                'success': False,
-                'message': f'清理文件失败: {str(cleanup_error)}'
-            }), 500
+        minio_prefix = data.get('minio_prefix')
+        saved_files = data.get('saved_files', [])
+        temp_path = data.get('temp_path')
+        
+        # 判断是否为MinIO路径
+        is_minio_path = '/minio/' in file_path or minio_prefix is not None
+        
+        cleanup_messages = []
+        
+        # 清理MinIO文件
+        if is_minio_path and saved_files:
+            from src.flask_funcs.common_utils import cleanup_minio_temp_files
+            
+            object_names = [f.get('object_name') for f in saved_files if f.get('object_name')]
+            if object_names:
+                deleted_count = cleanup_minio_temp_files(object_names, bucket_name='qa-raw-files')
+                cleanup_messages.append(f'MinIO文件已清理: {deleted_count}个')
+        
+        # 清理本地临时文件
+        if temp_path and os.path.exists(temp_path):
+            try:
+                import shutil
+                shutil.rmtree(temp_path)
+                cleanup_messages.append(f'本地临时目录已清理: {temp_path}')
+            except Exception as e:
+                logger.warning(f"清理本地临时目录失败: {e}")
+                cleanup_messages.append(f'本地临时目录清理失败: {e}')
+        
+        # 如果传入的是本地路径，也尝试清理
+        if not is_minio_path and os.path.exists(file_path):
+            try:
+                with EnhancedAIQADataManager() as manager:
+                    manager.cleanup_temp_files(file_path)
+                    cleanup_messages.append('本地文件已清理')
+            except Exception as e:
+                logger.warning(f"清理本地文件失败: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': '文件清理完成' + (': ' + '; '.join(cleanup_messages) if cleanup_messages else '')
+        })
             
     except Exception as e:
         logger.error(f"清理文件失败: {e}")

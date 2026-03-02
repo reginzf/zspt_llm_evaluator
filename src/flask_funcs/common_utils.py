@@ -3,11 +3,17 @@
 提供多个Flask路由文件中重复使用的通用功能
 """
 import os
+import json
+import tempfile
 import logging
-from flask import jsonify
+import uuid
+import datetime
 from pathlib import Path
-from env_config_init import settings
+from flask import jsonify, render_template
 
+from src.utils.minio_client import MinIOClient
+
+logger = logging.getLogger(__name__)
 
 def validate_required_fields(data, required_fields):
     """
@@ -126,35 +132,46 @@ def generate_unique_id(prefix="id", length=8):
     Returns:
         str: 生成的唯一ID
     """
-    import uuid
     return f"{prefix}_{str(uuid.uuid4())[:length]}"
 
 
-def handle_file_upload(files, target_directory, related_info=None):
+def handle_file_upload(files, target_directory, related_info=None, use_minio=True):
     """
     处理文件上传的通用函数，支持文件夹上传和数据集文件解析
+    仅支持MinIO存储模式
     
     Args:
         files: 上传的文件列表
-        target_directory: 目标目录
+        target_directory: 目标目录（MinIO前缀）
         related_info: 相关信息（如知识库ID等）
+        use_minio: 是否使用MinIO存储，默认True
         
     Returns:
         dict: 包含成功和失败文件信息的字典
     """
-    import os
-    import json
-    from pathlib import Path
-    import logging
+    success_count = 0
+    failed_files = []
+    success_file_names = []
+    processed_datasets = []
     
+    # 仅使用MinIO存储
+    return _handle_file_upload_minio(files, target_directory, related_info)
+
+
+def _handle_file_upload_minio(files, target_directory, related_info=None):
+    """处理MinIO文件上传"""
     logger = logging.getLogger(__name__)
     success_count = 0
     failed_files = []
     success_file_names = []
     processed_datasets = []
     
-    # 确保目录存在
-    Path(target_directory).mkdir(parents=True, exist_ok=True)
+    # 获取MinIO客户端
+    minio_client = MinIOClient()
+    
+    # 确保目标目录前缀格式正确
+    if target_directory and not target_directory.endswith('/'):
+        target_directory = target_directory + '/'
 
     for file in files:
         if file and file.filename:
@@ -164,45 +181,60 @@ def handle_file_upload(files, target_directory, related_info=None):
                 # 检查是否是数据集文件
                 if _is_dataset_file(filename):
                     # 处理数据集文件
-                    dataset_info = _process_dataset_file(file, target_directory)
+                    dataset_info = _process_dataset_file_minio(file, target_directory, minio_client)
                     if dataset_info:
                         processed_datasets.append(dataset_info)
                         success_count += 1
                         success_file_names.append(filename)
-                        logger.info(f"成功处理数据集文件: {filename}")
+                        logger.info(f"成功处理数据集文件到MinIO: {filename}")
                     else:
                         failed_files.append(f"{filename} (数据集处理失败)")
                     continue
                 
-                # 构建安全的文件路径
-                file_path = Path(target_directory) / filename
-
+                # 生成MinIO对象名称
+                object_name = target_directory + filename
+                
                 # 检查是否已存在同名文件，如果存在则重命名
                 counter = 1
-                name, ext = file_path.stem, file_path.suffix
+                name, ext = Path(filename).stem, Path(filename).suffix
                 new_filename = None
-                while file_path.exists():
+                while minio_client.file_exists(object_name):
                     new_filename = f"{name}_{counter}{ext}"
-                    file_path = Path(target_directory) / new_filename
+                    object_name = target_directory + new_filename
                     counter += 1
 
-                # 保存文件到本地文件夹
-                file.save(str(file_path))
-                if new_filename:
-                    success_file_names.append(new_filename)
-                else:
-                    success_file_names.append(filename)
-                success_count += 1
+                # 创建临时文件进行上传
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    file.save(tmp_file.name)
+                    tmp_file.close()
+                    
+                    # 上传到MinIO
+                    if minio_client.upload_file(tmp_file.name, object_name):
+                        if new_filename:
+                            success_file_names.append(new_filename)
+                        else:
+                            success_file_names.append(filename)
+                        success_count += 1
+                        logger.info(f"文件上传到MinIO成功: {object_name}")
+                    else:
+                        failed_files.append(f"{filename} (MinIO上传失败)")
+                        logger.error(f"文件上传到MinIO失败: {filename}")
+                    
+                    # 清理临时文件
+                    try:
+                        os.unlink(tmp_file.name)
+                    except Exception as e:
+                        logger.warning(f"清理临时文件失败: {e}")
                 
             except Exception as e:
                 logger.error(f"处理文件 {filename} 时出错: {str(e)}")
                 failed_files.append(f"{filename} ({str(e)})")
 
-    # 如果有处理的数据集，生成数据集信息文件
+    # 如果有处理的数据集，生成数据集信息
     if processed_datasets:
-        _generate_dataset_info(processed_datasets, target_directory)
+        _generate_dataset_info_minio(processed_datasets, target_directory, minio_client)
     
-    message = f"成功上传 {success_count} 个文件"
+    message = f"成功上传 {success_count} 个文件到MinIO"
     if processed_datasets:
         message += f"，处理了 {len(processed_datasets)} 个数据集文件"
     if failed_files:
@@ -214,7 +246,8 @@ def handle_file_upload(files, target_directory, related_info=None):
         "failed_count": len(failed_files),
         "failed_files": failed_files,
         "processed_datasets": processed_datasets,
-        "message": message
+        "message": message,
+        "storage_type": "minio"
     }
 
 
@@ -239,10 +272,6 @@ def _is_dataset_file(filename):
 
 def _process_dataset_file(file, target_directory):
     """处理数据集文件"""
-    import os
-    import json
-    from pathlib import Path
-    
     try:
         filename = file.filename
         file_path = Path(target_directory) / filename
@@ -269,16 +298,12 @@ def _process_dataset_file(file, target_directory):
             }
             
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"处理数据集文件 {filename} 时出错: {str(e)}")
         return None
 
 
 def _process_json_dataset(file_path, filename):
     """处理JSON/JSONL数据集文件"""
-    import json
-    
     try:
         samples = []
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -311,8 +336,6 @@ def _process_json_dataset(file_path, filename):
         }
         
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"处理JSON数据集 {filename} 时出错: {str(e)}")
         return {
             'filename': filename,
@@ -346,8 +369,6 @@ def _process_arrow_dataset(file_path, filename):
             'error': 'pyarrow库未安装，无法读取Arrow文件'
         }
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"处理Arrow数据集 {filename} 时出错: {str(e)}")
         return {
             'filename': filename,
@@ -379,8 +400,6 @@ def _process_parquet_dataset(file_path, filename):
             'error': 'pandas库未安装，无法读取Parquet文件'
         }
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"处理Parquet数据集 {filename} 时出错: {str(e)}")
         return {
             'filename': filename,
@@ -412,8 +431,6 @@ def _process_csv_dataset(file_path, filename):
             'error': 'pandas库未安装，无法读取CSV文件'
         }
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"处理CSV数据集 {filename} 时出错: {str(e)}")
         return {
             'filename': filename,
@@ -424,10 +441,6 @@ def _process_csv_dataset(file_path, filename):
 
 def _generate_dataset_info(processed_datasets, target_directory):
     """生成数据集信息文件"""
-    import json
-    import datetime
-    from pathlib import Path
-    
     info_file = Path(target_directory) / "dataset_info.json"
     
     info = {
@@ -438,6 +451,312 @@ def _generate_dataset_info(processed_datasets, target_directory):
     
     with open(info_file, 'w', encoding='utf-8') as f:
         json.dump(info, f, ensure_ascii=False, indent=2)
+
+
+def _process_dataset_file_minio(file, target_directory, minio_client):
+    """
+    处理数据集文件并上传到MinIO
+    
+    Args:
+        file: 上传的文件对象
+        target_directory: MinIO中的目标目录前缀
+        minio_client: MinIO客户端实例
+        
+    Returns:
+        dict: 数据集信息字典，失败返回None
+    """
+    try:
+        filename = file.filename
+        
+        # 创建临时文件保存上传的文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp_file:
+            file.save(tmp_file.name)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # 根据文件类型处理并获取信息
+            if filename.lower().endswith('.jsonl') or filename.lower().endswith('.json'):
+                dataset_info = _process_json_dataset(Path(tmp_file_path), filename)
+            elif filename.lower().endswith('.arrow'):
+                dataset_info = _process_arrow_dataset(Path(tmp_file_path), filename)
+            elif filename.lower().endswith('.parquet'):
+                dataset_info = _process_parquet_dataset(Path(tmp_file_path), filename)
+            elif filename.lower().endswith('.csv'):
+                dataset_info = _process_csv_dataset(Path(tmp_file_path), filename)
+            else:
+                # 通用处理
+                dataset_info = {
+                    'filename': filename,
+                    'type': 'unknown',
+                    'size': os.path.getsize(tmp_file_path),
+                    'message': '文件已上传，但未进行特殊处理'
+                }
+            
+            # 确保目标目录前缀格式正确
+            if target_directory and not target_directory.endswith('/'):
+                target_directory = target_directory + '/'
+            
+            # 生成MinIO对象名称
+            object_name = target_directory + filename
+            
+            # 检查是否已存在同名文件，如果存在则重命名
+            counter = 1
+            name, ext = Path(filename).stem, Path(filename).suffix
+            new_filename = None
+            while minio_client.file_exists(object_name):
+                new_filename = f"{name}_{counter}{ext}"
+                object_name = target_directory + new_filename
+                counter += 1
+            
+            # 上传到MinIO
+            if minio_client.upload_file(tmp_file_path, object_name):
+                # 更新数据集信息
+                dataset_info['object_name'] = object_name
+                dataset_info['storage_type'] = 'minio'
+                if new_filename:
+                    dataset_info['original_filename'] = filename
+                    dataset_info['filename'] = new_filename
+                logger.info(f"数据集文件上传到MinIO成功: {object_name}")
+                return dataset_info
+            else:
+                logger.error(f"数据集文件上传到MinIO失败: {filename}")
+                return None
+                
+        finally:
+            # 清理临时文件
+            try:
+                if os.path.exists(tmp_file_path):
+                    os.unlink(tmp_file_path)
+            except Exception as e:
+                logger.warning(f"清理临时文件失败: {e}")
+            
+    except Exception as e:
+        logger.error(f"处理数据集文件 {filename} 时出错: {str(e)}")
+        return None
+
+
+def _generate_dataset_info_minio(processed_datasets, target_directory, minio_client):
+    """
+    在MinIO中生成数据集信息文件
+    
+    Args:
+        processed_datasets: 处理过的数据集列表
+        target_directory: MinIO中的目标目录前缀
+        minio_client: MinIO客户端实例
+    """
+    try:
+        # 确保目标目录前缀格式正确
+        if target_directory and not target_directory.endswith('/'):
+            target_directory = target_directory + '/'
+        
+        # 创建数据集信息
+        info = {
+            'total_datasets': len(processed_datasets),
+            'datasets': processed_datasets,
+            'generated_at': datetime.datetime.now().isoformat()
+        }
+        
+        # 创建临时JSON文件
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as tmp_file:
+            json.dump(info, tmp_file, ensure_ascii=False, indent=2)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # 上传到MinIO
+            object_name = target_directory + "dataset_info.json"
+            if minio_client.upload_file(tmp_file_path, object_name):
+                logger.info(f"数据集信息文件上传到MinIO成功: {object_name}")
+            else:
+                logger.error(f"数据集信息文件上传到MinIO失败")
+        finally:
+            # 清理临时文件
+            try:
+                if os.path.exists(tmp_file_path):
+                    os.unlink(tmp_file_path)
+            except Exception as e:
+                logger.warning(f"清理临时文件失败: {e}")
+                
+    except Exception as e:
+        logger.error(f"生成数据集信息文件时出错: {str(e)}")
+
+
+def handle_qa_data_file_upload(files, group_id=None, related_info=None):
+    """
+    处理QA数据文件上传的通用函数，使用MinIO存储到qa_data文件组
+    
+    Args:
+        files: 上传的文件列表
+        group_id: 分组ID（可选）
+        related_info: 相关信息字典（可选）
+        
+    Returns:
+        dict: 包含上传结果的字典
+    """
+    from src.utils.minio_client import get_qa_raw_files_client
+    
+    logger = logging.getLogger(__name__)
+    success_count = 0
+    failed_files = []
+    saved_files = []
+    folder_name = None
+    
+    # 获取MinIO客户端（使用qa-raw-files存储桶）
+    minio_client = get_qa_raw_files_client()
+    
+    # 构建目标前缀：qa_data/timestamp/
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    if group_id:
+        target_prefix = f"qa_data/group_{group_id}/{timestamp}/"
+    else:
+        target_prefix = f"qa_data/{timestamp}/"
+    
+    for file in files:
+        if file and file.filename:
+            try:
+                filename = file.filename
+                
+                # 检查文件名是否包含路径（文件夹上传时会有相对路径）
+                if '/' in filename:
+                    # 文件夹上传，保持目录结构
+                    relative_path = filename
+                    object_name = target_prefix + relative_path
+                    # 提取文件夹名称
+                    if folder_name is None:
+                        folder_name = filename.split('/')[0]
+                else:
+                    # 单文件上传
+                    relative_path = filename
+                    object_name = target_prefix + filename
+                
+                # 创建临时文件
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    file.save(tmp_file.name)
+                    tmp_file_path = tmp_file.name
+                
+                try:
+                    # 确保目录结构存在（MinIO自动处理）
+                    # 上传到MinIO
+                    if minio_client.upload_file(tmp_file_path, object_name):
+                        saved_files.append({
+                            'original_name': filename,
+                            'object_name': object_name,
+                            'relative_path': relative_path
+                        })
+                        success_count += 1
+                        logger.info(f"QA数据文件上传成功: {object_name}")
+                    else:
+                        failed_files.append(f"{filename} (MinIO上传失败)")
+                        logger.error(f"QA数据文件上传失败: {filename}")
+                        
+                finally:
+                    # 清理临时文件
+                    try:
+                        if os.path.exists(tmp_file_path):
+                            os.unlink(tmp_file_path)
+                    except Exception as e:
+                        logger.warning(f"清理临时文件失败: {e}")
+                
+            except Exception as e:
+                logger.error(f"处理文件 {file.filename} 时出错: {str(e)}")
+                failed_files.append(f"{file.filename} ({str(e)})")
+    
+    # 构建虚拟的本地路径（用于兼容原有接口）
+    virtual_base_path = f"/minio/qa-raw-files/{target_prefix}"
+    
+    result = {
+        'success': success_count > 0,
+        'success_count': success_count,
+        'failed_count': len(failed_files),
+        'failed_files': failed_files,
+        'saved_files': saved_files,
+        'virtual_path': virtual_base_path,
+        'target_prefix': target_prefix,
+        'folder_name': folder_name,
+        'is_folder': folder_name is not None,
+        'storage_type': 'minio',
+        'message': f'成功上传 {success_count} 个文件到MinIO' + 
+                   (f'（文件夹: {folder_name}）' if folder_name else '') +
+                   (f'，失败: {len(failed_files)}' if failed_files else '')
+    }
+    
+    return result
+
+
+def download_minio_file_to_temp(object_name, bucket_name=None):
+    """
+    从MinIO下载文件到临时目录
+    
+    Args:
+        object_name: MinIO中的对象名称
+        bucket_name: 存储桶名称，如果为None则使用默认存储桶
+        
+    Returns:
+        str: 临时文件路径，失败返回None
+    """
+    try:
+        from src.utils.minio_client import MinIOClient
+        
+        # 获取MinIO客户端
+        minio_client = MinIOClient(bucket_name=bucket_name)
+        
+        # 创建临时文件
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.basename(object_name))
+        temp_file.close()
+        
+        # 下载文件
+        if minio_client.download_file(object_name, temp_file.name):
+            logger.info(f"成功下载MinIO文件: {object_name} -> {temp_file.name}")
+            return temp_file.name
+        else:
+            # 下载失败，清理临时文件
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+            return None
+            
+    except Exception as e:
+        logger.error(f"下载MinIO文件失败: {e}")
+        return None
+
+
+def cleanup_minio_temp_files(object_names, bucket_name=None):
+    """
+    清理MinIO中的临时文件
+    
+    Args:
+        object_names: 对象名称列表或单个对象名称
+        bucket_name: 存储桶名称，如果为None则使用默认存储桶
+        
+    Returns:
+        int: 成功删除的文件数量
+    """
+    try:
+        from src.utils.minio_client import MinIOClient
+        
+        # 获取MinIO客户端
+        minio_client = MinIOClient(bucket_name=bucket_name)
+        
+        # 确保是列表
+        if isinstance(object_names, str):
+            object_names = [object_names]
+        
+        deleted_count = 0
+        for object_name in object_names:
+            try:
+                if minio_client.delete_file(object_name):
+                    deleted_count += 1
+                    logger.info(f"成功删除MinIO文件: {object_name}")
+                else:
+                    logger.warning(f"删除MinIO文件失败: {object_name}")
+            except Exception as e:
+                logger.warning(f"删除MinIO文件时出错 {object_name}: {e}")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"清理MinIO临时文件失败: {e}")
+        return 0
 
 
 def render_template_with_version(template_name, css_static_dir="css", js_static_dir="js", **kwargs):
@@ -453,9 +772,6 @@ def render_template_with_version(template_name, css_static_dir="css", js_static_
     Returns:
         渲染后的模板
     """
-    import os
-    from flask import render_template
-
     # 生成带版本参数的静态资源路径
     css_path = f"/static/{css_static_dir}/local_knowledge.css?version={os.urandom(4).hex()}"
     js_url = f"/static/{js_static_dir}/local_knowledge.js?version={os.urandom(4).hex()}"
