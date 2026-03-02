@@ -43,9 +43,13 @@ class CreateTables(PostgreSQLManager):
             "username": "VARCHAR(100) NOT NULL",
             "password": "VARCHAR(100) NOT NULL",
             "domain": "VARCHAR(100) DEFAULT 'default'",
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "project_name": "VARCHAR(200)",
+            "project_id": "VARCHAR(100)"
         }
 
-        return self._create_table_with_common_fields("ai_environment_info", columns)
+        return self.create_table("ai_environment_info", columns)
 
     def create_knowledge_base_table(self) -> bool:
         """2. 创建知识库表"""

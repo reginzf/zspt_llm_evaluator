@@ -77,7 +77,14 @@ class EnvironmentRendererFlask(FlaskHTMLRenderer):
         Returns:
             当前环境数据字典
         """
+        # 如果环境数据为空，返回空字典
+        if not environment_data:
+            return {}
+            
+        # 查找匹配的环境
         for environment in environment_data:
             if environment['zlpt_base_id'] == current_environment_id:
                 return environment
-        return environment_data[0]
+        
+        # 如果没有找到匹配的环境，返回第一个环境（如果存在）
+        return environment_data[0] if environment_data else {}

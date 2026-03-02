@@ -13,7 +13,7 @@ from src.sql_funs.sql_base import PostgreSQLManager
 logger = logging.getLogger(__name__)
 
 # 定义允许的字段集合，用于防止非法字段操作
-ALLOWED_FIELDS = {'zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'domain'}
+ALLOWED_FIELDS = {'zlpt_base_id', 'zlpt_name', 'project_name', 'project_id', 'zlpt_base_url', 'domain'}
 
 
 class Environment_Crud(PostgreSQLManager):
@@ -96,7 +96,9 @@ class Environment_Crud(PostgreSQLManager):
                 "password": environment[7],
                 "domain": environment[8],
                 "created_at": environment[9],
-                "updated_at": environment[10]
+                "updated_at": environment[10],
+                "project_name": environment[11] if len(environment) > 11 else "",
+                "project_id": environment[12] if len(environment) > 12 else ""
             }
         return None
 
@@ -111,6 +113,8 @@ class Environment_Crud(PostgreSQLManager):
             **kwargs: 环境信息参数
                 - zlpt_base_id: ZLPT基础ID（必填）
                 - zlpt_name: ZLPT名称（必填）
+                - project_name: 项目名称（可选）
+                - project_id: 项目ID（可选）
                 - zlpt_base_url: ZLPT基础URL（必填）
                 - username: 用户名（必填）
                 - password: 密码（必填）
@@ -144,6 +148,22 @@ class Environment_Crud(PostgreSQLManager):
             kwargs['key2_add'] = settings.KEY2_ADD
         if 'pk' not in kwargs:
             kwargs['pk'] = settings.PK
+
+        # 如果没有提供项目名称，基于环境名称生成默认值
+        if 'project_name' not in kwargs or not kwargs['project_name']:
+            env_name = kwargs['zlpt_name']
+            if '生产' in env_name or 'prod' in env_name.lower():
+                kwargs['project_name'] = '生产项目'
+            elif '测试' in env_name or 'test' in env_name.lower():
+                kwargs['project_name'] = '测试项目'
+            elif '开发' in env_name or 'dev' in env_name.lower():
+                kwargs['project_name'] = '开发项目'
+            else:
+                kwargs['project_name'] = f'项目_{env_name}'
+
+        # 如果没有提供项目ID，基于环境ID生成
+        if 'project_id' not in kwargs or not kwargs['project_id']:
+            kwargs['project_id'] = f"proj_{kwargs['zlpt_base_id'].replace('env_', '')}"
 
         # 执行插入操作
         try:

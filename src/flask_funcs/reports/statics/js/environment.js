@@ -16,13 +16,14 @@ function showCreateModal() {
 }
 
 // 显示编辑模态框
-function showEditModal(id, name, url, domain, username, password) {
+function showEditModal(id, name, projectName, url, domain, username, password) {
     currentAction = 'edit';
     document.getElementById('modalTitle').textContent = '编辑环境';
     document.getElementById('zlpt_base_id').value = id;
     document.getElementById('zlpt_base_id').readOnly = true; // ID字段只读（但会包含在提交中）
     document.getElementById('zlpt_base_id_group').style.display = ''; // 显示ID字段组
     document.getElementById('zlpt_name').value = name;
+    document.getElementById('project_name').value = projectName || '';
     document.getElementById('zlpt_base_url').value = url;
     document.getElementById('domain').value = domain;
     document.getElementById('username').value = username;

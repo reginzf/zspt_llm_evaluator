@@ -67,7 +67,7 @@ def environment_create():
     data = request.get_json()
 
     # 检查必要字段（不包括zlpt_base_id，因为它将自动生成）
-    required_fields = ['zlpt_name', 'zlpt_base_url', 'username', 'password']
+    required_fields = ['zlpt_name', 'project_name', 'zlpt_base_url', 'username', 'password']
     missing_field = validate_required_fields(data, required_fields)
     if missing_field:
         return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
@@ -109,7 +109,7 @@ def environment_update():
     if not data:
         return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
     # 检查必要字段
-    required_fields = ['zlpt_base_id', 'zlpt_name', 'zlpt_base_url', 'username', 'password']
+    required_fields = ['zlpt_base_id', 'zlpt_name', 'project_name', 'zlpt_base_url', 'username', 'password']
     missing_field = validate_required_fields(data, required_fields)
     if missing_field:
         return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
