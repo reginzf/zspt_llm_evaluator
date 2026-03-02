@@ -193,11 +193,24 @@ def ls_create_project(ls_user, title, QUESTION_JSON, description=''):
 def ls_create_tasks(know_client, project, doc_ids):
     # 根据doc_ids获取切片
     chunk_all = []
+    failed_docs = []
     try:
         for doc_id in doc_ids:
-            doc_name, chunks = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
-            chunk_all.extend(chunks)
-        logger.info("开始创建Label Studio任务")
+            try:
+                doc_name, chunks = zlpt_get_chunk_all_by_doc_id(know_client, doc_id)
+                if chunks:
+                    chunk_all.extend(chunks)
+                else:
+                    logger.warning(f"文档 {doc_id} 没有切片数据")
+                    failed_docs.append(doc_id)
+            except Exception as doc_e:
+                logger.error(f"获取文档 {doc_id} 切片失败: {doc_e}")
+                failed_docs.append(doc_id)
+        
+        if not chunk_all:
+            raise ValueError(f"没有获取到任何切片数据，失败的文档: {failed_docs}")
+        
+        logger.info(f"开始创建Label Studio任务，共 {len(chunk_all)} 个切片")
         tasks = doc_slices_format_for_label_studio(chunk_all)
         res = create_tasks(project, tasks)  # [task_id1,task_id2...]
         return res, len(chunk_all)
