@@ -314,6 +314,7 @@ def sync_annotation_project():
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
         task_id = data['task_id']
+        logger.info(f"开始同步标注任务: task_id={task_id}")
 
         # 从ai_annotation_tasks表查询任务信息
         with LabelStudioCrud() as ls_crud, QuestionsCRUD() as q_crud, KnowledgeCrud() as k_crud, KnowledgePathCrud() as kp_crud:
@@ -324,6 +325,8 @@ def sync_annotation_project():
             # 获取第一个匹配的任务
             task = tasks[0]
             task_data = ls_crud._annotation_task_to_json(task)
+            logger.info(f"任务数据: {task_data}")
+            
             # 提取需要的字段
             task_name = task_data['task_name']
             local_knowledge_id = task_data.get('local_knowledge_id')
@@ -331,10 +334,13 @@ def sync_annotation_project():
             label_studio_env_id = task_data.get('label_studio_env_id')
             label_studio_project_id = task_data.get('label_studio_project_id')
             knowledge_base_id = task_data.get('knowledge_base_id')
+            
+            logger.info(f"知识库ID: {knowledge_base_id}, 问题集ID: {question_set_id}, LS环境: {label_studio_env_id}")
 
             ls_user = ls_login(None, None, label_studio_env_id, ls_crud)
             if not ls_user:
                 return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
+            
             # 如果没project_id则创建project
             if not label_studio_project_id:
                 question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
@@ -343,26 +349,46 @@ def sync_annotation_project():
                 ls_crud.annotation_task_update(task_id, label_studio_project_id=label_studio_project_id)
             else:
                 project = ls_user.get_project(label_studio_project_id)
+            
+            logger.info(f"Label Studio项目ID: {label_studio_project_id}")
+            
             # 获取紫鸾平台知识库中的切片
             # 获取kno_path_id
-            kno_path_id = kp_crud.get_knowledge_path_list(knowledge_id=knowledge_base_id)
-            if kno_path_id:
-                kno_path_id = kno_path_id[0][0]
+            kno_path_results = kp_crud.get_knowledge_path_list(knowledge_id=knowledge_base_id)
+            logger.info(f"知识路径查询结果: {kno_path_results}")
+            
+            if not kno_path_results:
+                return jsonify({'success': False, 'message': f'未找到知识库 {knowledge_base_id} 的路径信息'}), 404
+            
+            kno_path_id = kno_path_results[0][0]
+            logger.info(f"知识路径ID: {kno_path_id}")
+            
             # 获取目录下的doc_id
-            doc_ids = k_crud.knowledge_list(kno_path_id=kno_path_id)
-            if doc_ids:
-                doc_ids = [doc_id[0] for doc_id in doc_ids]
+            doc_ids_results = k_crud.knowledge_list(kno_path_id=kno_path_id)
+            logger.info(f"文档列表查询结果: {doc_ids_results}")
+            
+            if not doc_ids_results:
+                return jsonify({'success': False, 'message': f'未找到知识路径 {kno_path_id} 下的文档'}), 404
+            
+            doc_ids = [doc_id[0] for doc_id in doc_ids_results]
+            logger.info(f"文档IDs: {doc_ids}")
+            
             # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
             zlpt_user = zlpt_login(None, None, knowledge_base_id)
             know_client = KnowledgeBase(zlpt_user)
             task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
+            
+            logger.info(f"创建任务成功: 任务数={len(task_ids)}, 切片数={total_chunks}")
+            
             # 将对应task_id设置为已同步
             result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)
+        
         if not result:
             return jsonify({'success': False, 'message': '任务信息更新失败'}), 500
+        
         return jsonify({
             'success': True,
-            'message': '任务信息获取成功',
+            'message': '任务同步成功',
             'data': {
                 'task_id': task_id,
                 'local_knowledge_id': local_knowledge_id,
@@ -373,8 +399,7 @@ def sync_annotation_project():
             }
         })
     except Exception as e:
-        logger.error(f"同步标注任务时发生错误: {str(e)}")
-        raise e
+        logger.error(f"同步标注任务时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'同步标注任务时发生错误: {str(e)}'}), 500
 
 
@@ -385,6 +410,8 @@ def get_bound_knowledge_list():
         data = request.get_json()
         env_id = data.get('env_id')
         local_knowledge_id = data.get('local_knowledge_id')
+        
+        logger.info(f"获取绑定知识库列表请求: env_id={env_id}, local_knowledge_id={local_knowledge_id}")
 
         if not env_id:
             return jsonify({'success': False, 'message': '缺少env_id参数'}), 400
@@ -396,14 +423,21 @@ def get_bound_knowledge_list():
         with LocalKnowledgeCrud() as lk_crud, Environment_Crud() as e_crud:
             # 查询绑定关系
             result = lk_crud.get_local_knowledge_bind(kno_id=local_knowledge_id)
+            logger.info(f"查询绑定关系结果: {result}")
+            
             if result:
                 binds = [lk_crud._local_knowledge_bind_to_json(ele) for ele in result if ele[3] == 2]
+                logger.info(f"过滤后已绑定的知识库: {binds}")
             else:
                 binds = []
+                logger.info("未找到任何绑定关系")
+            
             # 获取相关的知识库信息
             knowledge_list = []
             for bind in binds:
+                logger.info(f"查询知识库信息: knowledge_id={bind['knowledge_id']}")
                 bind_info = e_crud.get_knowledge_base(knowledge_id=bind['knowledge_id'])
+                logger.info(f"知识库查询结果: {bind_info}")
                 if bind_info:
                     knowledge_list.append({
                         'knowledge_id': bind_info[0][0],
@@ -411,12 +445,13 @@ def get_bound_knowledge_list():
                         'status': 2
                     })
 
+        logger.info(f"返回知识库列表: {knowledge_list}")
         return jsonify({
             'success': True,
             'data': knowledge_list
         })
     except Exception as e:
-        logger.error(f"获取绑定知识库列表时发生错误: {str(e)}")
+        logger.error(f"获取绑定知识库列表时发生错误: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'获取绑定知识库列表时发生错误: {str(e)}'}), 500
 
 

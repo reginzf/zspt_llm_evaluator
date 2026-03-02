@@ -574,7 +574,7 @@ function showCreateTaskModalWithEnv(envId) {
     document.getElementById('taskEnvironment').value = envId;
     
     // 加载知识库列表
-    loadBoundKnowledgeBases(envId);
+    loadTaskBoundKnowledgeBases(envId);
     
     // 重置选择框
     document.getElementById('taskQuestionSet').innerHTML = '<option value="">请选择知识库</option>';
@@ -596,8 +596,19 @@ function showCreateTaskModalWithEnv(envId) {
     document.getElementById('taskModal').style.display = 'block';
 }
 
-// 加载已绑定的知识库列表
-function loadBoundKnowledgeBases(envId) {
+// 加载已绑定的知识库列表（创建任务用）
+function loadTaskBoundKnowledgeBases(envId) {
+    console.log('loadBoundKnowledgeBases called with envId:', envId, 'currentKnoId:', currentKnoId);
+    
+    if (!envId) {
+        console.error('envId is empty');
+        return;
+    }
+    if (!currentKnoId) {
+        console.error('currentKnoId is not set');
+        return;
+    }
+    
     fetch('/local_knowledge_detail/label_studio/knowledge/bound_list', {
         method: 'POST',
         headers: {
@@ -608,24 +619,38 @@ function loadBoundKnowledgeBases(envId) {
             local_knowledge_id: currentKnoId
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('bound_list API response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('bound_list API response data:', data);
         if (data.success) {
             const select = document.getElementById('taskKnowledgeBaseSelect');
             select.innerHTML = '<option value="">请选择知识库</option>';
             
-            data.data.forEach(kb => {
-                const option = document.createElement('option');
-                option.value = kb.knowledge_id;
-                option.textContent = `${kb.knowledge_name}(${kb.knowledge_id})`;
-                select.appendChild(option);
-            });
+            if (data.data && data.data.length > 0) {
+                data.data.forEach(kb => {
+                    const option = document.createElement('option');
+                    option.value = kb.knowledge_id;
+                    option.textContent = `${kb.knowledge_name}(${kb.knowledge_id})`;
+                    select.appendChild(option);
+                });
+                console.log('Loaded', data.data.length, 'knowledge bases');
+            } else {
+                console.warn('No bound knowledge bases found');
+                select.innerHTML = '<option value="">暂无绑定的知识库</option>';
+            }
         } else {
             console.error('获取知识库列表失败:', data.message);
+            const select = document.getElementById('taskKnowledgeBaseSelect');
+            select.innerHTML = '<option value="">加载失败</option>';
         }
     })
     .catch(error => {
         console.error('请求知识库列表时出错:', error);
+        const select = document.getElementById('taskKnowledgeBaseSelect');
+        select.innerHTML = '<option value="">加载失败</option>';
     });
 }
 
