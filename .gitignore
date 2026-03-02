@@ -8,3 +8,4 @@ configs/settings.toml
 /examples/
 *.pyc
 /evaluation_results/
+/node_modules/

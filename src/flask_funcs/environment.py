@@ -1,12 +1,12 @@
 import uuid
 import logging
 from flask import Blueprint, request, jsonify
-
+from env_config_init import settings
 from src.flask_funcs.reports.flask_environment_renderer import EnvironmentRendererFlask
 from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
-from src.sql_funs.local_knowledge_crud import LocalKnowledgeCrud
 from src.flask_funcs.common_utils import validate_required_fields, execute_with_crud_operation
+from src.zlpt.login import LoginManager
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -74,11 +74,28 @@ def environment_create():
 
     # 自动生成zlpt_base_id
     data['zlpt_base_id'] = 'env_' + str(uuid.uuid4())[:8]
-
+    # 补全加密配置
+    data['key1'] = settings.KEY1
+    data['key2_add'] = settings.KEY2_ADD
+    data['pk'] = settings.PK
+    # 尝试登录
+    zlpt_user = LoginManager(
+        data['zlpt_base_url'],
+        data['username'],
+        data['password'],
+        data['domain'],
+        data['key1'],
+        data['key2_add'],
+        data['pk']
+    )
+    # 获取用户ID和项目ID
+    user_id,project_id = zlpt_user.login_unsafe()
+    data['project_id'] = project_id
+    # 写入数据库
     def operation_func():
         with Environment_Crud() as env_crud:
             return env_crud.environment_create(**data)
-    
+
     return execute_with_crud_operation(
         operation_func,
         '环境创建成功',
@@ -118,7 +135,7 @@ def environment_update():
     def operation_func():
         with Environment_Crud() as env_crud:
             return env_crud.environment_update(zlpt_base_id, **data)
-    
+
     return execute_with_crud_operation(
         operation_func,
         '环境更新成功',
@@ -138,7 +155,7 @@ def environment_delete():
     def operation_func():
         with Environment_Crud() as env_crud:
             return env_crud.environment_delete(zlpt_base_id=data['zlpt_base_id'])
-    
+
     return execute_with_crud_operation(
         operation_func,
         '环境删除成功',

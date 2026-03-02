@@ -55,5 +55,76 @@
     "last_updated": "2026-02-12T15:27:38+08:00",
     "auto_sync": true
   },
-  "notes": "此文件由MCP Memory Server使用，存储项目相关的记忆信息。请勿手动编辑，除非您知道自己在做什么。"
+  "notes": "此文件由MCP Memory Server使用，存储项目相关的记忆信息。请勿手动编辑，除非您知道自己在做什么。",
+  "qa_management_progress": {
+    "stage": "开发完成",
+    "status": "已部署",
+    "completed_tasks": [
+      "DB-01: 数据库结构确认",
+      "DB-02: 后端CRUD方法确认",
+      "API-01: 问答对组管理API",
+      "API-02: 问答对管理API",
+      "API-03: 路由注册",
+      "UI-01: 问答对组管理页面",
+      "UI-02: 问答对组详情页面",
+      "UI-03: 静态资源（CSS/JS）",
+      "RENDER-01: 页面渲染器",
+      "RENDER-02: 路由集成"
+    ],
+    "pending_tasks": [
+      "TEST-01: 功能测试",
+      "TEST-02: 样式一致性检查",
+      "DEPLOY-01: 代码整合验证",
+      "DEPLOY-02: 最终验证"
+    ],
+    "created_files": [
+      "src/flask_funcs/qa_data_group.py",
+      "src/flask_funcs/qa_data.py",
+      "src/flask_funcs/reports/flask_qa_renderer.py",
+      "src/flask_funcs/reports/templates/qa_groups.html",
+      "src/flask_funcs/reports/templates/qa_group_detail.html",
+      "src/flask_funcs/reports/statics/css/qa_management.css",
+      "src/flask_funcs/reports/statics/js/qa_groups.js",
+      "src/flask_funcs/reports/statics/js/qa_group_detail.js"
+    ],
+    "modified_files": [
+      "app.py"
+    ],
+    "api_endpoints": {
+      "qa_groups": {
+        "GET /api/qa/groups": "分页查询问答对组列表",
+        "POST /api/qa/groups": "创建问答对组",
+        "GET /api/qa/groups/<group_id>": "获取问答对组详情",
+        "PUT /api/qa/groups/<group_id>": "更新问答对组",
+        "DELETE /api/qa/groups/<group_id>": "删除问答对组",
+        "POST /api/qa/groups/<group_id>/toggle": "激活/停用问答对组",
+        "GET /api/qa/groups/<group_id>/statistics": "获取分组统计信息",
+        "POST /api/qa/groups/<group_id>/tags": "添加分组标签",
+        "DELETE /api/qa/groups/<group_id>/tags": "移除分组标签",
+        "GET /qa/groups": "问答对组管理页面",
+        "GET /qa/groups/<group_id>": "问答对组详情页面"
+      },
+      "qa_data": {
+        "GET /api/qa/groups/<group_id>/items": "分页查询问答对列表",
+        "POST /api/qa/groups/<group_id>/items": "创建问答对",
+        "GET /api/qa/items/<qa_id>": "获取问答对详情",
+        "PUT /api/qa/items/<qa_id>": "更新问答对",
+        "DELETE /api/qa/items/<qa_id>": "删除问答对",
+        "POST /api/qa/groups/<group_id>/items/batch": "批量创建问答对",
+        "GET /api/qa/items/search": "搜索相似问题",
+        "POST /api/qa/groups/<group_id>/items/import/huggingface": "从HuggingFace导入数据"
+      }
+    },
+    "access_urls": {
+      "qa_groups_page": "http://localhost:5001/qa/groups",
+      "api_base": "http://localhost:5001/api/qa"
+    },
+    "last_updated": "2026-02-12T15:45:00+08:00"
+  },
+  "current_session": {
+    "date": "2026-02-12",
+    "time": "15:50:00 GMT+8",
+    "activity": "项目结构分析和记忆文件维护",
+    "notes": "用户通过@memory命令添加了详细的project_structure_detailed信息，并确认.mcp_memory.json文件已正确创建和包含所有必要信息。"
+  }
 }
