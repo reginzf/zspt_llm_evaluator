@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or '问答对组详情' }}</title>
     <link rel="stylesheet" href="{{ css_path }}">
+    {% if css_files %}
+    {% for css_file in css_files %}
+    <link rel="stylesheet" href="{{ css_file }}">
+    {% endfor %}
+    {% endif %}
 </head>
 <body>
 <div class="container">

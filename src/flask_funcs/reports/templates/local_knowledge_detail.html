@@ -6,6 +6,11 @@
     <title>{{ title or '本地知识库详情' }}</title>
     <link rel="stylesheet" href="{{ css_path }}">
     <link rel="stylesheet" href="{{ detail_css_path }}">
+    {% if css_files %}
+    {% for css_file in css_files %}
+    <link rel="stylesheet" href="{{ css_file }}">
+    {% endfor %}
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_label_studio.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_question.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_bp.custom_css', filename='local_knowledge_detail_task.css') }}">

@@ -1,22 +1,64 @@
-/* 通用组件样式 */
+/* ============================================
+   CSS 变量和主题配置
+   ============================================ */
+
+:root {
+    /* 主题色 - 统一全项目颜色 */
+    --primary-color: #667eea;
+    --primary-hover: #5a6fd6;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    
+    /* 背景色 */
+    --bg-light: #f8f9fa;
+    --bg-dark: #f5f7fa;
+    --bg-white: #ffffff;
+    
+    /* 边框色 */
+    --border-color: #dee2e6;
+    --border-light: #eee;
+    
+    /* 文字色 */
+    --text-primary: #333;
+    --text-secondary: #666;
+    --text-muted: #6c757d;
+    
+    /* 阴影 */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.2);
+    
+    /* 圆角 */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+}
+
+/* ============================================
+   通用组件样式
+   ============================================ */
 
 /* 通用容器 */
 .common-container {
     max-width: 1600px;
     margin: 0 auto;
-    background: white;
-    border-radius: 10px;
+    background: var(--bg-white);
+    border-radius: var(--radius-xl);
     padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 /* 通用标题样式 */
 .common-title {
-    color: #667eea;
+    color: var(--primary-color);
     margin-bottom: 20px;
     text-align: center;
     padding-bottom: 15px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border-light);
 }
 
 /* 通用按钮样式 */
@@ -45,17 +87,17 @@
 
 /* 主要按钮 */
 .btn-primary {
-    background: #667eea;
+    background: var(--primary-color);
     color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #5a6fd6;
+    background: var(--primary-hover);
 }
 
 /* 次要按钮 */
 .btn-secondary {
-    background: #6c757d;
+    background: var(--secondary-color);
     color: white;
 }
 
@@ -65,7 +107,7 @@
 
 /* 成功按钮 */
 .btn-success {
-    background: #28a745;
+    background: var(--success-color);
     color: white;
 }
 
@@ -75,7 +117,7 @@
 
 /* 危险按钮 */
 .btn-danger {
-    background: #dc3545;
+    background: var(--danger-color);
     color: white;
 }
 
@@ -85,7 +127,7 @@
 
 /* 警告按钮 */
 .btn-warning {
-    background: #ffc107;
+    background: var(--warning-color);
     color: #212529;
 }
 
@@ -95,7 +137,7 @@
 
 /* 信息按钮 */
 .btn-info {
-    background: #17a2b8;
+    background: var(--info-color);
     color: white;
 }
 
@@ -249,23 +291,23 @@
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
-    background: white;
-    border-radius: 8px;
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .common-table th,
 .common-table td {
     padding: 12px 15px;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
 }
 
 .common-table th {
-    background: #f8f9fa;
+    background: var(--bg-light);
     font-weight: 600;
-    color: #495057;
+    color: var(--text-secondary);
     position: relative;
 }
 
@@ -274,7 +316,7 @@
 }
 
 .common-table tr:hover {
-    background: #f8f9fa;
+    background: var(--bg-light);
 }
 
 .common-table .empty-cell {
@@ -315,20 +357,21 @@
 }
 
 .modal-content {
-    background-color: white;
+    background-color: var(--bg-white);
     margin: 5% auto;
-    padding: 0;
-    border-radius: 8px;
+    padding: 20px;
+    border-radius: var(--radius-lg);
     width: 90%;
     max-width: 600px;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
+    box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
     padding: 20px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -336,7 +379,7 @@
 
 .modal-header h3 {
     margin: 0;
-    color: #333;
+    color: var(--text-primary);
 }
 
 .modal-close {
@@ -354,7 +397,7 @@
 }
 
 .modal-close:hover {
-    color: #333;
+    color: var(--text-primary);
 }
 
 .modal-body {
@@ -363,7 +406,7 @@
 
 .modal-footer {
     padding: 15px 20px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--border-light);
     display: flex;
     justify-content: flex-end;
     gap: 10px;
@@ -378,22 +421,22 @@
     display: block;
     margin-bottom: 5px;
     font-weight: 500;
-    color: #333;
+    color: var(--text-primary);
 }
 
 .form-control {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
     font-size: 14px;
     transition: border-color 0.15s ease-in-out;
 }
 
 .form-control:focus {
     outline: none;
-    border-color: #80bdff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
 }
 
 .form-row {
@@ -424,7 +467,7 @@
 /* 通用状态标签 */
 .status-badge {
     padding: 4px 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     font-size: 12px;
     font-weight: 500;
     display: inline-block;
@@ -454,11 +497,11 @@
 .text-center { text-align: center; }
 .text-left { text-align: left; }
 .text-right { text-align: right; }
-.text-success { color: #28a745; }
-.text-danger { color: #dc3545; }
-.text-warning { color: #ffc107; }
-.text-info { color: #17a2b8; }
-.text-muted { color: #6c757d; }
+.text-success { color: var(--success-color); }
+.text-danger { color: var(--danger-color); }
+.text-warning { color: var(--warning-color); }
+.text-info { color: var(--info-color); }
+.text-muted { color: var(--text-muted); }
 
 .mt-1 { margin-top: 5px; }
 .mt-2 { margin-top: 10px; }
@@ -481,7 +524,7 @@
     width: 20px;
     height: 20px;
     border: 3px solid #f3f3f3;
-    border-top: 3px solid #007bff;
+    border-top: 3px solid var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }

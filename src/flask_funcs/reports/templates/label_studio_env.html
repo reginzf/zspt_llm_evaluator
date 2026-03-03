@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Label-Studio环境管理</title>
     <link rel="stylesheet" href="{{ css_path }}">
+    {% if css_files %}
+    {% for css_file in css_files %}
+    <link rel="stylesheet" href="{{ css_file }}">
+    {% endfor %}
+    {% endif %}
     {% if js_url %}
     <script src="{{ js_url }}"></script>
     {% endif %}

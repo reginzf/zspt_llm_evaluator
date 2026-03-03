@@ -1,405 +1,21 @@
 <!DOCTYPE html>
+</html>
+</body>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>导入问答对数据 - {{ group_name }}</title>
-    <link rel="stylesheet" href="{{ css_path }}">
-    <style>
-        .import-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .import-steps {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            position: relative;
-        }
-        
-        .import-steps::before {
-            content: '';
-            position: absolute;
-            top: 15px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #e0e0e0;
-            z-index: 1;
-        }
-        
-        .step {
-            position: relative;
-            z-index: 2;
-            text-align: center;
-            flex: 1;
-        }
-        
-        .step-circle {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background-color: #e0e0e0;
-            color: #666;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 8px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        
-        .step.active .step-circle {
-            background-color: #007bff;
-            color: white;
-        }
-        
-        .step.completed .step-circle {
-            background-color: #28a745;
-            color: white;
-        }
-        
-        .step-label {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .step.active .step-label {
-            color: #007bff;
-            font-weight: bold;
-        }
-        
-        .step.completed .step-label {
-            color: #28a745;
-        }
-        
-        .import-step-content {
-            background-color: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            min-height: 400px;
-        }
-        
-        .import-actions {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-        
-        .btn-primary:hover:not(:disabled) {
-            background-color: #0056b3;
-        }
-        
-        .btn-primary:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background-color: #545b62;
-        }
-        
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover:not(:disabled) {
-            background-color: #1e7e34;
-        }
-        
-        .btn-success:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
-        .file-upload-area {
-            border: 2px dashed #007bff;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 20px;
-        }
-        
-        .file-upload-area:hover {
-            background-color: #f8f9fa;
-            border-color: #0056b3;
-        }
-        
-        .file-upload-area.dragover {
-            background-color: #e7f3ff;
-            border-color: #0056b3;
-        }
-        
-        .upload-icon {
-            font-size: 48px;
-            color: #007bff;
-            margin-bottom: 16px;
-        }
-        
-        .upload-text {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 8px;
-        }
-        
-        .upload-hint {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 16px;
-        }
-        
-        .file-input {
-            display: none;
-        }
-        
-        .file-selected {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        
-        .file-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .file-name {
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .file-size {
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .preview-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        .preview-table th,
-        .preview-table td {
-            border: 1px solid #dee2e6;
-            padding: 8px;
-            text-align: left;
-        }
-        
-        .preview-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        
-        .preview-table tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        
-        .mapping-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        .mapping-table th,
-        .mapping-table td {
-            border: 1px solid #dee2e6;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        .mapping-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        
-        .mapping-table tr.required {
-            background-color: #fff3cd;
-        }
-        
-        .mapping-table tr.required td:first-child::after {
-            content: ' *';
-            color: #dc3545;
-        }
-        
-        .field-select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            background-color: white;
-        }
-        
-        .field-select:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-        }
-        
-        .progress-container {
-            margin-top: 20px;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background-color: #28a745;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-text {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .import-results {
-            margin-top: 30px;
-        }
-        
-        .result-card {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .result-success {
-            border-left: 4px solid #28a745;
-        }
-        
-        .result-error {
-            border-left: 4px solid #dc3545;
-        }
-        
-        .result-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .stat-item {
-            text-align: center;
-            padding: 15px;
-            background-color: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .error-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
-        
-        .error-item {
-            padding: 8px;
-            border-bottom: 1px solid #dee2e6;
-            font-size: 14px;
-            color: #dc3545;
-        }
-        
-        .alert {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        
-        .alert-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        
-        .alert-error {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        
-        .alert-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .hidden {
-            display: none;
-        }
-    </style>
+    <title>导入问答对数�?- {{ group_name }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">`n    <link rel="stylesheet" href="/static/css/qa_import.css">
+    {% endif %}
 </head>
 <body>
 <div class="import-container">
-    <!-- 返回按钮和标题 -->
+    <!-- 返回按钮和标�?-->
     <div class="page-header">
-        <button class="back-btn" onclick="goBack()">← 返回详情</button>
-        <h1>导入问答对数据 - {{ group_name }}</h1>
+        <button class="back-btn" onclick="goBack()">�?返回详情</button>
+        <h1>导入问答对数�?- {{ group_name }}</h1>
     </div>
     
     <!-- 导入步骤 -->
@@ -424,12 +40,12 @@
     
     <!-- 步骤1: 选择文件 -->
     <div class="import-step-content" id="step1Content">
-        <h2>选择HuggingFace数据集文件</h2>
-        <p class="upload-hint">请选择HuggingFace数据集文件夹（包含dataset_dict.json等文件）或单个数据文件</p>
+        <h2>选择HuggingFace数据集文�?/h2>
+        <p class="upload-hint">请选择HuggingFace数据集文件夹（包含dataset_dict.json等文件）或单个数据文�?/p>
         
         <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">📁</div>
-            <div class="upload-text">点击选择文件或文件夹，或拖拽到此处</div>
+            <div class="upload-text">点击选择文件或文件夹，或拖拽到此�?/div>
             <div class="upload-hint">支持文件和文件夹上传</div>
             <!-- 同时支持文件和文件夹选择 -->
             <input type="file" id="fileInput" class="file-input" multiple 
@@ -439,7 +55,7 @@
         <!-- 切换上传模式按钮 -->
         <div style="text-align: center; margin-top: 15px;">
             <button class="btn btn-secondary" onclick="switchUploadMode('folder')" id="folderModeBtn" style="margin-right: 10px;">
-                📁 选择文件夹
+                📁 选择文件�?
             </button>
             <button class="btn btn-secondary" onclick="switchUploadMode('file')" id="fileModeBtn">
                 📄 选择文件
@@ -458,12 +74,12 @@
         </div>
         
         <div class="alert alert-warning hidden" id="fileWarning">
-            <strong>注意：</strong> 请确保选择的是HuggingFace数据集文件夹或数据文件。
+            <strong>注意�?/strong> 请确保选择的是HuggingFace数据集文件夹或数据文件�?
         </div>
         
         <div class="import-actions">
             <button class="btn btn-secondary" onclick="goBack()">取消</button>
-            <button class="btn btn-primary" id="nextStep1" onclick="nextStep(2)" disabled>下一步</button>
+            <button class="btn btn-primary" id="nextStep1" onclick="nextStep(2)" disabled>下一�?/button>
         </div>
     </div>
     
@@ -473,7 +89,7 @@
         <p class="upload-hint" id="previewInfo">正在加载数据预览...</p>
         
         <div class="alert alert-error hidden" id="previewError">
-            <strong>错误：</strong> <span id="previewErrorMessage"></span>
+            <strong>错误�?/strong> <span id="previewErrorMessage"></span>
         </div>
         
         <div class="preview-table-container hidden" id="previewTableContainer">
@@ -484,14 +100,14 @@
                 <tbody id="previewTableBody"></tbody>
             </table>
             <div class="preview-info">
-                <p>总记录数: <span id="totalRecords">0</span> 条</p>
-                <p>显示前 <span id="previewRows">5</span> 条记录</p>
+                <p>总记录数: <span id="totalRecords">0</span> �?/p>
+                <p>显示�?<span id="previewRows">5</span> 条记�?/p>
             </div>
         </div>
         
         <div class="import-actions">
-            <button class="btn btn-secondary" onclick="prevStep(1)">上一步</button>
-            <button class="btn btn-primary" id="nextStep2" onclick="nextStep(3)" disabled>下一步</button>
+            <button class="btn btn-secondary" onclick="prevStep(1)">上一�?/button>
+            <button class="btn btn-primary" id="nextStep2" onclick="nextStep(3)" disabled>下一�?/button>
         </div>
     </div>
     
@@ -501,19 +117,19 @@
         <p class="upload-hint">请将HuggingFace数据集的字段映射到问答对表的字段</p>
         
         <div class="alert alert-warning">
-            <strong>注意：</strong> 标有 * 的字段为必填项。同一HuggingFace字段不能映射到多个目标字段。
+            <strong>注意�?/strong> 标有 * 的字段为必填项。同一HuggingFace字段不能映射到多个目标字段�?
         </div>
         
         <table class="mapping-table" id="mappingTable">
             <thead>
                 <tr>
                     <th width="30%">问答对表字段</th>
-                    <th width="40%">HuggingFace数据集字段</th>
+                    <th width="40%">HuggingFace数据集字�?/th>
                     <th width="30%">说明</th>
                 </tr>
             </thead>
             <tbody id="mappingTableBody">
-                <!-- 映射行将通过JavaScript动态生成 -->
+                <!-- 映射行将通过JavaScript动态生�?-->
             </tbody>
         </table>
         
@@ -523,15 +139,15 @@
                 <div class="option-item">
                     <label for="batchSize">批次大小:</label>
                     <input type="number" id="batchSize" value="1000" min="100" max="10000" step="100">
-                    <small>每批次处理的记录数</small>
+                    <small>每批次处理的记录�?/small>
                 </div>
                 <div class="option-item">
                     <label for="skipRows">跳过行数:</label>
                     <input type="number" id="skipRows" value="0" min="0">
-                    <small>从开始跳过的记录数</small>
+                    <small>从开始跳过的记录�?/small>
                 </div>
                 <div class="option-item">
-                    <label for="unmappedFields">未映射字段:</label>
+                    <label for="unmappedFields">未映射字�?</label>
                     <select id="unmappedFields">
                         <option value="ignore">忽略</option>
                         <option value="metadata">存入metadata</option>
@@ -542,8 +158,8 @@
         </div>
         
         <div class="import-actions">
-            <button class="btn btn-secondary" onclick="prevStep(2)">上一步</button>
-            <button class="btn btn-success" id="startImportBtn" onclick="startImport()" disabled>开始导入</button>
+            <button class="btn btn-secondary" onclick="prevStep(2)">上一�?/button>
+            <button class="btn btn-success" id="startImportBtn" onclick="startImport()" disabled>开始导�?/button>
         </div>
     </div>
     
@@ -556,7 +172,7 @@
                 <div class="progress-fill" id="progressFill" style="width: 0%"></div>
             </div>
             <div class="progress-text">
-                <span id="progressStatus">准备中...</span>
+                <span id="progressStatus">准备�?..</span>
                 <span id="progressPercent">0%</span>
             </div>
         </div>
@@ -565,7 +181,7 @@
             <div class="result-card result-success" id="successResult">
                 <h3>导入完成</h3>
                 <div class="result-stats" id="resultStats">
-                    <!-- 统计信息将通过JavaScript动态生成 -->
+                    <!-- 统计信息将通过JavaScript动态生�?-->
                 </div>
             </div>
             
@@ -577,7 +193,7 @@
         </div>
         
         <div class="import-actions">
-            <button class="btn btn-secondary" onclick="prevStep(3)">上一步</button>
+            <button class="btn btn-secondary" onclick="prevStep(3)">上一�?/button>
             <button class="btn btn-primary" id="finishBtn" onclick="finishImport()" disabled>完成</button>
         </div>
     </div>
@@ -643,7 +259,7 @@ function prevStep(step) {
     updateSteps();
 }
 
-// 当前上传模式: 'folder' 或 'file'
+// 当前上传模式: 'folder' �?'file'
 let currentUploadMode = 'folder';
 let selectedFiles = [];
 
@@ -652,7 +268,7 @@ function switchUploadMode(mode) {
     currentUploadMode = mode;
     const fileInput = document.getElementById('fileInput');
     
-    // 清空已选择的文件
+    // 清空已选择的文�?
     clearFileSelection();
     
     // 更新按钮样式
@@ -660,7 +276,7 @@ function switchUploadMode(mode) {
     const fileBtn = document.getElementById('fileModeBtn');
     
     if (mode === 'folder') {
-        // 文件夹模式
+        // 文件夹模�?
         fileInput.setAttribute('webkitdirectory', '');
         fileInput.setAttribute('directory', '');
         folderBtn.classList.remove('btn-secondary');
@@ -676,7 +292,7 @@ function switchUploadMode(mode) {
         fileBtn.classList.add('btn-primary');
         folderBtn.classList.remove('btn-primary');
         folderBtn.classList.add('btn-secondary');
-        document.querySelector('.upload-text').textContent = '点击选择文件，或拖拽到此处';
+        document.querySelector('.upload-text').textContent = '点击选择文件，或拖拽到此�?;
     }
 }
 
@@ -687,7 +303,7 @@ function handleFileSelect(event) {
     
     selectedFiles = files;
     
-    // 检查是否为文件夹上传
+    // 检查是否为文件夹上�?
     const firstFile = files[0];
     const relativePath = firstFile.webkitRelativePath || '';
     const isFolderUpload = relativePath.includes('/');
@@ -704,7 +320,7 @@ function handleFileSelect(event) {
         // 文件夹上传，显示文件夹名
         displayName = relativePath.split('/')[0];
     } else {
-        // 单文件或多文件上传
+        // 单文件或多文件上�?
         if (files.length === 1) {
             displayName = firstFile.name;
         } else {
@@ -714,11 +330,11 @@ function handleFileSelect(event) {
     
     document.getElementById('fileName').textContent = displayName;
     document.getElementById('fileSize').textContent = formatFileSize(totalSize);
-    document.getElementById('fileCount').textContent = `共 ${files.length} 个文件`;
+    document.getElementById('fileCount').textContent = `�?${files.length} 个文件`;
     document.getElementById('fileSelected').classList.remove('hidden');
     document.getElementById('fileWarning').classList.remove('hidden');
     
-    // 启用下一步按钮
+    // 启用下一步按�?
     document.getElementById('nextStep1').disabled = false;
     
     // 上传文件
@@ -747,7 +363,7 @@ async function uploadFile(files) {
     try {
         const formData = new FormData();
         
-        // 添加所有文件
+        // 添加所有文�?
         for (let i = 0; i < files.length; i++) {
             formData.append('file', files[i]);
         }
@@ -823,7 +439,7 @@ function displayPreview() {
         tableHeader.appendChild(th);
     });
     
-    // 添加数据行
+    // 添加数据�?
     previewData.preview_rows.forEach((row, index) => {
         const tr = document.createElement('tr');
         
@@ -863,21 +479,21 @@ function loadMappingTable() {
     const tableBody = document.getElementById('mappingTableBody');
     tableBody.innerHTML = '';
     
-    // ai_qa_data表字段定义
+    // ai_qa_data表字段定�?
     const aiQaFields = [
         { name: 'id', required: false, description: '主键，唯一标识' },
         { name: 'question', required: true, description: '问题内容' },
         { name: 'answers', required: true, description: '答案内容' },
-        { name: 'context', required: false, description: '上下文信息' },
+        { name: 'context', required: false, description: '上下文信�? },
         { name: 'question_type', required: false, description: '问题类型' },
         { name: 'source_dataset', required: false, description: '数据来源' },
         { name: 'hf_dataset_id', required: false, description: 'HuggingFace原始ID' },
         { name: 'language', required: false, description: '语言' },
         { name: 'difficulty_level', required: false, description: '难度等级' },
         { name: 'category', required: false, description: '分类标签' },
-        { name: 'sub_category', required: false, description: '子分类' },
+        { name: 'sub_category', required: false, description: '子分�? },
         { name: 'tags', required: false, description: '标签列表' },
-        { name: 'fixed_metadata', required: false, description: '固定元数据' },
+        { name: 'fixed_metadata', required: false, description: '固定元数�? },
         { name: 'dynamic_metadata', required: false, description: '动态元数据' }
     ];
     
@@ -891,7 +507,7 @@ function loadMappingTable() {
             tr.classList.add('required');
         }
         
-        // 字段名
+        // 字段�?
         const tdName = document.createElement('td');
         tdName.textContent = field.name;
         tr.appendChild(tdName);
@@ -910,8 +526,8 @@ function loadMappingTable() {
         select.appendChild(defaultOption);
         
         const ignoreOption = document.createElement('option');
-        ignoreOption.value = '不导入';
-        ignoreOption.textContent = '不导入';
+        ignoreOption.value = '不导�?;
+        ignoreOption.textContent = '不导�?;
         select.appendChild(ignoreOption);
         
         const autoOption = document.createElement('option');
@@ -953,10 +569,10 @@ function validateMapping() {
     const usedFields = new Set();
     let hasRequiredError = false;
     
-    // 检查重复映射
+    // 检查重复映�?
     selects.forEach(select => {
         const value = select.value;
-        if (value && value !== '不导入' && value !== '自动生成') {
+        if (value && value !== '不导�? && value !== '自动生成') {
             if (usedFields.has(value)) {
                 select.style.borderColor = '#dc3545';
                 select.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
@@ -970,10 +586,10 @@ function validateMapping() {
             select.style.boxShadow = '';
         }
         
-        // 检查必填字段
+        // 检查必填字�?
         const field = select.dataset.field;
         if (field === 'question' || field === 'answers') {
-            if (!select.value || select.value === '不导入') {
+            if (!select.value || select.value === '不导�?) {
                 hasRequiredError = true;
             }
         }
@@ -982,7 +598,7 @@ function validateMapping() {
         mappingConfig[field] = select.value;
     });
     
-    // 更新导入按钮状态
+    // 更新导入按钮状�?
     const importBtn = document.getElementById('startImportBtn');
     importBtn.disabled = hasRequiredError || usedFields.size === 0;
 }
@@ -1036,7 +652,7 @@ function displayImportResults() {
     const progressPercent = document.getElementById('progressPercent');
     const finishBtn = document.getElementById('finishBtn');
     
-    // 更新进度条
+    // 更新进度�?
     const successRate = importStats.total > 0 ? (importStats.success / importStats.total) * 100 : 0;
     progressFill.style.width = `${successRate}%`;
     progressStatus.textContent = '导入完成';
@@ -1066,7 +682,7 @@ function displayImportResults() {
         </div>
     `;
     
-    // 显示错误信息（如果有）
+    // 显示错误信息（如果有�?
     if (importStats.error_count > 0) {
         const errorResult = document.getElementById('errorResult');
         const errorList = document.getElementById('errorList');
@@ -1101,7 +717,7 @@ function finishImport() {
     // 清理临时文件
     cleanupFiles();
     
-    // 返回详情页
+    // 返回详情�?
     window.location.href = `/qa/groups/${groupId}`;
 }
 
@@ -1128,15 +744,15 @@ function goBack() {
     // 清理临时文件
     cleanupFiles();
     
-    // 返回详情页
+    // 返回详情�?
     window.location.href = `/qa/groups/${groupId}`;
 }
 
-// 初始化
+// 初始�?
 document.addEventListener('DOMContentLoaded', function() {
     updateSteps();
     
-    // 默认使用文件夹模式
+    // 默认使用文件夹模�?
     switchUploadMode('folder');
     
     // 拖拽文件支持
@@ -1161,14 +777,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const items = e.dataTransfer.items;
         if (items && items.length > 0) {
-            // 检查是否是文件夹
+            // 检查是否是文件�?
             const item = items[0];
             const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
             
             if (entry && entry.isDirectory) {
-                // 是文件夹，切换到文件夹模式
+                // 是文件夹，切换到文件夹模�?
                 switchUploadMode('folder');
-                // 遍历文件夹内容
+                // 遍历文件夹内�?
                 traverseDirectory(entry).then(files => {
                     const dataTransfer = new DataTransfer();
                     files.forEach(file => dataTransfer.items.add(file));
@@ -1179,7 +795,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('fileInput').dispatchEvent(event);
                 });
             } else {
-                // 是文件，切换到文件模式
+                // 是文件，切换到文件模�?
                 switchUploadMode('file');
                 const files = e.dataTransfer.files;
                 const dataTransfer = new DataTransfer();
@@ -1196,7 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// 遍历文件夹获取所有文件
+// 遍历文件夹获取所有文�?
 function traverseDirectory(entry, path = '', files = []) {
     return new Promise((resolve) => {
         if (entry.isFile) {

@@ -20,14 +20,16 @@ class FlaskHTMLRenderer:
             cls._instances[key] = super(FlaskHTMLRenderer, cls).__new__(cls)
         return cls._instances[key]
 
-    def __init__(self, css_path: Optional[str] = None):
+    def __init__(self, css_path: Optional[str] = None, include_common: bool = True):
         """
-        初始化修复版Flask HTML渲染器
-
+        初始化修复版 Flask HTML 渲染器
+    
         Args:
-            css_path: CSS文件路径（相对于static目录）
+            css_path: 页面专用 CSS 文件路径（相对于 static 目录）
+            include_common: 是否包含 common_components.css（默认 True）
         """
         self.css_path = css_path or "css/styles.css"
+        self.include_common = include_common
 
     def _get_static_url(self, filename: str) -> str:
         """
@@ -79,8 +81,19 @@ class FlaskHTMLRenderer:
         Returns:
             模板上下文字典
         """
+        # 构建 CSS 文件列表
+        css_files = []
+        
+        # 添加公共组件 CSS
+        if self.include_common:
+            css_files.append(url_for('static_bp.custom_css', filename='common_components.css'))
+        
+        # 添加页面专用 CSS
+        css_files.append(self._get_css_url())
+        
         context = {
-            'css_path': self._get_css_url(),
+            'css_files': css_files,
+            'css_path': self._get_css_url(),  # 保持向后兼容
             **kwargs
         }
         return context
