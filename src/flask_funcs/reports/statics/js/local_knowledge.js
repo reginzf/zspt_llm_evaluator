@@ -1,9 +1,13 @@
 // 用于详细页面的上传文件功能
 function showUploadDialogFromJS(knoId) {
-    // 保存当前知识库ID
+    // 保存当前知识库 ID
     window.currentKnoId = knoId;
     // 显示上传对话框
-    document.getElementById('uploadDialog').style.display = 'block';
+    if (typeof uploadDialog !== 'undefined' && uploadDialog) {
+        uploadDialog.show();
+    } else {
+        document.getElementById('uploadDialog').style.display = 'block';
+    }
 }
 
 // 上传文件功能 - 用于详细页面（仅使用MinIO存储）
@@ -12,7 +16,7 @@ function uploadFile() {
     const files = fileInput.files;
 
     if (files.length === 0) {
-        alert('请选择要上传的文件');
+        DialogManager.showWarning('请选择要上传的文件');
         return;
     }
 
@@ -34,21 +38,22 @@ function uploadFile() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success' || data.status === 'partial_success') {
-                alert(data.message);
-                closeUploadDialog();
-                // 重新加载文件列表
-                if (typeof loadFileList !== 'undefined') {
-                    loadFileList();
-                } else {
-                    location.reload();
-                }
+                DialogManager.showSuccess(data.message, () => {
+                    closeUploadDialog();
+                    // 重新加载文件列表
+                    if (typeof loadFileList !== 'undefined') {
+                        loadFileList();
+                    } else {
+                        location.reload();
+                    }
+                });
             } else {
-                alert('上传失败: ' + data.message);
+                DialogManager.showError('上传失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('上传文件时出错:', error);
-            alert('上传过程中发生错误: ' + error.message);
+            DialogManager.showError('上传过程中发生错误：' + error.message);
         });
 }
 
@@ -130,18 +135,20 @@ function submitEditKnowledge() {
             document.getElementById('editKnowledgeDialog').style.display = 'none';
             
             if (data.success) {
-                alert('知识库更新成功');
-                location.reload();
+                DialogManager.showSuccess('知识库更新成功', () => {
+                    closeEditKnowledgeDialog();
+                    location.reload();
+                });
             } else {
-                alert('知识库更新失败: ' + data.message);
+                DialogManager.showError('知识库更新失败：' + data.message);
             }
         })
         .catch(error => {
             // 隐藏对话框
             document.getElementById('editKnowledgeDialog').style.display = 'none';
-            
+                    
             console.error('更新知识库时出错:', error);
-            alert('更新过程中发生错误: ' + error.message);
+            DialogManager.showError('更新过程中发生错误：' + error.message);
         });
 }
 
@@ -158,24 +165,33 @@ function closeEditKnowledgeDialog() {
 // 删除知识库功能
 function deleteKnowledge(event, knoId) {
     event.stopPropagation(); // 防止事件冒泡
-    if (confirm('确定要删除此知识库吗？')) {
-        fetch(`/local_knowledge/delete/${knoId}`, {
-            method: 'DELETE'
-        })
-            .then(response => response.json())
-            .then(data => {
+    
+    DialogManager.confirm(
+        '确定要删除此知识库吗？',
+        async () => {
+            try {
+                const response = await fetch(`/local_knowledge/delete/${knoId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
                 if (data.success) {
-                    alert('知识库删除成功');
-                    location.reload();
+                    DialogManager.showSuccess('知识库删除成功', () => {
+                        location.reload();
+                    });
                 } else {
-                    alert('知识库删除失败: ' + data.message);
+                    DialogManager.showError('知识库删除失败：' + data.message);
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('删除知识库时出错:', error);
-                alert('删除过程中发生错误: ' + error.message);
-            });
-    }
+                DialogManager.showError('删除过程中发生错误：' + error.message);
+            }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 // 创建知识库功能
@@ -198,7 +214,7 @@ function submitCreateKnowledge() {
     const description = document.getElementById('knowledgeDescription').value;
     
     if (!name || name.trim() === '') {
-        alert('知识库名称不能为空');
+        DialogManager.showWarning('知识库名称不能为空');
         return;
     }
 
@@ -216,16 +232,17 @@ function submitCreateKnowledge() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('知识库创建成功');
-                closeCreateKnowledgeDialog();
-                location.reload();
+                DialogManager.showSuccess('知识库创建成功', () => {
+                    closeCreateKnowledgeDialog();
+                    location.reload();
+                });
             } else {
-                alert('知识库创建失败: ' + data.message);
+                DialogManager.showError('知识库创建失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('创建知识库时出错:', error);
-            alert('创建过程中发生错误: ' + error.message);
+            DialogManager.showError('创建过程中发生错误：' + error.message);
         });
 }
 
@@ -320,7 +337,7 @@ function bindKnowledge() {
     const selectedKbId = kbSelect.value;
 
     if (!selectedEnvId || !selectedKbId) {
-        alert('请先选择环境和知识库');
+        DialogManager.showWarning('请先选择环境和知识库');
         return;
     }
 
@@ -339,21 +356,22 @@ function bindKnowledge() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('绑定成功');
-                closeBindDialog();
-                // 如果在详细页面，重新加载绑定状态
-                if (typeof loadBindingStatus !== 'undefined') {
-                    loadBindingStatus();
-                } else {
-                    location.reload();
-                }
+                DialogManager.showSuccess('绑定成功', () => {
+                    closeBindDialog();
+                    // 如果在详细页面，重新加载绑定状态
+                    if (typeof loadBindingStatus !== 'undefined') {
+                        loadBindingStatus();
+                    } else {
+                        location.reload();
+                    }
+                });
             } else {
-                alert('绑定失败: ' + data.message);
+                DialogManager.showError('绑定失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('绑定知识库时出错:', error);
-            alert('绑定过程中发生错误: ' + error.message);
+            DialogManager.showError('绑定过程中发生错误：' + error.message);
         });
 }
 

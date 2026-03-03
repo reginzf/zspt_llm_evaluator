@@ -1,4 +1,8 @@
-// 环境详情页面JavaScript代码
+// 环境详情页面 JavaScript 代码
+// 使用公共组件重构版本
+
+// 全局变量
+let createModal; // 模态框控制器
 
 // 搜索功能
 function searchKnowledgeBases() {
@@ -38,14 +42,14 @@ function searchKnowledgeBases() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // 渲染知识库列表
             renderKnowledgeBaseList(data.data);
         } else {
-            console.error('获取知识库列表失败:', data.message);
+            DialogManager.showError('获取知识库列表失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('搜索知识库时出错:', error);
+        DialogManager.showError('搜索知识库时出错', error);
     });
 }
 
@@ -107,14 +111,14 @@ function renderKnowledgeBaseList(knowledgeBases) {
 document.addEventListener('DOMContentLoaded', function() {
     // 页面加载时获取初始数据
     searchKnowledgeBases();
+    
+    console.log('环境详情页面已加载');
 });
 
 // 编辑知识库
 function editKnowledgeBase(knowledgeId) {
-    // 通过弹窗或模态框实现编辑功能
     const newName = prompt('请输入新的知识库名称:', '');
     if (newName !== null && newName.trim() !== '') {
-        // 发送更新请求到后端
         fetch(`/knowledge_base/update/${knowledgeId}`, {
             method: 'PUT',
             headers: {
@@ -127,45 +131,52 @@ function editKnowledgeBase(knowledgeId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('知识库更新成功');
-                location.reload(); // 刷新页面以显示更新后的数据
+                DialogManager.showSuccess('知识库更新成功', () => {
+                    location.reload();
+                });
             } else {
-                alert('更新失败: ' + data.message);
+                DialogManager.showError('更新失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('更新知识库时出错:', error);
-            alert('更新知识库时发生错误');
+            DialogManager.showError('更新知识库时发生错误', error);
         });
     }
 }
 
 // 删除知识库
 function deleteKnowledgeBase(knowledgeId) {
-    if (confirm(`确定要删除知识库 ${knowledgeId} 吗？此操作不可撤销。`)) {
-        // 发送删除请求到后端
-        fetch(`/knowledge_base/delete/${knowledgeId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('知识库删除成功');
-                location.reload(); // 刷新页面以更新列表
-            } else {
-                alert('删除失败: ' + data.message);
+    DialogManager.confirm(
+        `确定要删除知识库 ${knowledgeId} 吗？此操作不可撤销。`,
+        async () => {
+            try {
+                const response = await fetch(`/knowledge_base/delete/${knowledgeId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('知识库删除成功', () => {
+                        location.reload();
+                    });
+                } else {
+                    DialogManager.showError('删除失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('删除知识库时出错:', error);
+                DialogManager.showError('删除知识库时发生错误', error);
             }
-        })
-        .catch(error => {
-            console.error('删除知识库时出错:', error);
-            alert('删除知识库时发生错误');
-        });
-    }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 // 创建知识库 - 显示模态框
 function createKnowledgeBase() {
-    // 创建模态框HTML
     const modal = document.createElement('div');
     modal.id = 'createKnowledgeBaseModal';
     modal.className = 'modal';
@@ -202,14 +213,15 @@ function createKnowledgeBase() {
     
     document.body.appendChild(modal);
     
-    // 显示模态框
-    modal.style.display = 'block';
-    
-    // 添加关闭事件
-    window.onclick = function(event) {
-        if (event.target === modal) {
-            closeCreateModal();
-        }
+    // 使用 ModalController 或直接显示
+    if (typeof ModalController !== 'undefined') {
+        createModal = new ModalController('createKnowledgeBaseModal', {
+            closeOnOutsideClick: true,
+            closeOnEsc: true
+        });
+        createModal.show();
+    } else {
+        modal.style.display = 'block';
     }
 }
 
@@ -217,7 +229,12 @@ function createKnowledgeBase() {
 function closeCreateModal() {
     const modal = document.getElementById('createKnowledgeBaseModal');
     if (modal) {
-        modal.remove();
+        if (createModal) {
+            createModal.hide();
+            setTimeout(() => modal.remove(), 100); // 等待动画后移除
+        } else {
+            modal.remove();
+        }
     }
 }
 
@@ -236,13 +253,13 @@ function submitCreateKnowledgeBase() {
     const zlpt_base_id = urlParams.get('zlpt_base_id');
 
     if (!zlpt_base_id) {
-        alert('无法获取环境ID，请返回环境列表页面重新进入');
+        DialogManager.showError('无法获取环境 ID，请返回环境列表页面重新进入');
         closeCreateModal();
         return;
     }
-
+    
     if (!knowledgeName || !chunkSize || !chunkOverlap || !sliceIdentifier) {
-        alert('请填写所有必填字段');
+        DialogManager.showWarning('请填写所有必填字段');
         return;
     }
 
@@ -263,16 +280,17 @@ function submitCreateKnowledgeBase() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('知识库创建成功');
-            closeCreateModal();
-            location.reload(); // 刷新页面以显示新创建的知识库
+            DialogManager.showSuccess('知识库创建成功', () => {
+                closeCreateModal();
+                location.reload();
+            });
         } else {
-            alert('创建失败: ' + data.message);
+            DialogManager.showError('创建失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('创建知识库时出错:', error);
-        alert('创建知识库时发生错误');
+        DialogManager.showError('创建知识库时发生错误', error);
     });
 }
 
