@@ -29,8 +29,8 @@
             <button class="btn btn-create" onclick="showCreateModal()">创建</button>
             
             <div class="search-container">
-                <input type="text" id="searchInput" placeholder="搜索环境..." onkeyup="searchEnvironments()">
-                <button onclick="searchEnvironments()">搜索</button>
+                <input type="text" id="searchInput" placeholder="搜索环境...">
+                <button id="searchBtn">搜索</button>
             </div>
         </div>
         
@@ -73,6 +73,9 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- 分页组件 -->
+        <div id="paginationArea"></div>
     </div>
     
     <!-- 创建/编辑环境模态框 -->

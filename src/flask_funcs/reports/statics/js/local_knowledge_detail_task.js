@@ -177,12 +177,12 @@ function confirmCalculationType() {
     const taskId = document.getElementById('currentTaskId').value;
 
     if (!selectedType) {
-        alert('请选择召回方式');
+        DialogManager.showWarning('请选择召回方式');
         return;
     }
-
+    
     if (!taskId) {
-        alert('任务ID不能为空');
+        DialogManager.showWarning('任务 ID 不能为空');
         return;
     }
 
@@ -241,17 +241,17 @@ function confirmCalculationType() {
                 return;
             }
             if (data.success) {
-                alert('质量计算已启动');
-                hideCalculationModal();
-                // 刷新任务列表
-                loadTaskList();
+                DialogManager.showSuccess('质量计算已启动', () => {
+                    hideCalculationModal();
+                    loadTaskList();
+                });
             } else {
                 throw new Error(data.message || '启动计算失败');
             }
         })
         .catch(error => {
             console.error('处理过程中出错:', error);
-            alert('操作失败: ' + error.message);
+            DialogManager.showError('操作失败：' + error.message);
         });
 }
 
@@ -334,18 +334,18 @@ function updateTaskMatchType() {
 
     // 验证必填字段
     if (!matchType) {
-        alert('请选择匹配方式');
+        DialogManager.showWarning('请选择匹配方式');
         return;
     }
 
     if (!searchType) {
-        alert('召回方式不能为空');
+        DialogManager.showWarning('召回方式不能为空');
         return;
     }
 
     // 如果是切片语义匹配，还需要选择知识库
     if (matchType === 'chunkTextMatch' && !knowledgeBaseId) {
-        alert('请选择知识库');
+        DialogManager.showWarning('请选择知识库');
         return;
     }
 
@@ -372,18 +372,17 @@ function updateTaskMatchType() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('匹配方式更新成功');
-            // 隐藏更新区域
-            document.getElementById('matchTypeUpdateSection').style.display = 'none';
-            // 重新尝试启动计算
-            confirmCalculationType();
+            DialogManager.showSuccess('匹配方式更新成功', () => {
+                document.getElementById('matchTypeUpdateSection').style.display = 'none';
+                confirmCalculationType();
+            });
         } else {
-            alert('更新失败: ' + data.message);
+            DialogManager.showError('更新失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('更新匹配方式时出错:', error);
-        alert('更新匹配方式时发生错误');
+        DialogManager.showError('更新匹配方式时发生错误');
     });
 }
 
@@ -500,38 +499,45 @@ function openReport(knowledgeBaseId, filepath) {
 
 // 删除报告
 function deleteReport(reportId, buttonElement) {
-    if (confirm('确定要删除这个报告吗？此操作不可撤销。')) {
-        fetch('/local_knowledge_detail/task/metric/delete_report', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                report_id: reportId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('报告删除成功');
-                // 重新加载报告列表
-                const taskId = document.getElementById('currentTaskId').value;
-                loadReportContent(taskId);
-            } else {
-                alert('删除失败: ' + data.message);
+    DialogManager.confirm(
+        '确定要删除这个报告吗？此操作不可撤销。',
+        async () => {
+            try {
+                const response = await fetch('/local_knowledge_detail/task/metric/delete_report', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        report_id: reportId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('报告删除成功', () => {
+                        const taskId = document.getElementById('currentTaskId').value;
+                        loadReportContent(taskId);
+                    });
+                } else {
+                    DialogManager.showError('删除失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('删除报告时出错:', error);
+                DialogManager.showError('删除报告时发生错误：' + error.message);
             }
-        })
-        .catch(error => {
-            console.error('删除报告时出错:', error);
-            alert('删除报告时发生错误: ' + error.message);
-        });
-    }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 // 导出报告
 function exportReport() {
     const taskId = document.getElementById('currentTaskId').value;
-    alert(`正在导出任务 ${taskId} 的报告...`);
+    DialogManager.showInfo(`正在导出任务 ${taskId} 的报告...`);
     // TODO: 实现报告导出功能
 }
 
@@ -649,18 +655,18 @@ function createMetricTask() {
 
     // 验证必填字段
     if (!matchType) {
-        alert('请选择匹配方式');
+        DialogManager.showWarning('请选择匹配方式');
         return;
     }
 
     if (!taskId) {
-        alert('请选择标注任务');
+        DialogManager.showWarning('请选择标注任务');
         return;
     }
 
     // 如果是切片语义匹配，还需要选择知识库
     if (matchType === 'chunkTextMatch' && !knowledgeBaseId) {
-        alert('请选择知识库');
+        DialogManager.showWarning('请选择知识库');
         return;
     }
 
@@ -686,17 +692,17 @@ function createMetricTask() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('指标任务创建成功');
-            hideCreateMetricTaskModal();
-            // 重新加载任务列表
-            loadTaskList();
+            DialogManager.showSuccess('指标任务创建成功', () => {
+                hideCreateMetricTaskModal();
+                loadTaskList();
+            });
         } else {
-            alert('创建失败: ' + data.message);
+            DialogManager.showError('创建失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('创建指标任务时出错:', error);
-        alert('创建指标任务时发生错误');
+        DialogManager.showError('创建指标任务时发生错误');
     });
 }
 
@@ -708,42 +714,44 @@ function hideCreateMetricTaskModal() {
 // 删除指标任务函数
 function deleteMetricTask(metricTaskId) {
     if (!metricTaskId) {
-        alert('任务ID不能为空');
+        DialogManager.showWarning('任务 ID 不能为空');
         return;
     }
 
-    // 弹出确认对话框
-    if (!confirm('确定要删除此任务吗？将同时删除相关的报告文件和数据库记录。')) {
-        return;
-    }
-
-    // 发送删除请求
-    fetch('/local_knowledge_detail/task/metric/delete_task', {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
+    DialogManager.confirm(
+        '确定要删除此任务吗？将同时删除相关的报告文件和数据库记录。',
+        async () => {
+            try {
+                const response = await fetch('/local_knowledge_detail/task/metric/delete_task', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        metric_task_id: metricTaskId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('任务删除成功', () => {
+                        loadTaskList();
+                    });
+                } else {
+                    throw new Error(data.message || '删除任务失败');
+                }
+            } catch (error) {
+                console.error('删除任务时出错:', error);
+                DialogManager.showError('删除任务失败：' + error.message);
+            }
         },
-        body: JSON.stringify({
-            metric_task_id: metricTaskId
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        () => {
+            console.log('用户取消删除');
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            alert('任务删除成功');
-            // 刷新任务列表
-            loadTaskList();
-        } else {
-            throw new Error(data.message || '删除任务失败');
-        }
-    })
-    .catch(error => {
-        console.error('删除任务时出错:', error);
-        alert('删除任务失败: ' + error.message);
-    });
+    );
 }

@@ -266,7 +266,7 @@ function createQuestionSet() {
     const setType = document.getElementById('questionSetType').value;
     
     if (!setName.trim()) {
-        alert('请输入问题集名称');
+        DialogManager.showWarning('请输入问题集名称');
         return;
     }
     
@@ -287,16 +287,17 @@ function createQuestionSet() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('问题集更新成功');
-                hideCreateQuestionSetModal();
-                loadQuestionSets(); // 重新加载问题集列表
+                DialogManager.showSuccess('问题集更新成功', () => {
+                    hideCreateQuestionSetModal();
+                    loadQuestionSets();
+                });
             } else {
-                alert('更新失败: ' + data.message);
+                DialogManager.showError('更新失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('更新问题集时出错:', error);
-            alert('更新问题集时发生错误');
+            DialogManager.showError('更新问题集时发生错误');
         });
         
         // 清除编辑状态
@@ -317,16 +318,17 @@ function createQuestionSet() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('问题集创建成功');
-                hideCreateQuestionSetModal();
-                loadQuestionSets(); // 重新加载问题集列表
+                DialogManager.showSuccess('问题集创建成功', () => {
+                    hideCreateQuestionSetModal();
+                    loadQuestionSets();
+                });
             } else {
-                alert('创建失败: ' + data.message);
+                DialogManager.showError('创建失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('创建问题集时出错:', error);
-            alert('创建问题集时发生错误');
+            DialogManager.showError('创建问题集时发生错误');
         });
     }
 }
@@ -362,43 +364,49 @@ function editQuestionSet(setId) {
                 // 显示模态框
                 document.getElementById('createQuestionSetModal').style.display = 'block';
             } else {
-                alert('获取问题集详情失败: ' + data.message);
+                DialogManager.showError('获取问题集详情失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('获取问题集详情时出错:', error);
-            alert('获取问题集详情时发生错误');
+            DialogManager.showError('获取问题集详情时发生错误');
         });
 }
 
 // 删除问题集
 function deleteQuestionSet(setId, setName) {
-    if (!confirm(`确定要删除问题集 "${setName}" 吗？此操作不可撤销。`)) {
-        return;
-    }
-    
-    fetch('/local_knowledge_detail/question/set/delete', {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
+    DialogManager.confirm(
+        `确定要删除问题集 "${setName}" 吗？此操作不可撤销。`,
+        async () => {
+            try {
+                const response = await fetch('/local_knowledge_detail/question/set/delete', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        set_id: setId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('问题集删除成功', () => {
+                        loadQuestionSets();
+                    });
+                } else {
+                    DialogManager.showError('删除失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('删除问题集时出错:', error);
+                DialogManager.showError('删除问题集时发生错误');
+            }
         },
-        body: JSON.stringify({
-            set_id: setId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('问题集删除成功');
-            loadQuestionSets(); // 重新加载问题集列表
-        } else {
-            alert('删除失败: ' + data.message);
+        () => {
+            console.log('用户取消删除');
         }
-    })
-    .catch(error => {
-        console.error('删除问题集时出错:', error);
-        alert('删除问题集时发生错误');
-    });
+    );
 }
 
 // 查看问题集详情
@@ -421,12 +429,12 @@ function viewQuestionSet(setId) {
                 const container = document.getElementById('questionList');
                 loadQuestionsForSet(setId, container);
             } else {
-                alert('获取问题集详情失败: ' + data.message);
+                DialogManager.showError('获取问题集详情失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('获取问题集详情时出错:', error);
-            alert('获取问题集详情时发生错误');
+            DialogManager.showError('获取问题集详情时发生错误');
         });
 }
 
@@ -516,7 +524,7 @@ function createQuestion() {
     const chunkIdsValue = document.getElementById('chunkIds').value;
     
     if (!questionContent.trim()) {
-        alert('请输入问题内容');
+        DialogManager.showWarning('请输入问题内容');
         return;
     }
     
@@ -541,35 +549,34 @@ function createQuestion() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('问题更新成功');
-                hideCreateQuestionModal();
-                
-                // 如果在问题集详情模态框中，刷新问题列表
-                if (document.getElementById('questionSetDetailModal').style.display === 'block') {
-                    const container = document.getElementById('questionList');
-                    if (currentQuestionSetId) {
-                        loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
-                    }
-                } else {
-                    // 如果在主页面，刷新当前展开的问题集
-                    if (currentQuestionSetId) {
-                        // 重新加载该问题集的问题列表
-                        const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
-                        if (contentElement && contentElement.classList.contains('expanded')) {
-                            loadQuestionsForSet(currentQuestionSetId, contentElement);  // 刷新当前展开的问题集
+                DialogManager.showSuccess('问题更新成功', () => {
+                    hideCreateQuestionModal();
+                            
+                    // 如果在问题集详情模态框中，刷新问题列表
+                    if (document.getElementById('questionSetDetailModal').style.display === 'block') {
+                        const container = document.getElementById('questionList');
+                        if (currentQuestionSetId) {
+                            loadQuestionsForSet(currentQuestionSetId, container);
                         }
                     } else {
-                        // 如果没有特定问题集，重新加载整个问题集
-                        loadQuestionSets();
+                        // 如果在主页面，刷新当前展开的问题集
+                        if (currentQuestionSetId) {
+                            const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
+                            if (contentElement && contentElement.classList.contains('expanded')) {
+                                loadQuestionsForSet(currentQuestionSetId, contentElement);
+                            }
+                        } else {
+                            loadQuestionSets();
+                        }
                     }
-                }
+                });
             } else {
-                alert('更新失败: ' + data.message);
+                DialogManager.showError('更新失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('更新问题时出错:', error);
-            alert('更新问题时发生错误');
+            DialogManager.showError('更新问题时发生错误');
         });
         
         // 清除编辑状态
@@ -577,10 +584,10 @@ function createQuestion() {
         window.currentEditingQuestionType = null;
     } else {
         // 创建模式
-        // 获取当前打开的问题集ID
+        // 获取当前打开的问题集 ID
         const openQuestionSetId = getCurrentOpenQuestionSetId();
         if (!openQuestionSetId) {
-            alert('请先选择一个问题集');
+            DialogManager.showWarning('请先选择一个问题集');
             return;
         }
         
@@ -604,35 +611,34 @@ function createQuestion() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('问题创建成功');
-                hideCreateQuestionModal();
-                
-                // 如果在问题集详情模态框中，刷新问题列表
-                if (document.getElementById('questionSetDetailModal').style.display === 'block') {
-                    const container = document.getElementById('questionList');
-                    if (currentQuestionSetId) {
-                        loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
-                    }
-                } else {
-                    // 如果在主页面，刷新当前展开的问题集
-                    if (openQuestionSetId) {
-                        // 重新加载该问题集的问题列表
-                        const contentElement = document.getElementById(`questionSetContent-${openQuestionSetId}`);
-                        if (contentElement && contentElement.classList.contains('expanded')) {
-                            loadQuestionsForSet(openQuestionSetId, contentElement);  // 刷新当前展开的问题集
+                DialogManager.showSuccess('问题创建成功', () => {
+                    hideCreateQuestionModal();
+                            
+                    // 如果在问题集详情模态框中，刷新问题列表
+                    if (document.getElementById('questionSetDetailModal').style.display === 'block') {
+                        const container = document.getElementById('questionList');
+                        if (currentQuestionSetId) {
+                            loadQuestionsForSet(currentQuestionSetId, container);
                         }
                     } else {
-                        // 如果没有特定问题集，重新加载整个问题集
-                        loadQuestionSets();
+                        // 如果在主页面，刷新当前展开的问题集
+                        if (openQuestionSetId) {
+                            const contentElement = document.getElementById(`questionSetContent-${openQuestionSetId}`);
+                            if (contentElement && contentElement.classList.contains('expanded')) {
+                                loadQuestionsForSet(openQuestionSetId, contentElement);
+                            }
+                        } else {
+                            loadQuestionSets();
+                        }
                     }
-                }
+                });
             } else {
-                alert('创建失败: ' + data.message);
+                DialogManager.showError('创建失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('创建问题时出错:', error);
-            alert('创建问题时发生错误');
+            DialogManager.showError('创建问题时发生错误');
         });
     }
 }
@@ -672,14 +678,14 @@ function viewQuestionDetail(questionId, questionSetType) {
         .then(data => {
             if (data.success) {
                 const question = data.data;
-                alert(`问题详情:\n类型: ${question.question_type}\n内容: ${question.question_content || 'N/A'}\n切片ID: ${question.chunk_ids || 'N/A'}`);
+                DialogManager.showInfo(`问题详情:\n类型：${question.question_type}\n内容：${question.question_content || 'N/A'}\n切片 ID: ${question.chunk_ids || 'N/A'}`);
             } else {
-                alert('获取问题详情失败: ' + data.message);
+                DialogManager.showError('获取问题详情失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('获取问题详情时出错:', error);
-            alert('获取问题详情时发生错误');
+            DialogManager.showError('获取问题详情时发生错误');
         });
 }
 
@@ -725,62 +731,63 @@ function editQuestion(questionId, questionSetType) {
                 // 显示模态框
                 document.getElementById('createQuestionModal').style.display = 'block';
             } else {
-                alert('获取问题详情失败: ' + data.message);
+                DialogManager.showError('获取问题详情失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('获取问题详情时出错:', error);
-            alert('获取问题详情时发生错误');
+            DialogManager.showError('获取问题详情时发生错误');
         });
 }
 
 // 删除问题
 function deleteQuestion(questionId, questionSetType) {
-    if (!confirm('确定要删除这个问题吗？此操作不可撤销。')) {
-        return;
-    }
-    
-    fetch('/local_knowledge_detail/question/delete', {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            question_id: questionId,
-            question_set_type: questionSetType
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('问题删除成功');
-            
-            // 刷新问题列表
-            if (document.getElementById('questionSetDetailModal').style.display === 'block') {
-                // 如果在详情模态框中，重新加载问题列表
-                const container = document.getElementById('questionList');
-                if (currentQuestionSetId) {
-                    loadQuestionsForSet(currentQuestionSetId, container);  // 重新加载问题列表
-                }
-            } else {
-                // 如果在主页面，刷新当前展开的问题集
-                if (currentQuestionSetId) {
-                    // 重新加载该问题集的问题列表
-                    const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
-                    if (contentElement && contentElement.classList.contains('expanded')) {
-                        loadQuestionsForSet(currentQuestionSetId, contentElement);  // 刷新当前展开的问题集
-                    }
+    DialogManager.confirm(
+        '确定要删除这个问题吗？此操作不可撤销。',
+        async () => {
+            try {
+                const response = await fetch('/local_knowledge_detail/question/delete', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question_id: questionId,
+                        question_set_type: questionSetType
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('问题删除成功', () => {
+                        // 刷新问题列表
+                        if (document.getElementById('questionSetDetailModal').style.display === 'block') {
+                            const container = document.getElementById('questionList');
+                            if (currentQuestionSetId) {
+                                loadQuestionsForSet(currentQuestionSetId, container);
+                            }
+                        } else {
+                            if (currentQuestionSetId) {
+                                const contentElement = document.getElementById(`questionSetContent-${currentQuestionSetId}`);
+                                if (contentElement && contentElement.classList.contains('expanded')) {
+                                    loadQuestionsForSet(currentQuestionSetId, contentElement);
+                                }
+                            } else {
+                                loadQuestionSets();
+                            }
+                        }
+                    });
                 } else {
-                    // 如果没有特定问题集，重新加载整个问题集
-                    loadQuestionSets();
+                    DialogManager.showError('删除失败：' + data.message);
                 }
+            } catch (error) {
+                console.error('删除问题时出错:', error);
+                DialogManager.showError('删除问题时发生错误');
             }
-        } else {
-            alert('删除失败: ' + data.message);
+        },
+        () => {
+            console.log('用户取消删除');
         }
-    })
-    .catch(error => {
-        console.error('删除问题时出错:', error);
-        alert('删除问题时发生错误');
-    });
+    );
 }

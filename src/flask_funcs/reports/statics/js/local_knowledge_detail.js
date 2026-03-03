@@ -235,32 +235,41 @@ function showUploadDialog(knoId) {
     if (typeof showUploadDialogFromJS !== 'undefined') {
         showUploadDialogFromJS(knoId);
     } else {
-        alert('上传功能未定义，请检查JS文件');
+        DialogManager.showWarning('上传功能未定义，请检查 JS 文件');
     }
 }
 
 function deleteFile(knolId, knolName) {
-    if (confirm(`确定要删除文件 "${knolName}" 吗？`)) {
-        fetch(`/local_knowledge_detail/local_knowledge_doc/delete/${knolId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert('文件删除成功');
-                loadFileList(); // 重新加载文件列表
-            } else {
-                alert('文件删除失败: ' + data.message);
+    DialogManager.confirm(
+        `确定要删除文件 "${knolName}" 吗？`,
+        async () => {
+            try {
+                const response = await fetch(`/local_knowledge_detail/local_knowledge_doc/delete/${knolId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    DialogManager.showSuccess('文件删除成功', () => {
+                        loadFileList();
+                    });
+                } else {
+                    DialogManager.showError('文件删除失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('删除文件时出错:', error);
+                DialogManager.showError('删除文件时发生错误');
             }
-        })
-        .catch(error => {
-            console.error('删除文件时出错:', error);
-            alert('删除文件时发生错误');
-        });
-    }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 function editFile(knolId, knolName, currentDescribe) {
+    // 使用简单的 prompt 获取输入（暂时保留，后续可以用自定义对话框）
     const newDescribe = prompt('请输入新的描述:', currentDescribe);
     if (newDescribe !== null) {
         const formData = new FormData();
@@ -273,15 +282,16 @@ function editFile(knolId, knolName, currentDescribe) {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                alert('文件描述更新成功');
-                loadFileList(); // 重新加载文件列表
+                DialogManager.showSuccess('文件描述更新成功', () => {
+                    loadFileList();
+                });
             } else {
-                alert('文件描述更新失败: ' + data.message);
+                DialogManager.showError('文件描述更新失败：' + data.message);
             }
         })
         .catch(error => {
             console.error('更新文件描述时出错:', error);
-            alert('更新文件描述时发生错误');
+            DialogManager.showError('更新文件描述时发生错误');
         });
     }
 }
@@ -297,32 +307,40 @@ function showBindDialog() {
 }
 
 function unbindKnowledge(localKnoId, knowledgeId) {
-    if (confirm('确定要解绑此知识库吗？')) {
-        fetch('/local_knowledge/bind', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                local_kno_id: localKnoId,
-                kb_id: knowledgeId,
-                action: 'unbind'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('解绑成功');
-                loadBindingStatus(); // 重新加载绑定状态
-            } else {
-                alert('解绑失败: ' + data.message);
+    DialogManager.confirm(
+        '确定要解绑此知识库吗？',
+        async () => {
+            try {
+                const response = await fetch('/local_knowledge/bind', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        local_kno_id: localKnoId,
+                        kb_id: knowledgeId,
+                        action: 'unbind'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    DialogManager.showSuccess('解绑成功', () => {
+                        loadBindingStatus();
+                    });
+                } else {
+                    DialogManager.showError('解绑失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('解绑时出错:', error);
+                DialogManager.showError('解绑时发生错误');
             }
-        })
-        .catch(error => {
-            console.error('解绑时出错:', error);
-            alert('解绑时发生错误');
-        });
-    }
+        },
+        () => {
+            console.log('用户取消解绑');
+        }
+    );
 }
 
 function syncKnowledge(localKnoId, knowledgeId) {
@@ -339,14 +357,14 @@ function syncKnowledge(localKnoId, knowledgeId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('同步成功');
+            DialogManager.showSuccess('同步成功');
         } else {
-            alert('同步失败: ' + data.message);
+            DialogManager.showError('同步失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('同步时出错:', error);
-        alert('同步时发生错误');
+        DialogManager.showError('同步时发生错误');
     });
 }
 
@@ -463,7 +481,7 @@ function bindKnowledge() {
     const selectedKbId = kbSelect.value;
 
     if (!selectedEnvId || !selectedKbId) {
-        alert('请先选择环境和知识库');
+        DialogManager.showWarning('请先选择环境和知识库');
         return;
     }
 
@@ -485,15 +503,16 @@ function bindKnowledge() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('绑定成功');
-            closeBindDialog();
-            loadBindingStatus(); // 重新加载绑定状态
+            DialogManager.showSuccess('绑定成功', () => {
+                closeBindDialog();
+                loadBindingStatus();
+            });
         } else {
-            alert('绑定失败: ' + data.message);
+            DialogManager.showError('绑定失败：' + data.message);
         }
     })
     .catch(error => {
         console.error('绑定知识库时出错:', error);
-        alert('绑定过程中发生错误: ' + error.message);
+        DialogManager.showError('绑定过程中发生错误：' + error.message);
     });
 }

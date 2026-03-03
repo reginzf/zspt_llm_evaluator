@@ -72,7 +72,7 @@ def label_studio_env_create():
 
     def operation_func():
         with LabelStudioCrud() as env_crud:
-            return env_crud.label_studio_create(**data)
+            return env_crud.label_studio_insert(**data)
 
     return execute_with_crud_operation(
         operation_func,

@@ -5,6 +5,11 @@
 let currentAction = '';
 let deleteEnvId = '';
 let environmentModal, deleteModal; // 模态框控制器
+let searchComponent; // 搜索组件
+let pagination; // 分页组件
+let currentPage = 1;
+let pageSize = 20;
+let currentKeyword = '';
 
 // 显示创建模态框
 function showCreateModal() {
@@ -76,30 +81,60 @@ function closeDeleteModal() {
     deleteEnvId = '';
 }
 
-// 搜索环境
-function searchEnvironments() {
-    const input = document.getElementById('searchInput');
-    const filter = input.value.toUpperCase();
+// 加载环境列表（支持分页和搜索）
+function loadEnvironments(page = 1, pageSize = 20, keyword = '') {
+    console.log(`加载环境列表：第${page}页，每页${pageSize}条，关键词：${keyword}`);
+    
+    // TODO: 调用后端 API 获取数据
+    // 目前先使用前端过滤，后续改为服务端分页
     const table = document.getElementById('environmentTableBody');
     const rows = table.getElementsByTagName('tr');
+    let visibleCount = 0;
+    let totalRows = 0;
     
     for (let i = 0; i < rows.length; i++) {
         const cells = rows[i].getElementsByTagName('td');
-        let found = false;
+        let found = true;
         
-        for (let j = 0; j < cells.length - 1; j++) { // 不搜索操作列
-            if (cells[j].textContent.toUpperCase().indexOf(filter) > -1) {
-                found = true;
-                break;
+        // 搜索过滤
+        if (keyword) {
+            found = false;
+            for (let j = 0; j < cells.length - 1; j++) { // 不搜索操作列
+                if (cells[j].textContent.toUpperCase().indexOf(keyword.toUpperCase()) > -1) {
+                    found = true;
+                    break;
+                }
             }
         }
         
         if (found) {
-            rows[i].style.display = '';
+            totalRows++;
+            // 分页逻辑
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            
+            if (visibleCount >= startIndex && visibleCount < endIndex) {
+                rows[i].style.display = '';
+                visibleCount++;
+            } else {
+                rows[i].style.display = 'none';
+            }
         } else {
             rows[i].style.display = 'none';
         }
     }
+    
+    // 更新分页组件
+    if (pagination) {
+        pagination.update(totalRows, page, pageSize);
+    }
+}
+
+// 搜索回调函数
+function handleSearch(keyword) {
+    currentKeyword = keyword;
+    currentPage = 1; // 重置到第一页
+    loadEnvironments(currentPage, pageSize, currentKeyword);
 }
 
 // 表单提交事件
@@ -228,7 +263,17 @@ function togglePasswordVisibility(element, password) {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化模态框控制器
+    // 1. 创建搜索组件
+    searchComponent = new SearchComponent('searchInput', 'searchBtn', handleSearch);
+    
+    // 2. 创建分页组件
+    pagination = new PaginationComponent('paginationArea', (page, size) => {
+        currentPage = page;
+        pageSize = size;
+        loadEnvironments(page, size, currentKeyword);
+    });
+    
+    // 3. 初始化模态框控制器
     environmentModal = new ModalController('environmentModal', {
         closeOnOutsideClick: true,
         closeOnEsc: true
@@ -239,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
         closeOnEsc: true
     });
     
-    // 设置关闭回调（清理）
+    // 4. 设置关闭回调（清理）
     environmentModal.setOnClose(() => {
         document.getElementById('environmentForm').reset();
         currentAction = '';
@@ -249,5 +294,8 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteEnvId = '';
     });
     
-    console.log('环境管理页面已加载，模态框控制器初始化完成');
+    // 5. 加载初始数据
+    loadEnvironments(1, 20);
+    
+    console.log('环境管理页面已加载，组件初始化完成');
 });

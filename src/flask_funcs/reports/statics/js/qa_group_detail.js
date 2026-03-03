@@ -271,46 +271,52 @@ function batchDeleteQA() {
         return;
     }
     
-    if (!confirm(`确定要删除选中的 ${count} 个问答对吗？此操作不可恢复。`)) {
-        return;
-    }
-    
-    const groupId = window.currentGroupId;
-    const ids = Array.from(selectedQAIds);
-    
-    // 显示加载状态
-    const deleteBtn = document.querySelector('.batch-delete-btn');
-    const originalText = deleteBtn.innerHTML;
-    deleteBtn.innerHTML = '<span class="btn-icon">⏳</span> 删除中...';
-    deleteBtn.disabled = true;
-    
-    fetch(`${API_BASE}/groups/${groupId}/items/batch-delete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
+    DialogManager.confirm(
+        `确定要删除选中的 ${count} 个问答对吗？此操作不可恢复。`,
+        async () => {
+            // 用户确认，执行删除
+            const groupId = window.currentGroupId;
+            const ids = Array.from(selectedQAIds);
+            
+            // 显示加载状态
+            const deleteBtn = document.querySelector('.batch-delete-btn');
+            const originalText = deleteBtn.innerHTML;
+            deleteBtn.innerHTML = '<span class="btn-icon">⏳</span> 删除中...';
+            deleteBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}/groups/${groupId}/items/batch-delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: ids })
+                });
+                
+                const data = await response.json();
+                
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+                
+                if (data.success) {
+                    showSuccess(`成功删除 ${data.data.deleted_count} 个问答对`);
+                    clearBatchSelection();
+                    loadQAData();
+                    loadGroupTags();
+                } else {
+                    showError('批量删除失败：' + data.message);
+                }
+            } catch (error) {
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+                console.error('批量删除失败:', error);
+                showError('批量删除失败：' + error.message);
+            }
         },
-        body: JSON.stringify({ ids: ids })
-    })
-    .then(response => response.json())
-    .then(data => {
-        deleteBtn.innerHTML = originalText;
-        deleteBtn.disabled = false;
-        
-        if (data.success) {
-            showSuccess(`成功删除 ${data.data.deleted_count} 个问答对`);
-            clearBatchSelection();
-            loadQAData();
-            loadGroupTags();
-        } else {
-            showError('批量删除失败: ' + data.message);
+        () => {
+            console.log('用户取消删除');
         }
-    })
-    .catch(error => {
-        deleteBtn.innerHTML = originalText;
-        deleteBtn.disabled = false;
-        console.error('批量删除失败:', error);
-        showError('批量删除失败: ' + error.message);
-    });
+    );
 }
 
 // 加载分组标签
@@ -798,25 +804,32 @@ function deleteGroup() {
     const groupId = window.currentGroupId;
     if (!groupId) return;
     
-    if (confirm('确定要删除这个分组吗？删除后无法恢复。')) {
-        fetch(`${API_BASE}/groups/${groupId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('分组删除成功');
-                // 返回列表页面
-                window.location.href = '/qa/groups';
-            } else {
-                showError('分组删除失败: ' + result.message);
+    DialogManager.confirm(
+        '确定要删除这个分组吗？删除后无法恢复。',
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/groups/${groupId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('分组删除成功');
+                    // 返回列表页面
+                    window.location.href = '/qa/groups';
+                } else {
+                    showError('分组删除失败：' + result.message);
+                }
+            } catch (error) {
+                console.error('删除分组失败:', error);
+                showError('删除分组失败：' + error.message);
             }
-        })
-        .catch(error => {
-            console.error('删除分组失败:', error);
-            showError('删除分组失败: ' + error.message);
-        });
-    }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 // 导出分组数据
@@ -1064,24 +1077,31 @@ function submitEditQA() {
 
 // 删除问答对
 function deleteQA(qaId) {
-    if (confirm('确定要删除这个问答对吗？删除后无法恢复。')) {
-        fetch(`${API_BASE}/items/${qaId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('问答对删除成功');
-                loadQAData(); // 刷新列表
-            } else {
-                showError('问答对删除失败: ' + result.message);
+    DialogManager.confirm(
+        '确定要删除这个问答对吗？删除后无法恢复。',
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/items/${qaId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('问答对删除成功');
+                    loadQAData(); // 刷新列表
+                } else {
+                    showError('问答对删除失败：' + result.message);
+                }
+            } catch (error) {
+                console.error('删除问答对失败:', error);
+                showError('删除问答对失败：' + error.message);
             }
-        })
-        .catch(error => {
-            console.error('删除问答对失败:', error);
-            showError('删除问答对失败: ' + error.message);
-        });
-    }
+        },
+        () => {
+            console.log('用户取消删除');
+        }
+    );
 }
 
 // 显示批量创建对话框

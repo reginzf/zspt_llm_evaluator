@@ -908,17 +908,17 @@ function parseCSV(csvText) {
 
 // 工具函数：显示成功消息
 function showSuccess(message) {
-    alert('✅ ' + message);
+    DialogManager.showSuccess(message);
 }
 
 // 工具函数：显示错误消息
 function showError(message) {
-    alert('❌ ' + message);
+    DialogManager.showError(message);
 }
 
 // 工具函数：显示信息消息
 function showInfo(message) {
-    alert('ℹ️ ' + message);
+    DialogManager.showInfo(message);
 }
 
 // 工具函数：HTML转义

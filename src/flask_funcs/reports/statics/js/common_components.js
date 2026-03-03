@@ -32,28 +32,30 @@ class PaginationComponent {
         if (!this.container) return;
 
         const html = `
-            <div class="pagination-info">
-                第 <span class="current-page">${this.currentPage}</span> 页 / 共 <span class="total-pages">${this.totalPages}</span> 页，
-                共 <span class="total-items">${this.totalItems}</span> 条记录
-            </div>
-            <div class="pagination-controls">
-                <button class="pagination-btn first-btn" onclick="pagination.goToPage(1)" ${this.currentPage === 1 ? 'disabled' : ''}>首页</button>
-                <button class="pagination-btn prev-btn" onclick="pagination.goToPrevPage()" ${this.currentPage === 1 ? 'disabled' : ''}>上一页</button>
-                <div class="page-input">
-                    <input type="number" class="page-input-field" min="1" max="${this.totalPages}" value="${this.currentPage}" onchange="pagination.goToPage(this.value)">
-                    <span>/ <span class="max-page">${this.totalPages}</span></span>
+            <div class="pagination-component">
+                <div class="pagination-info">
+                    第 <span class="current-page">${this.currentPage}</span> 页 / 共 <span class="total-pages">${this.totalPages}</span> 页，
+                    共 <span class="total-items">${this.totalItems}</span> 条记录
                 </div>
-                <button class="pagination-btn next-btn" onclick="pagination.goToNextPage()" ${this.currentPage === this.totalPages ? 'disabled' : ''}>下一页</button>
-                <button class="pagination-btn last-btn" onclick="pagination.goToLastPage()" ${this.currentPage === this.totalPages ? 'disabled' : ''}>末页</button>
-            </div>
-            <div class="page-size-selector">
-                <span>每页显示：</span>
-                <select class="page-size-select" onchange="pagination.changePageSize(this.value)">
-                    <option value="10" ${this.pageSize === 10 ? 'selected' : ''}>10</option>
-                    <option value="20" ${this.pageSize === 20 ? 'selected' : ''}>20</option>
-                    <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
-                    <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
-                </select>
+                <div class="pagination-controls">
+                    <button class="pagination-btn first-btn" onclick="pagination.goToPage(1)" ${this.currentPage === 1 ? 'disabled' : ''}>首页</button>
+                    <button class="pagination-btn prev-btn" onclick="pagination.goToPrevPage()" ${this.currentPage === 1 ? 'disabled' : ''}>上一页</button>
+                    <div class="page-input">
+                        <input type="number" class="page-input-field" min="1" max="${this.totalPages}" value="${this.currentPage}" onchange="pagination.goToPage(this.value)">
+                        <span>/ <span class="max-page">${this.totalPages}</span></span>
+                    </div>
+                    <button class="pagination-btn next-btn" onclick="pagination.goToNextPage()" ${this.currentPage === this.totalPages ? 'disabled' : ''}>下一页</button>
+                    <button class="pagination-btn last-btn" onclick="pagination.goToLastPage()" ${this.currentPage === this.totalPages ? 'disabled' : ''}>末页</button>
+                </div>
+                <div class="page-size-selector">
+                    <span>每页显示：</span>
+                    <select class="page-size-select" onchange="pagination.changePageSize(this.value)">
+                        <option value="10" ${this.pageSize === 10 ? 'selected' : ''}>10</option>
+                        <option value="20" ${this.pageSize === 20 ? 'selected' : ''}>20</option>
+                        <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
+                        <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
+                    </select>
+                </div>
             </div>
         `;
 
