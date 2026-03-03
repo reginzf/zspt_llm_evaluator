@@ -1,6 +1,10 @@
-// 环境管理页面JavaScript
+// 环境管理页面 JavaScript
+// 使用公共组件重构版本
+
+// 全局变量
 let currentAction = '';
 let deleteEnvId = '';
+let environmentModal, deleteModal; // 模态框控制器
 
 // 显示创建模态框
 function showCreateModal() {
@@ -8,11 +12,16 @@ function showCreateModal() {
     document.getElementById('modalTitle').textContent = '创建环境';
     document.getElementById('environmentForm').reset();
     document.getElementById('zlpt_base_id').value = '';
-    document.getElementById('zlpt_base_id').readOnly = true; // 在创建时ID字段只读
-    document.getElementById('zlpt_base_id_group').style.display = 'none'; // 隐藏ID字段组
+    document.getElementById('zlpt_base_id').readOnly = true; // 在创建时 ID 字段只读
+    document.getElementById('zlpt_base_id_group').style.display = 'none'; // 隐藏 ID 字段组
     document.getElementById('zlpt_name').disabled = false;
     document.getElementById('saveBtn').textContent = '创建';
-    document.getElementById('environmentModal').style.display = 'block';
+    
+    if (environmentModal) {
+        environmentModal.show();
+    } else {
+        document.getElementById('environmentModal').style.display = 'block';
+    }
 }
 
 // 显示编辑模态框
@@ -20,8 +29,8 @@ function showEditModal(id, name, projectName, url, domain, username, password) {
     currentAction = 'edit';
     document.getElementById('modalTitle').textContent = '编辑环境';
     document.getElementById('zlpt_base_id').value = id;
-    document.getElementById('zlpt_base_id').readOnly = true; // ID字段只读（但会包含在提交中）
-    document.getElementById('zlpt_base_id_group').style.display = ''; // 显示ID字段组
+    document.getElementById('zlpt_base_id').readOnly = true; // ID 字段只读（但会包含在提交中）
+    document.getElementById('zlpt_base_id_group').style.display = ''; // 显示 ID 字段组
     document.getElementById('zlpt_name').value = name;
     document.getElementById('project_name').value = projectName || '';
     document.getElementById('zlpt_base_url').value = url;
@@ -29,23 +38,41 @@ function showEditModal(id, name, projectName, url, domain, username, password) {
     document.getElementById('username').value = username;
     document.getElementById('password').value = password;
     document.getElementById('saveBtn').textContent = '更新';
-    document.getElementById('environmentModal').style.display = 'block';
+    
+    if (environmentModal) {
+        environmentModal.show();
+    } else {
+        document.getElementById('environmentModal').style.display = 'block';
+    }
 }
 
 // 显示删除模态框
 function showDeleteModal(id, name) {
     deleteEnvId = id;
     document.getElementById('deleteEnvName').textContent = name;
-    document.getElementById('deleteModal').style.display = 'block';
+    
+    if (deleteModal) {
+        deleteModal.show();
+    } else {
+        document.getElementById('deleteModal').style.display = 'block';
+    }
 }
 
 // 关闭模态框
 function closeModal() {
-    document.getElementById('environmentModal').style.display = 'none';
+    if (environmentModal) {
+        environmentModal.hide();
+    } else {
+        document.getElementById('environmentModal').style.display = 'none';
+    }
 }
 
 function closeDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'none';
+    if (deleteModal) {
+        deleteModal.hide();
+    } else {
+        document.getElementById('deleteModal').style.display = 'none';
+    }
     deleteEnvId = '';
 }
 
@@ -106,16 +133,17 @@ function createEnvironment(data) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('环境创建成功');
-            closeModal();
-            location.reload(); // 刷新页面以显示新环境
+            DialogManager.showSuccess('环境创建成功', () => {
+                closeModal();
+                location.reload(); // 刷新页面以显示新环境
+            });
         } else {
-            alert('创建失败: ' + result.message);
+            DialogManager.showError('创建失败：' + result.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('创建失败: ' + error.message);
+        DialogManager.showError('创建失败', error);
     });
 }
 
@@ -131,44 +159,59 @@ function updateEnvironment(data) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('环境更新成功');
-            closeModal();
-            location.reload(); // 刷新页面以显示更新后的环境
+            DialogManager.showSuccess('环境更新成功', () => {
+                closeModal();
+                location.reload(); // 刷新页面以显示更新后的环境
+            });
         } else {
-            alert('更新失败: ' + result.message);
+            DialogManager.showError('更新失败：' + result.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('更新失败: ' + error.message);
+        DialogManager.showError('更新失败', error);
     });
 }
 
 // 确认删除
 function confirmDelete() {
-    fetch(`/environment/delete/`, {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json',
+    const envName = document.getElementById('deleteEnvName').textContent;
+    
+    DialogManager.confirm(
+        `确定要删除环境 "${envName}" 吗？此操作不可撤销。`,
+        async () => {
+            // 用户确认，执行删除
+            try {
+                const response = await fetch(`/environment/delete/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        zlpt_base_id: deleteEnvId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    DialogManager.showSuccess('环境删除成功', () => {
+                        closeDeleteModal();
+                        location.reload();
+                    });
+                } else {
+                    DialogManager.showError('删除失败：' + result.message);
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                DialogManager.showError('删除失败', error);
+            }
         },
-        body: JSON.stringify({
-            zlpt_base_id: deleteEnvId
-        })
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('环境删除成功');
-            closeDeleteModal();
-            location.reload(); // 刷新页面以移除删除的环境
-        } else {
-            alert('删除失败: ' + result.message);
+        () => {
+            // 用户取消
+            console.log('用户取消删除');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('删除失败: ' + error.message);
-    });
+    );
 }
 
 // 切换密码可见性
@@ -183,16 +226,28 @@ function togglePasswordVisibility(element, password) {
     }
 }
 
-// 点击模态框外部关闭模态框
-window.onclick = function(event) {
-    const environmentModal = document.getElementById('environmentModal');
-    const deleteModal = document.getElementById('deleteModal');
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化模态框控制器
+    environmentModal = new ModalController('environmentModal', {
+        closeOnOutsideClick: true,
+        closeOnEsc: true
+    });
     
-    if (event.target === environmentModal) {
-        closeModal();
-    }
+    deleteModal = new ModalController('deleteModal', {
+        closeOnOutsideClick: true,
+        closeOnEsc: true
+    });
     
-    if (event.target === deleteModal) {
-        closeDeleteModal();
-    }
-}
+    // 设置关闭回调（清理）
+    environmentModal.setOnClose(() => {
+        document.getElementById('environmentForm').reset();
+        currentAction = '';
+    });
+    
+    deleteModal.setOnClose(() => {
+        deleteEnvId = '';
+    });
+    
+    console.log('环境管理页面已加载，模态框控制器初始化完成');
+});
