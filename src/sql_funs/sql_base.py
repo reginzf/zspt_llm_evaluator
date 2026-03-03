@@ -268,14 +268,14 @@ class PostgreSQLManager:
     def execute_query(self, query: str, params: Tuple = None) -> Optional[List[Tuple]]:
         """
         执行查询语句
-        
+            
         根据查询语句的类型执行相应的数据库操作，如果是 SELECT 语句则返回查询结果，
         其他语句（INSERT、UPDATE、DELETE）则提交事务并返回执行结果。
-        
+            
         Args:
             query (str): 要执行的 SQL 查询语句
             params (Tuple): 查询参数元组，可选
-            
+                
         Returns:
             Optional[List[Tuple]]: SELECT 语句返回查询结果列表，其他语句返回 True 或 False
         """
@@ -284,7 +284,11 @@ class PostgreSQLManager:
             if self.connection is None or self.connection.closed:
                 logger.debug("数据库连接已关闭，重新连接...")
                 self.connect()
-            
+                
+            # 确保游标存在
+            if self.cursor is None:
+                self.cursor = self.connection.cursor()
+                
             # 根据是否有参数决定如何执行查询
             if params:
                 self.cursor.execute(query, params)
@@ -296,17 +300,21 @@ class PostgreSQLManager:
             if query.strip().upper().startswith("SELECT"):
                 # SELECT 语句返回查询结果
                 res = self.cursor.fetchall()
-                logger.info(f"查询成功: {res}")
+                logger.info(f"查询成功：{res}")
                 return res
             else:
                 # 其他语句提交事务
                 self.connection.commit()
-                logger.info(f"执行成功: {query[:50]}...")
+                logger.info(f"执行成功：{query[:50]}...")
                 return True
         except Exception as e:
-            # 出错时回滚事务
-            self.connection.rollback()
-            logger.error(f"查询执行失败: {e}")
+            # 出错时回滚事务（仅在连接有效时）
+            if self.connection and not self.connection.closed:
+                try:
+                    self.connection.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"回滚事务失败：{rollback_error}")
+            logger.error(f"查询执行失败：{e}")
             return False
 
     def create_table(self, table_name: str, columns: Dict[str, str]) -> bool:
