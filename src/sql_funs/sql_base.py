@@ -7,7 +7,7 @@ CRUD 操作、查询构建等功能。采用单例模式确保每个主机上的
 只有一个实例，避免重复连接数据库。
 """
 import psycopg2
-from psycopg2 import sql
+from psycopg2 import pool, sql
 from typing import Optional, List, Tuple, Dict, Any, Union
 import json
 import logging
@@ -37,6 +37,9 @@ class PostgreSQLManager:
 
     # 存储不同类和主机的实例
     _instances = {}
+    
+    # 类级别的连接池（所有实例共享）
+    _connection_pool: Optional[pool.SimpleConnectionPool] = None
 
     def __new__(cls, host: str = "localhost", port: int = 5432, database: str = "postgres", user: str = "postgres",
                 password: str = ""):
@@ -93,48 +96,106 @@ class PostgreSQLManager:
         self.password = password or settings.SQL_PASSWORD
         self.connection = None  # 数据库连接对象
         self.cursor = None  # 数据库游标对象
+    
+    @classmethod
+    def initialize_pool(cls, minconn: int = 5, maxconn: int = 20):
+        """
+        初始化数据库连接池（应用启动时调用一次）
+        
+        Args:
+            minconn: 最小连接数
+            maxconn: 最大连接数
+        """
+        if cls._connection_pool is None:
+            try:
+                cls._connection_pool = pool.SimpleConnectionPool(
+                    minconn, maxconn,
+                    host=settings.SQL_HOST,
+                    port=settings.SQL_PORT,
+                    database=settings.SQL_DB,
+                    user=settings.SQL_USER,
+                    password=settings.SQL_PASSWORD
+                )
+                logger.info(f"数据库连接池初始化成功 (min={minconn}, max={maxconn})")
+            except Exception as e:
+                logger.error(f"数据库连接池初始化失败：{e}")
+                raise
 
     def connect(self) -> bool:
         """
         连接到 PostgreSQL 数据库
-        
+            
         建立到 PostgreSQL 数据库的实际连接，并创建游标对象用于后续操作。
         如果连接失败，会记录错误日志并返回 False。
-        
+            
         Returns:
             bool: 连接成功返回 True，失败返回 False
         """
         try:
-            # 使用配置信息建立数据库连接
-            self.connection = psycopg2.connect(
-                host=self.host,
-                port=self.port,
-                database=self.database,
-                user=self.user,
-                password=self.password
-            )
-            # 创建游标对象用于执行 SQL 语句
-            self.cursor = self.connection.cursor()
-            logger.info(f"成功连接到数据库 {self.database}")
-            return True
+            # 优先使用连接池获取连接
+            if self._connection_pool:
+                try:
+                    self.connection = self._connection_pool.getconn()
+                    self.cursor = self.connection.cursor()
+                    logger.info("从连接池获取连接")
+                    return True
+                except Exception as pool_error:
+                    logger.warning(f"从连接池获取连接失败，尝试直接连接：{pool_error}")
+                    # 如果连接池失败，降级为直接连接
+                    self._direct_connect()
+                    return True
+            else:
+                # 没有连接池时使用直接连接
+                self._direct_connect()
+                return True
         except Exception as e:
-            logger.error(f"数据库连接失败: {e}")
+            logger.error(f"数据库连接失败：{e}")
             return False
+        
+    def _direct_connect(self):
+        """
+        直接连接到数据库（不使用连接池）
+            
+        作为连接池的降级方案
+        """
+        self.connection = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            database=self.database,
+            user=self.user,
+            password=self.password
+        )
+        self.cursor = self.connection.cursor()
+        logger.info(f"直接连接到数据库 {self.database}")
 
     def disconnect(self):
         """
         断开数据库连接
         
         关闭数据库游标和连接，释放相关资源。
+        如果使用连接池，则将连接归还到连接池；否则直接关闭连接。
         在程序结束前应调用此方法确保数据库连接正确关闭。
         """
         # 先关闭游标
         if self.cursor:
             self.cursor.close()
-        # 再关闭连接
+            self.cursor = None
+        
+        # 再处理连接
         if self.connection:
-            self.connection.close()
-            logger.info("数据库连接已关闭")
+            if self._connection_pool:
+                # 归还连接到连接池
+                try:
+                    self._connection_pool.putconn(self.connection)
+                    logger.info("连接已归还到连接池")
+                except Exception as e:
+                    logger.warning(f"归还连接到连接池失败，直接关闭：{e}")
+                    self.connection.close()
+            else:
+                # 没有连接池时直接关闭
+                self.connection.close()
+                logger.info("数据库连接已关闭")
+            self.connection = None
 
     def gen_select_query(self, table_name: str,
                          order_by: str = None, limit: int = None,
@@ -491,24 +552,54 @@ class PostgreSQLManager:
         """上下文管理器入口
         
         使类可以与 with 语句一起使用，自动处理数据库连接的开启。
+        支持连接池，确保连接正确获取和管理。
         
         Returns:
             PostgreSQLManager: 返回当前实例
+        
+        Example:
+            with AIQADataManager() as manager:
+                result = manager.create_qa_data(...)
         """
-        self.connect()
-        return self
+        try:
+            self.connect()
+            return self
+        except Exception as e:
+            logger.error(f"上下文管理器获取数据库连接失败：{e}")
+            raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口
         
         使类可以与 with 语句一起使用，自动处理数据库连接的关闭。
+        如果使用连接池，会将连接归还到连接池；否则直接关闭连接。
+        如果发生异常，会进行回滚操作。
         
         Args:
             exc_type: 异常类型
             exc_val: 异常值
             exc_tb: 异常追踪信息
+        
+        Returns:
+            bool: True 表示抑制异常，False 表示传播异常（默认返回 False）
         """
-        self.disconnect()
+        try:
+            # 如果发生异常且连接存在，尝试回滚
+            if exc_type is not None and self.connection and not self.connection.closed:
+                try:
+                    self.connection.rollback()
+                    logger.warning("检测到异常，已回滚事务")
+                except Exception as rollback_error:
+                    logger.error(f"回滚事务失败：{rollback_error}")
+            
+            # 断开连接（归还到连接池或直接关闭）
+            self.disconnect()
+            
+        except Exception as e:
+            logger.error(f"上下文管理器关闭连接时出错：{e}")
+        
+        # 返回 False 表示不抑制异常，让异常继续传播
+        return False
 
     def migrate_add_fields(self, table_name: str, field_definitions: dict, constraint_definitions: dict = None):
         """通用迁移方法：为指定表添加字段和约束

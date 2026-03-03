@@ -9,6 +9,7 @@ from src.flask_funcs.knowledge_base import knowledge_base_bp
 from src.flask_funcs.qa_data_group import qa_data_group_bp
 from src.flask_funcs.qa_data import qa_data_bp
 from src.flask_funcs.llm_model_routes import llm_model_bp
+from src.sql_funs.sql_base import PostgreSQLManager
 import os
 
 # 创建Flask应用
@@ -44,15 +45,20 @@ app.static_folder = statics_dir
 # Flask会自动处理/static/路径下的文件
 
 if __name__ == '__main__':
+    # 初始化数据库连接池（应用启动时调用一次）
+    print('Initializing database connection pool...')
+    PostgreSQLManager.initialize_pool(minconn=10, maxconn=50)
+    print('Database connection pool initialized successfully!')
+
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='AI-KEN Application')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host address (default: 0.0.0.0)')
     parser.add_argument('--port', type=int, default=5001, help='Port number (default: 5001)')
     parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode (default: False)')
-    
+
     args = parser.parse_args()
-    
+
     print(f'Starting server on {args.host}:{args.port}')
     print(f'Debug mode: {args.debug}')
-    
+
     app.run(args.host, port=args.port, debug=args.debug)

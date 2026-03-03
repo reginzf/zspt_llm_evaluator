@@ -51,6 +51,25 @@ class CreateTables(PostgreSQLManager):
 
         return self.create_table("ai_environment_info", columns)
 
+    def _create_environment_indexes(self):
+        """为 ai_environment_info 表创建索引"""
+        indexes = [
+            ("idx_environment_zlpt_base_id", "CREATE INDEX idx_environment_zlpt_base_id ON ai_environment_info(zlpt_base_id)"),
+            ("idx_environment_zlpt_name", "CREATE INDEX idx_environment_zlpt_name ON ai_environment_info(zlpt_name)"),
+            ("idx_environment_project_id", "CREATE INDEX idx_environment_project_id ON ai_environment_info(project_id)"),
+            ("idx_environment_project_name", "CREATE INDEX idx_environment_project_name ON ai_environment_info(project_name)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"索引 {index_name} 创建失败：{e}")
+
     def create_knowledge_base_table(self) -> bool:
         """2. 创建知识库表"""
         columns = {
@@ -166,6 +185,24 @@ class CreateTables(PostgreSQLManager):
         }
         return self.create_table("ai_local_knowledge", columns)
 
+    def _create_local_knowledge_indexes(self):
+        """为 ai_local_knowledge 表创建索引"""
+        indexes = [
+            ("idx_local_knowledge_kno_id", "CREATE UNIQUE INDEX idx_local_knowledge_kno_id ON ai_local_knowledge(kno_id)"),
+            ("idx_local_knowledge_name", "CREATE INDEX idx_local_knowledge_name ON ai_local_knowledge(kno_name)"),
+            ("idx_local_knowledge_ls_status", "CREATE INDEX idx_local_knowledge_ls_status ON ai_local_knowledge(ls_status)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"索引 {index_name} 创建失败：{e}")
+
     def create_local_knowledge_list(self) -> bool:
         columns = {
             "id": "SERIAL",
@@ -249,6 +286,28 @@ class CreateTables(PostgreSQLManager):
         }
         return self.create_table("ai_annotation_tasks", columns)
 
+    def _create_annotation_tasks_indexes(self):
+        """为 ai_annotation_tasks 表创建索引"""
+        indexes = [
+            ("idx_annotation_task_id", "CREATE UNIQUE INDEX idx_annotation_task_id ON ai_annotation_tasks(task_id)"),
+            ("idx_annotation_local_knowledge_id", "CREATE INDEX idx_annotation_local_knowledge_id ON ai_annotation_tasks(local_knowledge_id)"),
+            ("idx_annotation_question_set_id", "CREATE INDEX idx_annotation_question_set_id ON ai_annotation_tasks(question_set_id)"),
+            ("idx_annotation_label_studio_env_id", "CREATE INDEX idx_annotation_label_studio_env_id ON ai_annotation_tasks(label_studio_env_id)"),
+            ("idx_annotation_task_status", "CREATE INDEX idx_annotation_task_status ON ai_annotation_tasks(task_status)"),
+            ("idx_annotation_knowledge_base_id", "CREATE INDEX idx_annotation_knowledge_base_id ON ai_annotation_tasks(knowledge_base_id)"),
+            ("idx_annotation_type", "CREATE INDEX idx_annotation_type ON ai_annotation_tasks(annotation_type)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"索引 {index_name} 创建失败：{e}")
+
     def create_metric_tasks_table(self):
         """11. 创建指标任务表"""
         columns = {
@@ -264,6 +323,25 @@ class CreateTables(PostgreSQLManager):
             "FOREIGN KEY (knowledge_base_id)": "REFERENCES ai_knowledge_base(knowledge_id) ON DELETE SET NULL"
         }
         return self.create_table("ai_metric_tasks", columns)
+
+    def _create_metric_tasks_indexes(self):
+        """为 ai_metric_tasks 表创建索引"""
+        indexes = [
+            ("idx_metric_task_id", "CREATE UNIQUE INDEX idx_metric_task_id ON ai_metric_tasks(task_id)"),
+            ("idx_metric_status", "CREATE INDEX idx_metric_status ON ai_metric_tasks(status)"),
+            ("idx_metric_knowledge_base_id", "CREATE INDEX idx_metric_knowledge_base_id ON ai_metric_tasks(knowledge_base_id)"),
+            ("idx_metric_search_type", "CREATE INDEX idx_metric_search_type ON ai_metric_tasks(search_type)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"索引 {index_name} 创建失败：{e}")
 
     def create_report_table(self):
         """12. 创建报告表"""
@@ -282,8 +360,10 @@ class CreateTables(PostgreSQLManager):
         return self.create_table("ai_reports", columns)
 
     def create_all_tables(self):
-        """创建所有表"""
+        """创建所有表并创建索引"""
         self.create_environment_table()
+        self._create_environment_indexes()  # 创建环境表索引
+            
         self.create_knowledge_base_table()
         self.create_knowledge_path_table()
         self.create_label_studio_table()
@@ -293,16 +373,24 @@ class CreateTables(PostgreSQLManager):
         self.create_detailed_questions_table()
         self.create_mechanism_questions_table()
         self.create_thematic_questions_table()
+            
         self.create_local_knowledge()
+        self._create_local_knowledge_indexes()  # 创建本地知识库索引
+            
         self.create_local_knowledge_list()
         self.create_knowledge_bind_table()  # 新增绑定关系表
-        self.create_label_studio_bind_table()  # 新增localknowledge和labelstudio的绑定关系表
-        self.create_annotation_tasks_table()  # 新增标注任务表
-        self.create_metric_tasks_table()  # 新增指标任务表
+        self.create_label_studio_bind_table()  # 新增 localknowledge 和 labelstudio 的绑定关系表
+            
+        self.create_annotation_tasks_table()
+        self._create_annotation_tasks_indexes()  # 创建标注任务索引
+            
+        self.create_metric_tasks_table()
+        self._create_metric_tasks_indexes()  # 创建指标任务索引
+            
         self.create_report_table()
         self.create_local_knowledge_file_upload_table()
-        self.create_ai_qa_data_group_table()  # 新增AI问答对分组表
-        self.create_ai_qa_data_table()  # 新增AI问答对数据表
+        self.create_ai_qa_data_group_table()  # 新增 AI 问答对分组表
+        self.create_ai_qa_data_table()  # 新增 AI 问答对数据表
         self.create_llm_models_table()
         self.create_llm_evaluation_reports_table()
 
