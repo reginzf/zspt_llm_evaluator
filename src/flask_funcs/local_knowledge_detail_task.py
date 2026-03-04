@@ -7,8 +7,7 @@ from src.zlpt.api.knowledge_base import Retrieve
 from concurrent.futures import ThreadPoolExecutor
 from src.flask_funcs.common_utils import generate_unique_id
 from src.zlpt_temp import cal_metric_by_chunk_text_overlay_and_similarity
-from env_config_init import REPORT_PATH
-from pathlib import Path
+from src.utils.minio_client import get_knowledge_files_client
 
 # 创建线程池执行器
 executor = ThreadPoolExecutor(max_workers=5)
@@ -25,7 +24,9 @@ def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, searc
         with MetricTasksCRUD() as mt_crud:
             retrieve_client = Retrieve(zlpt_user)
             report_id = generate_unique_id('rp', 8)
-            mt_crud.report_create(report_id, search_type, file_name, task_id, '开始计算',None, match_type, metric_task_id)
+            # 构建 MinIO 对象名称: reports/{knowledge_base_id}/{file_name}
+            minio_object_name = f"reports/{knowledge_base_id}/{file_name}"
+            mt_crud.report_create(report_id, search_type, minio_object_name, task_id, '开始计算', None, match_type, metric_task_id)
 
             # 根据匹配类型选择计算函数
         if match_type == 'chunkIdMatch':
@@ -226,21 +227,27 @@ def delete_report():
             if not report_list:
                 return jsonify({"success": False, "message": "报告不存在"}), 400
             report_info = mt_crud._report_to_json(report_list[0])
-            # 获取关联的任务信息以获取知识库ID
-            view_task_info = mt_crud.view_get_annotation_metric_tasks(task_id=report_info['task_id'])
-            if not view_task_info:
-                return jsonify({"success": False, "message": "无法获取任务信息"}), 400
-            knowledge_base_id = view_task_info[0][5]
-            file_path = Path(REPORT_PATH) / knowledge_base_id / report_info['filepath']
-            # 尝试删除文件
-            if file_path.exists():
+            
+            # 从数据库中获取 MinIO 对象名称 (filepath 字段现在存储的是 MinIO 对象名称)
+            minio_object_name = report_info.get('filepath')
+            
+            # 尝试从 MinIO 删除文件
+            if minio_object_name:
                 try:
-                    file_path.unlink()  # 删除文件
-                    logger.info(f"报告文件已删除: {file_path}")
+                    minio_client = get_knowledge_files_client()
+                    if minio_client.file_exists(minio_object_name):
+                        delete_success = minio_client.delete_file(minio_object_name)
+                        if delete_success:
+                            logger.info(f"报告文件已从 MinIO 删除: {minio_object_name}")
+                        else:
+                            logger.warning(f"从 MinIO 删除报告文件失败: {minio_object_name}")
+                    else:
+                        logger.warning(f"MinIO 中不存在报告文件: {minio_object_name}")
                 except Exception as e:
-                    logger.error(f"删除报告文件时出错: {str(e)}")
+                    logger.error(f"从 MinIO 删除报告文件时出错: {str(e)}")
             else:
-                logger.warning(f"报告文件不存在: {file_path}")
+                logger.warning(f"报告没有关联的文件路径，跳过 MinIO 删除")
+            
             # 删除数据库记录
             success = mt_crud.report_delete(report_id)
             if success:
@@ -395,29 +402,35 @@ def delete_task():
             # 删除所有相关的报告文件和记录（通过metric_task_id查询）
             reports = mt_crud.report_list(metric_task_id=metric_task_id)
             
+            # 初始化 MinIO 客户端
+            minio_client = get_knowledge_files_client()
+            
             for report in reports:
                 report_info = mt_crud._report_to_json(report)
                 report_id = report_info['report_id']
                 
-                # 获取关联的任务信息以获取知识库ID
-                view_task_info = mt_crud.view_get_annotation_metric_tasks(task_id=report_info['task_id'])
-                if view_task_info:
-                    knowledge_base_id = view_task_info[0][5]
-                    file_path = Path(REPORT_PATH) / knowledge_base_id / report_info['filepath']
-                    
-                    # 尝试删除文件
-                    if file_path.exists():
-                        try:
-                            file_path.unlink()  # 删除文件
-                            logger.info(f"报告文件已删除: {file_path}")
-                        except Exception as e:
-                            logger.error(f"删除报告文件时出错: {str(e)}")
-                    else:
-                        logger.warning(f"报告文件不存在: {file_path}")
-                    
-                    # 删除数据库记录
-                    mt_crud.report_delete(report_id)
-                    logger.info(f"报告记录已删除: {report_id}")
+                # 从数据库中获取 MinIO 对象名称
+                minio_object_name = report_info.get('filepath')
+                
+                # 尝试从 MinIO 删除文件
+                if minio_object_name:
+                    try:
+                        if minio_client.file_exists(minio_object_name):
+                            delete_success = minio_client.delete_file(minio_object_name)
+                            if delete_success:
+                                logger.info(f"报告文件已从 MinIO 删除: {minio_object_name}")
+                            else:
+                                logger.warning(f"从 MinIO 删除报告文件失败: {minio_object_name}")
+                        else:
+                            logger.warning(f"MinIO 中不存在报告文件: {minio_object_name}")
+                    except Exception as e:
+                        logger.error(f"从 MinIO 删除报告文件时出错: {str(e)}")
+                else:
+                    logger.warning(f"报告 {report_id} 没有关联的文件路径，跳过 MinIO 删除")
+                
+                # 删除数据库记录
+                mt_crud.report_delete(report_id)
+                logger.info(f"报告记录已删除: {report_id}")
             
             # 删除指标任务（如果存在）
             if metric_tasks and len(metric_tasks) > 0:

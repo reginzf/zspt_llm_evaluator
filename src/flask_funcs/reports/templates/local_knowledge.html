@@ -28,7 +28,6 @@
                 <th class="resizable-col">名称</th>
                 <th class="resizable-col">描述</th>
                 <th class="resizable-col">知识域</th>
-                <th class="resizable-col">状态</th>
                 <th class="resizable-col">创建时间</th>
                 <th class="resizable-col">绑定的知识库数量</th>
                 <th class="resizable-col">操作</th>
@@ -49,17 +48,6 @@
                     data-required-skills="{{ item.required_skills | tojson | urlencode }}" 
                     style="cursor: pointer; color: #667eea; text-decoration: underline;">
                     {{ item.knowledge_domain or '暂无知识域' }}
-                </td>
-                <td>
-                    {% if item.ls_status == 0 %}
-                    已完成
-                    {% elif item.ls_status == 1 %}
-                    未开始
-                    {% elif item.ls_status == 2 %}
-                    进行中
-                    {% else %}
-                    未知
-                    {% endif %}
                 </td>
                 <td>{{ item.created_at or '未知' }}</td>
                 <td class="binding-count" data-kno-id="{{ item.kno_id }}">加载中...</td>

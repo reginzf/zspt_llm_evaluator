@@ -491,8 +491,9 @@ function loadReportContent(metricTaskId) {
 
 // 打开报告页面
 function openReport(knowledgeBaseId, filepath) {
-    // 构建报告页面URL
-    const reportUrl = `/report/${knowledgeBaseId}/${filepath}`;
+    // filepath 现在已经是 MinIO 对象名称 (如: reports/{knowledge_base_id}/{file_name})
+    // 直接使用 filepath 构建报告页面 URL
+    const reportUrl = `/report/${filepath}`;
     // 在新窗口或标签页中打开报告
     window.open(reportUrl, '_blank');
 }

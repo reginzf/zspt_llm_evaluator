@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 from jsonpath import jsonpath
@@ -18,6 +19,7 @@ from src.label_studio_api.label_studio_client import LabelStudioLogin
 from src.label_studio_api.ml_backed.prediction_creator import LabelStudioPredictionCreator
 from src.utils.pub_funs import write_json_file
 from src.sql_funs import Environment_Crud, LabelStudioCrud
+from src.utils.minio_client import get_knowledge_files_client
 from check_chunk.checker_funcs import calculate_chunk_recall_metrics, calculate_similarity_recall_metrics
 from check_chunk.checkers.AlignmentBasedChecker import AlignmentBasedChecker
 
@@ -270,8 +272,10 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
     project = _get_project(ls_user, project_id)
     logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
     logger.debug(f"成功获取项目: {project.title}")
-    file_path = Path(REPORT_PATH) / kno_id / file_name
-    file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # 构建 MinIO 对象名称: reports/{knowledge_base_id}/{file_name}
+    minio_object_name = f"reports/{kno_id}/{file_name}"
+    
     for question in questions:
         logger.info(f"正在处理问题: {question}")
         metrics = _process_question_chunk_data(
@@ -287,8 +291,25 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
         metrics['type'] = question['question_type']
         metric_all[question['question_content']] = metrics
 
-    write_json_file(str(file_path), metric_all)
-    logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
+    # 使用临时文件保存 JSON，然后上传到 MinIO
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp_file:
+        tmp_file_path = tmp_file.name
+    
+    try:
+        write_json_file(tmp_file_path, metric_all)
+        
+        # 上传到 MinIO
+        minio_client = get_knowledge_files_client()
+        upload_success = minio_client.upload_file(tmp_file_path, minio_object_name)
+        
+        if not upload_success:
+            raise Exception(f"上传报告到 MinIO 失败: {minio_object_name}")
+        
+        logger.info(f"所有问题的切片质量指标已上传至 MinIO: {minio_object_name}")
+    finally:
+        # 清理临时文件
+        if os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
 
 
 def cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, kno_id: str, search_type: str,
@@ -298,8 +319,10 @@ def cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, kno_id:
     project = _get_project(ls_user, project_id)
     metric_all = {}
     logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
-    file_path = Path(REPORT_PATH) / kno_id / file_name
     logger.info(f"共找到 {len(questions)} 个问题需要处理")
+    
+    # 构建 MinIO 对象名称: reports/{knowledge_base_id}/{file_name}
+    minio_object_name = f"reports/{kno_id}/{file_name}"
 
     def extract_zlpt_chunk_texts(data):
         return jsonpath(data, CHUNK_TEXT_PATH) or []
@@ -326,8 +349,25 @@ def cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, kno_id:
         metrics['type'] = question['question_type']
         metric_all[question['question_content']] = metrics
 
-    write_json_file(str(file_path), metric_all)
-    logger.info(f"所有问题的切片质量指标已保存至 {file_path} 文件")
+    # 使用临时文件保存 JSON，然后上传到 MinIO
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp_file:
+        tmp_file_path = tmp_file.name
+    
+    try:
+        write_json_file(tmp_file_path, metric_all)
+        
+        # 上传到 MinIO
+        minio_client = get_knowledge_files_client()
+        upload_success = minio_client.upload_file(tmp_file_path, minio_object_name)
+        
+        if not upload_success:
+            raise Exception(f"上传报告到 MinIO 失败: {minio_object_name}")
+        
+        logger.info(f"所有问题的切片质量指标已上传至 MinIO: {minio_object_name}")
+    finally:
+        # 清理临时文件
+        if os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
 
 
 def label_by_prediction(ls_user, project, question_json):
