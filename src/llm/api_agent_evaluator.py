@@ -9,10 +9,11 @@ LLM 知识库问答评估系统
 5. 加工结果，生成详细的性能报告
 6. 保存结果到本地，支持跨模型、跨时间比较
 """
-
+from transformers import AutoTokenizer, AutoModel
+import torch
 import time
 import logging
-from typing import Dict, List, Tuple,Any
+from typing import Dict, List, Tuple, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import re
@@ -22,7 +23,7 @@ from tqdm import tqdm
 from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from difflib import SequenceMatcher
-from env_config_init import settings
+from env_config_init import settings, PROJECT_ROOT
 from src.llm.data_loaders import DatasetLoader, QuestionAnswerPair, ModelResponse, ModelEvaluationResult, \
     EvaluationMetrics
 from src.llm.llm_agent_basic import BaseLLMAgent, create_agent
@@ -31,6 +32,13 @@ from src.llm.llm_agent_basic import BaseLLMAgent, create_agent
 rouge = Rouge()
 # 延迟初始化语义模型
 _model = None
+# 模型根目录（兼容 Windows 和 Linux）
+MODELS_DIR = PROJECT_ROOT / 'models'
+
+
+def get_models_dir() -> Path:
+    """获取模型根目录"""
+    return MODELS_DIR
 
 
 def get_sentence_transformer_model():
@@ -39,9 +47,16 @@ def get_sentence_transformer_model():
     if _model is None:
         try:
             from sentence_transformers import SentenceTransformer
-            model_path = Path(settings.MODEL_PATH).parent / 'paraphrase-multilingual-MiniLM-L12-v2'
+            # 使用本地模型路径，优先使用 paraphrase-multilingual-MiniLM-L12-v2
+            model_path = MODELS_DIR / 'paraphrase-multilingual-MiniLM-L12-v2'
+            if not model_path.exists():
+                # 回退到 bge-base-zh-v1.5
+                model_path = MODELS_DIR / 'bge-base-zh-v1.5'
+            if not model_path.exists():
+                logging.warning(f"本地 SentenceTransformer 模型不存在，尝试使用在线模型")
+                model_path = 'paraphrase-multilingual-MiniLM-L12-v2'
             _model = SentenceTransformer(str(model_path))
-            logging.info("SentenceTransformer模型初始化完成")
+            logging.info(f"SentenceTransformer模型初始化完成: {model_path}")
         except Exception as e:
             logging.warning(f"SentenceTransformer模型初始化失败: {e}")
             _model = None
@@ -98,7 +113,7 @@ class MetricsCalculator:
 
         def match_normalized(pred: str, truth: str) -> bool:
             return MetricsCalculator.normalize_text(pred) == MetricsCalculator.normalize_text(truth)
-        
+
         def match_fuzzy(pred: str, truth: str) -> bool:
             """模糊匹配 - 允许一定的差异"""
             pred_norm = MetricsCalculator.normalize_text(pred)
@@ -106,7 +121,7 @@ class MetricsCalculator:
             # 计算编辑距离相似度
             similarity = SequenceMatcher(None, pred_norm, truth_norm).ratio()
             return similarity >= 0.9  # 90%以上相似度认为匹配
-        
+
         def match_semantic(pred: str, truth: str) -> bool:
             """语义匹配 - 使用语义相似度"""
             model = get_sentence_transformer_model()
@@ -115,14 +130,14 @@ class MetricsCalculator:
                     pred_embedding = model.encode(pred)
                     truth_embedding = model.encode(truth)
                     similarity = np.dot(pred_embedding, truth_embedding) / (
-                        np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
+                            np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
                     )
                     return similarity >= 0.95  # 95%以上语义相似度认为匹配
                 except Exception as e:
                     logger.warning(f"语义匹配计算失败: {e}")
             # 回退到标准化匹配
             return match_normalized(pred, truth)
-        
+
         def match_rouge(pred: str, truth: str) -> bool:
             """ROUGE匹配 - 使用ROUGE-L分数"""
             try:
@@ -132,7 +147,7 @@ class MetricsCalculator:
             except Exception as e:
                 logger.warning(f"ROUGE匹配计算失败: {e}")
                 return match_normalized(pred, truth)
-        
+
         def match_tfidf(pred: str, truth: str) -> bool:
             """TF-IDF匹配 - 基于TF-IDF向量相似度"""
             try:
@@ -143,21 +158,21 @@ class MetricsCalculator:
             except Exception as e:
                 logger.warning(f"TF-IDF匹配计算失败: {e}")
                 return match_normalized(pred, truth)
-        
+
         def match_keyword(pred: str, truth: str) -> bool:
             """关键词匹配 - 基于关键词重叠"""
             pred_words = set(MetricsCalculator.normalize_text(pred).split())
             truth_words = set(MetricsCalculator.normalize_text(truth).split())
-            
+
             if not pred_words or not truth_words:
                 return pred_words == truth_words
-            
+
             # 计算Jaccard相似度
             intersection = len(pred_words & truth_words)
             union = len(pred_words | truth_words)
             jaccard_sim = intersection / union if union > 0 else 0
             return jaccard_sim >= 0.9  # 90%以上重叠认为匹配
-        
+
         # 根据匹配类型选择匹配函数
         if match_type == 'fuzzy':
             match_func = match_fuzzy
@@ -171,7 +186,7 @@ class MetricsCalculator:
             match_func = match_keyword
         else:
             match_func = match_normalized  # 默认使用标准化匹配
-        
+
         # 对每个标准答案进行匹配检查
         for truth in ground_truth:
             if match_func(prediction, truth):
@@ -202,7 +217,7 @@ class MetricsCalculator:
             if precision + recall == 0:
                 return 0.0
             return 2 * precision * recall / (precision + recall)
-        
+
         def cal_rouge_based(prediction: str, ground_truth: List[str]) -> float:
             """基于ROUGE的F1计算"""
             best_score = 0.0
@@ -215,7 +230,7 @@ class MetricsCalculator:
                     logger.warning(f"ROUGE F1计算失败: {e}")
                     continue
             return best_score
-        
+
         def cal_semantic_based(prediction: str, ground_truth: List[str]) -> float:
             """基于语义相似度的F1计算"""
             model = get_sentence_transformer_model()
@@ -226,13 +241,13 @@ class MetricsCalculator:
                     for truth in ground_truth:
                         truth_embedding = model.encode(truth)
                         similarity = np.dot(pred_embedding, truth_embedding) / (
-                            np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
+                                np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
                         )
                         best_similarity = max(best_similarity, similarity)
                     return max(0.0, min(1.0, best_similarity))
                 except Exception as e:
                     logger.warning(f"语义F1计算失败: {e}")
-            
+
             # 回退到词汇级别计算
             pred_tokens = MetricsCalculator.normalize_text(prediction).split()
             best_f1 = 0.0
@@ -241,26 +256,26 @@ class MetricsCalculator:
                 f1 = cal_word_based(pred_tokens, truth_tokens)
                 best_f1 = max(best_f1, f1)
             return best_f1
-        
+
         def cal_jaccard_based(prediction: str, ground_truth: List[str]) -> float:
             """基于Jaccard相似度的计算"""
             pred_words = set(MetricsCalculator.normalize_text(prediction).split())
             best_jaccard = 0.0
-            
+
             for truth in ground_truth:
                 truth_words = set(MetricsCalculator.normalize_text(truth).split())
                 if len(pred_words) == 0 and len(truth_words) == 0:
                     return 1.0
                 elif len(pred_words) == 0 or len(truth_words) == 0:
                     continue
-                
+
                 intersection = len(pred_words & truth_words)
                 union = len(pred_words | truth_words)
                 jaccard = intersection / union if union > 0 else 0
                 best_jaccard = max(best_jaccard, jaccard)
-            
+
             return best_jaccard
-        
+
         # 根据计算类型选择计算方法
         if cal_type == 'rouge':
             return cal_rouge_based(prediction, ground_truth)
@@ -272,12 +287,12 @@ class MetricsCalculator:
             # 默认使用词汇级别的传统计算
             pred_tokens = MetricsCalculator.normalize_text(prediction).split()
             best_f1 = 0.0
-            
+
             for truth in ground_truth:
                 truth_tokens = MetricsCalculator.normalize_text(truth).split()
                 f1 = cal_word_based(pred_tokens, truth_tokens)
                 best_f1 = max(best_f1, f1)
-            
+
             return best_f1
 
     @staticmethod
@@ -317,7 +332,7 @@ class MetricsCalculator:
                 best_score = max(best_score, score)
 
             return best_score
-        
+
         def match_semantic(prediction: str, ground_truth: List[str]) -> float:
             """语义相似度匹配"""
             model = get_sentence_transformer_model()
@@ -328,16 +343,16 @@ class MetricsCalculator:
                     for truth in ground_truth:
                         truth_embedding = model.encode(truth)
                         similarity = np.dot(pred_embedding, truth_embedding) / (
-                            np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
+                                np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
                         )
                         best_similarity = max(best_similarity, similarity)
                     return max(0.0, min(1.0, best_similarity))
                 except Exception as e:
                     logger.warning(f"语义部分匹配计算失败: {e}")
-            
+
             # 回退到词汇重叠
             return match_word_overlap(prediction, ground_truth)
-        
+
         def match_rouge(prediction: str, ground_truth: List[str]) -> float:
             """ROUGE匹配"""
             best_score = 0.0
@@ -350,42 +365,42 @@ class MetricsCalculator:
                     logger.warning(f"ROUGE部分匹配计算失败: {e}")
                     continue
             return best_score
-        
+
         def match_tfidf(prediction: str, ground_truth: List[str]) -> float:
             """TF-IDF匹配"""
             try:
                 vectorizer = TfidfVectorizer()
                 best_similarity = 0.0
-                
+
                 for truth in ground_truth:
                     tfidf_matrix = vectorizer.fit_transform([prediction, truth])
                     similarity = (tfidf_matrix * tfidf_matrix.T).toarray()[0, 1]
                     best_similarity = max(best_similarity, similarity)
-                
+
                 return max(0.0, min(1.0, best_similarity))
             except Exception as e:
                 logger.warning(f"TF-IDF部分匹配计算失败: {e}")
                 return match_word_overlap(prediction, ground_truth)
-        
+
         def match_jaccard(prediction: str, ground_truth: List[str]) -> float:
             """Jaccard相似度匹配"""
             pred_words = set(MetricsCalculator.normalize_text(prediction).split())
             best_jaccard = 0.0
-            
+
             for truth in ground_truth:
                 truth_words = set(MetricsCalculator.normalize_text(truth).split())
                 if len(pred_words) == 0 and len(truth_words) == 0:
                     return 1.0
                 elif len(pred_words) == 0 or len(truth_words) == 0:
                     continue
-                
+
                 intersection = len(pred_words & truth_words)
                 union = len(pred_words | truth_words)
                 jaccard = intersection / union if union > 0 else 0
                 best_jaccard = max(best_jaccard, jaccard)
-            
+
             return best_jaccard
-        
+
         # 根据匹配类型选择计算方法
         if match_type == 'semantic':
             return match_semantic(prediction, ground_truth)
@@ -434,71 +449,120 @@ class MetricsCalculator:
 
             # 回退到基于词重叠的计算方法
             return sim_jaccard_based(prediction, ground_truth)
-        
+
         def sim_bert_based(prediction: str, ground_truth: List[str]) -> float:
-            """基于BERT的语义相似度计算"""
+            """基于BERT的语义相似度计算（使用本地模型）"""
             try:
-                from transformers import AutoTokenizer, AutoModel
-                import torch
-                
-                tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
-                model = AutoModel.from_pretrained('bert-base-chinese')
-                
+                # 使用本地 BERT 模型
+                bert_model_path = MODELS_DIR / 'bert-base-chinese'
+                if not bert_model_path.exists():
+                    # 如果没有本地模型，回退到 sentence transformer
+                    logger.warning(f"本地 BERT 模型不存在: {bert_model_path}，回退到 SentenceTransformer")
+                    return sim_sentence_transformer(prediction, ground_truth)
+
+                tokenizer = AutoTokenizer.from_pretrained(str(bert_model_path))
+                model = AutoModel.from_pretrained(str(bert_model_path))
+
                 def get_bert_embedding(text):
                     inputs = tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
                     with torch.no_grad():
                         outputs = model(**inputs)
                     return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
-                
+
                 pred_embedding = get_bert_embedding(prediction)
                 best_similarity = 0.0
-                
+
                 for truth in ground_truth:
                     truth_embedding = get_bert_embedding(truth)
                     similarity = np.dot(pred_embedding, truth_embedding) / (
-                        np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
+                            np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
                     )
                     best_similarity = max(best_similarity, similarity)
-                
+
                 return max(0.0, min(1.0, best_similarity))
             except Exception as e:
                 logger.warning(f"BERT语义相似度计算失败: {e}")
                 return sim_sentence_transformer(prediction, ground_truth)
-        
+
         def sim_tfidf_based(prediction: str, ground_truth: List[str]) -> float:
             """基于TF-IDF的语义相似度计算"""
             try:
                 vectorizer = TfidfVectorizer()
                 best_similarity = 0.0
-                
+
                 for truth in ground_truth:
                     tfidf_matrix = vectorizer.fit_transform([prediction, truth])
                     similarity = (tfidf_matrix * tfidf_matrix.T).toarray()[0, 1]
                     best_similarity = max(best_similarity, similarity)
-                
+
                 return max(0.0, min(1.0, best_similarity))
             except Exception as e:
                 logger.warning(f"TF-IDF语义相似度计算失败: {e}")
                 return sim_jaccard_based(prediction, ground_truth)
-        
+
         def sim_word2vec_based(prediction: str, ground_truth: List[str]) -> float:
             """基于Word2Vec的语义相似度计算"""
             try:
-                # 注意：需要先安装gensim: pip install gensim
-                import gensim
-                from gensim.models import Word2Vec
-                
-                # 这里假设已有训练好的Word2Vec模型
-                # 实际使用时需要加载具体的模型
-                logger.warning("Word2Vec模型需要预先训练，暂时回退到其他方法")
+                from gensim.models import KeyedVectors
+                import numpy as np
+
+                # 加载预训练的中文 Word2Vec 模型（使用本地路径）
+                model_path = MODELS_DIR / 'text2vec-word2vec-tencent-chinese' / 'light_Tencent_AILab_ChineseEmbedding.bin'
+
+                if not model_path.exists():
+                    logger.warning(f"Word2Vec 模型文件不存在：{model_path}，回退到 TF-IDF 方法")
+                    return sim_tfidf_based(prediction, ground_truth)
+
+                # 加载模型
+                logger.info(f"正在加载 Word2Vec 模型：{model_path}")
+                w2v_model = KeyedVectors.load_word2vec_format(str(model_path), binary=True)
+
+                # 文本预处理
+                pred_words = MetricsCalculator.normalize_text(prediction).split()
+
+                best_similarity = 0.0
+                for truth in ground_truth:
+                    truth_words = MetricsCalculator.normalize_text(truth).split()
+
+                    if not pred_words or not truth_words:
+                        continue
+
+                    # 获取词向量并计算句子向量（平均词向量）
+                    pred_vectors = []
+                    for word in pred_words:
+                        if word in w2v_model:
+                            pred_vectors.append(w2v_model[word])
+
+                    truth_vectors = []
+                    for word in truth_words:
+                        if word in w2v_model:
+                            truth_vectors.append(w2v_model[word])
+
+                    if not pred_vectors or not truth_vectors:
+                        continue
+
+                    # 计算平均向量
+                    pred_vector = np.mean(pred_vectors, axis=0)
+                    truth_vector = np.mean(truth_vectors, axis=0)
+
+                    # 计算余弦相似度
+                    similarity = np.dot(pred_vector, truth_vector) / (
+                            np.linalg.norm(pred_vector) * np.linalg.norm(truth_vector)
+                    )
+                    best_similarity = max(best_similarity, similarity)
+
+                return max(0.0, min(1.0, best_similarity))
+
+            except ImportError as e:
+                logger.warning(f"gensim 未安装，无法使用 Word2Vec 方法：{e}")
                 return sim_tfidf_based(prediction, ground_truth)
-            except ImportError:
-                logger.warning("gensim未安装，无法使用Word2Vec方法")
+            except FileNotFoundError as e:
+                logger.warning(f"Word2Vec 模型文件未找到：{e}")
                 return sim_tfidf_based(prediction, ground_truth)
             except Exception as e:
-                logger.warning(f"Word2Vec语义相似度计算失败: {e}")
+                logger.warning(f"Word2Vec 语义相似度计算失败：{e}")
                 return sim_jaccard_based(prediction, ground_truth)
-        
+
         def sim_jaccard_based(prediction: str, ground_truth: List[str]) -> float:
             """基于Jaccard相似度的计算（作为后备方法）"""
             pred_words = set(MetricsCalculator.normalize_text(prediction).split())
@@ -519,7 +583,7 @@ class MetricsCalculator:
                 best_similarity = max(best_similarity, similarity)
 
             return best_similarity
-        
+
         # 根据相似度类型选择计算方法
         if sim_type == 'bert':
             return sim_bert_based(prediction, ground_truth)
@@ -534,7 +598,8 @@ class MetricsCalculator:
             return sim_sentence_transformer(prediction, ground_truth)
 
     @staticmethod
-    def calculate_answer_coverage(prediction: str, ground_truth: List[str], cal_type=None, weights: List[float] = None) -> float:
+    def calculate_answer_coverage(prediction: str, ground_truth: List[str], cal_type=None,
+                                  weights: List[float] = None) -> float:
         """
         计算答案覆盖率（预测答案包含标准答案信息的程度）
         
@@ -609,7 +674,8 @@ class MetricsCalculator:
             return cal_simple(prediction, ground_truth)
 
     @staticmethod
-    def calculate_answer_relevance(prediction: str, question: str, context: str, rel_type=None, weights: List[float] = None) -> float:
+    def calculate_answer_relevance(prediction: str, question: str, context: str, rel_type=None,
+                                   weights: List[float] = None) -> float:
         """
         计算答案与问题的相关性
         
@@ -643,7 +709,7 @@ class MetricsCalculator:
             # 加权组合
             relevance = 0.3 * question_overlap + 0.7 * context_overlap
             return min(1.0, relevance)
-        
+
         def rel_semantic(prediction: str, question: str, context: str) -> float:
             """基于语义相似度的相关性计算"""
             model = get_sentence_transformer_model()
@@ -652,81 +718,81 @@ class MetricsCalculator:
                     pred_embedding = model.encode(prediction)
                     question_embedding = model.encode(question)
                     context_embedding = model.encode(context)
-                    
+
                     # 计算与问题的语义相似度
                     question_sim = np.dot(pred_embedding, question_embedding) / (
-                        np.linalg.norm(pred_embedding) * np.linalg.norm(question_embedding)
+                            np.linalg.norm(pred_embedding) * np.linalg.norm(question_embedding)
                     )
-                    
+
                     # 计算与上下文的语义相似度
                     context_sim = np.dot(pred_embedding, context_embedding) / (
-                        np.linalg.norm(pred_embedding) * np.linalg.norm(context_embedding)
+                            np.linalg.norm(pred_embedding) * np.linalg.norm(context_embedding)
                     )
-                    
+
                     # 加权组合
                     relevance = 0.3 * question_sim + 0.7 * context_sim
                     return max(0.0, min(1.0, relevance))
                 except Exception as e:
                     logger.warning(f"语义相关性计算失败: {e}")
-            
+
             # 回退到词汇重叠
             return rel_word_overlap(prediction, question, context)
-        
+
         def rel_tfidf(prediction: str, question: str, context: str) -> float:
             """基于TF-IDF的相关性计算"""
             try:
                 vectorizer = TfidfVectorizer()
-                
+
                 # 计算与问题的相关性
                 question_matrix = vectorizer.fit_transform([prediction, question])
                 question_sim = (question_matrix * question_matrix.T).toarray()[0, 1]
-                
+
                 # 计算与上下文的相关性
                 context_matrix = vectorizer.fit_transform([prediction, context])
                 context_sim = (context_matrix * context_matrix.T).toarray()[0, 1]
-                
+
                 # 加权组合
                 relevance = 0.3 * question_sim + 0.7 * context_sim
                 return max(0.0, min(1.0, relevance))
             except Exception as e:
                 logger.warning(f"TF-IDF相关性计算失败: {e}")
                 return rel_word_overlap(prediction, question, context)
-        
+
         def rel_weighted(prediction: str, question: str, context: str, weights: List[float] = None) -> float:
             """加权组合多种相关性计算方法"""
             if weights is None:
                 weights = [0.4, 0.4, 0.2]  # 词汇、语义、TF-IDF的权重
-            
+
             if len(weights) != 3 or abs(sum(weights) - 1.0) > 1e-6:
                 raise ValueError("权重必须是长度为3的列表，且和为1")
-            
+
             word_score = rel_word_overlap(prediction, question, context)
             semantic_score = rel_semantic(prediction, question, context)
             tfidf_score = rel_tfidf(prediction, question, context)
-            
-            weighted_score = (word_score * weights[0] + 
-                            semantic_score * weights[1] + 
-                            tfidf_score * weights[2])
+
+            weighted_score = (word_score * weights[0] +
+                              semantic_score * weights[1] +
+                              tfidf_score * weights[2])
             return weighted_score
-        
+
         def rel_rouge(prediction: str, question: str, context: str) -> float:
             """基于ROUGE的相关性计算"""
             try:
                 # 计算与问题的ROUGE分数
                 question_scores = rouge.get_scores(prediction, question)
                 question_rouge = question_scores[0]['rouge-l']['f']  # F1分数
-                
+
                 # 计算与上下文的ROUGE分数
                 context_scores = rouge.get_scores(prediction, context)
                 context_rouge = context_scores[0]['rouge-l']['f']  # F1分数
-                
+
                 # 加权组合
                 relevance = 0.3 * question_rouge + 0.7 * context_rouge
                 return max(0.0, min(1.0, relevance))
             except Exception as e:
                 logger.warning(f"ROUGE相关性计算失败: {e}")
                 return rel_word_overlap(prediction, question, context)
-        
+
         # 根据相关性类型选择计算方法
         if rel_type == 'semantic':
             return rel_semantic(prediction, question, context)
@@ -1039,11 +1105,13 @@ class MetricsCalculator:
             基于命名实体识别计算答案完整性
             
             使用spaCy进行命名实体识别，计算预测答案中包含的标准答案实体比例。
+            模型通过 pip 安装（如 zh_core_web_sm），直接使用 spacy.load(model_name) 加载。
             """
             logger.debug(f"计算实体完整性: model={model_name}")
 
             try:
                 import spacy
+                # 直接加载模型（pip 安装的模型可直接通过名称加载）
                 nlp = spacy.load(model_name)
 
                 pred_doc = nlp(prediction)
@@ -1155,7 +1223,8 @@ class MetricsCalculator:
             return 0.0
 
     @staticmethod
-    def calculate_conciseness(prediction: str, ground_truth: List[str], conciseness_type=None, weights: List[float] = None) -> float:
+    def calculate_conciseness(prediction: str, ground_truth: List[str], conciseness_type=None,
+                              weights: List[float] = None) -> float:
         """
         计算答案简洁性
         
@@ -1189,7 +1258,7 @@ class MetricsCalculator:
             # 如果预测答案比标准答案长很多，简洁性降低
             ratio = min_truth_len / pred_len if pred_len > 0 else 0
             return min(1.0, ratio * 1.5)  # 允许稍微长一点
-        
+
         def conciseness_semantic_compression(prediction: str, ground_truth: List[str]) -> float:
             """基于语义压缩度的简洁性计算"""
             model = get_sentence_transformer_model()
@@ -1197,57 +1266,55 @@ class MetricsCalculator:
                 try:
                     pred_embedding = model.encode(prediction)
                     best_similarity = 0.0
-                    
+
                     for truth in ground_truth:
                         truth_embedding = model.encode(truth)
                         # 计算语义相似度
                         similarity = np.dot(pred_embedding, truth_embedding) / (
-                            np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
+                                np.linalg.norm(pred_embedding) * np.linalg.norm(truth_embedding)
                         )
                         best_similarity = max(best_similarity, similarity)
-                    
+
                     # 结合长度因素：语义相似度高但长度短更好
                     pred_len = len(MetricsCalculator.normalize_text(prediction).split())
                     min_truth_len = min([len(MetricsCalculator.normalize_text(t).split()) for t in ground_truth])
                     length_factor = min(1.0, min_truth_len / pred_len) if pred_len > 0 else 0
-                    
+
                     # 综合得分：语义相似度 × 长度因子
                     return max(0.0, min(1.0, best_similarity * length_factor))
                 except Exception as e:
                     logger.warning(f"语义压缩度简洁性计算失败: {e}")
-            
+
             # 回退到长度比例
             return conciseness_length_ratio(prediction, ground_truth)
-        
+
         def conciseness_rouge_compression(prediction: str, ground_truth: List[str]) -> float:
             """基于ROUGE压缩度的简洁性计算"""
             try:
                 best_rouge = 0.0
                 pred_len = len(MetricsCalculator.normalize_text(prediction).split())
-                
+
                 for truth in ground_truth:
                     truth_len = len(MetricsCalculator.normalize_text(truth).split())
                     scores = rouge.get_scores(prediction, truth)
                     rouge_score = scores[0]['rouge-l']['f']  # F1分数
                     best_rouge = max(best_rouge, rouge_score)
-                
+
                 # 结合压缩率：ROUGE高且压缩率高更好
                 compression_ratio = min(1.0, truth_len / pred_len) if pred_len > 0 else 0
                 return max(0.0, min(1.0, best_rouge * compression_ratio))
             except Exception as e:
                 logger.warning(f"ROUGE压缩度简洁性计算失败: {e}")
                 return conciseness_length_ratio(prediction, ground_truth)
-        
 
-        
         def conciseness_information_density(prediction: str, ground_truth: List[str]) -> float:
             """基于信息密度的简洁性计算"""
             pred_words = set(MetricsCalculator.normalize_text(prediction).split())
             pred_len = len(pred_words)
-            
+
             if pred_len == 0:
                 return 0.0
-            
+
             best_coverage = 0.0
             for truth in ground_truth:
                 truth_words = set(MetricsCalculator.normalize_text(truth).split())
@@ -1256,7 +1323,7 @@ class MetricsCalculator:
                 covered = truth_words & pred_words
                 coverage = len(covered) / len(truth_words)
                 best_coverage = max(best_coverage, coverage)
-            
+
             # 信息密度 = 信息覆盖率 / 长度
             density = best_coverage / pred_len if pred_len > 0 else 0
             # 归一化到0-1范围
@@ -1278,6 +1345,7 @@ class MetricsCalculator:
                               semantic_score * weights[1] +
                               rouge_score * weights[2])
             return weighted_score
+
         # 根据简洁性类型选择计算方法
         if conciseness_type == 'semantic':
             return conciseness_semantic_compression(prediction, ground_truth)
@@ -1613,7 +1681,8 @@ class LLMEvaluator:
 
     def evaluate_all(self, sample_size: int = None, parallel: bool = False,
                      max_workers: int = 4, retry_attempts: int = 1,
-                     show_progress: bool = True, match_types: Dict[str, Any] = None) -> Dict[str, ModelEvaluationResult]:
+                     show_progress: bool = True, match_types: Dict[str, Any] = None) -> Dict[
+        str, ModelEvaluationResult]:
         """
         评估所有Agent
         
@@ -1654,12 +1723,13 @@ class LLMEvaluator:
         """
         if not match_types or method_name not in match_types:
             return {}
-        
+
         config = match_types.get(method_name, {})
         # 过滤掉 description 等非参数字段
         return {k: v for k, v in config.items() if k != 'description'}
 
-    def _calculate_metrics(self, responses: List[ModelResponse], match_types: Dict[str, Any] = None) -> EvaluationMetrics:
+    def _calculate_metrics(self, responses: List[ModelResponse],
+                           match_types: Dict[str, Any] = None) -> EvaluationMetrics:
         """
         计算评估指标
         
