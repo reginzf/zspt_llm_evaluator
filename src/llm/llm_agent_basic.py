@@ -1,4 +1,5 @@
 import time
+import logging
 
 from abc import ABC, abstractmethod
 from typing import Dict, Tuple
@@ -273,6 +274,82 @@ class OpenAIAgent(BaseLLMAgent):
             raise ValueError(f"无法解析OpenAI响应: {e}")
 
 
+class QwenAgent(BaseLLMAgent):
+    """千问(Qwen) Agent 实现 - 支持阿里云百炼/通义千问API"""
+
+    def __init__(self, name: str = "Qwen", api_key: str = None,
+                 api_url: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+                 model: str = "qwen-turbo",
+                 temperature: float = 0.1, max_tokens: int = 512,
+                 timeout: int = 60, **kwargs):
+        """
+        初始化千问 Agent
+
+        Args:
+            name: Agent名称
+            api_key: API密钥 (阿里云DashScope的API Key)
+            api_url: API端点
+            model: 模型名称 (如 qwen-turbo, qwen-plus, qwen-max 等)
+            temperature: 温度参数
+            max_tokens: 最大token数
+            timeout: 超时时间
+        """
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        super().__init__(
+            name=name,
+            api_key=api_key,
+            api_url=api_url,
+            headers=headers,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            model=model,
+            **kwargs
+        )
+        self.model = model
+
+    def _build_request_payload(self, question: str, context: str) -> Dict:
+        """构建千问请求载荷"""
+        prompt = f"""基于以下文档内容回答问题：
+文档内容：
+{context}
+问题：
+{question}
+请直接给出答案，不需要解释过程。"""
+
+        return {
+            "model": self.model,
+            "input": {
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            },
+            "parameters": {
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "result_format": "message"
+            }
+        }
+
+    def _parse_response(self, response: Dict) -> str:
+        """解析千问响应"""
+        try:
+            # 阿里云百炼API响应格式
+            if 'output' in response and 'choices' in response['output']:
+                return response['output']['choices'][0]['message']['content'].strip()
+            # 兼容OpenAI格式的响应
+            elif 'choices' in response:
+                return response['choices'][0]['message']['content'].strip()
+            else:
+                raise ValueError(f"未知的响应格式: {response}")
+        except (KeyError, IndexError) as e:
+            raise ValueError(f"无法解析千问响应: {e}")
+
+
 class CustomAgent(BaseLLMAgent):
     """自定义Agent实现"""
 
@@ -383,6 +460,18 @@ def create_agent(agent_config: Dict) -> BaseLLMAgent:
             version=version
         )
 
+    elif agent_type == 'qwen':
+        return QwenAgent(
+            name=name,
+            api_key=agent_config.get('api_key'),
+            api_url=agent_config.get('api_url'),
+            model=agent_config.get('model', 'qwen-turbo'),
+            temperature=agent_config.get('temperature', 0.1),
+            max_tokens=agent_config.get('max_tokens', 512),
+            timeout=agent_config.get('timeout', 60),
+            version=version
+        )
+
     elif agent_type == 'custom':
         return CustomAgent(
             name=name,
@@ -395,5 +484,37 @@ def create_agent(agent_config: Dict) -> BaseLLMAgent:
             timeout=agent_config.get('timeout', 60),
             version=version
         )
+    
+    elif agent_type == 'other':
+        # 对于'其他'类型，使用CustomAgent作为通用实现
+        # 允许用户通过配置自定义请求模板和响应解析器
+        logger = logging.getLogger(__name__)
+        logger.info(f"使用CustomAgent处理'other'类型模型: {name}")
+        return CustomAgent(
+            name=name,
+            api_key=agent_config.get('api_key'),
+            api_url=agent_config.get('api_url'),
+            request_template=agent_config.get('request_template', {}),
+            response_parser=agent_config.get('response_parser'),
+            temperature=agent_config.get('temperature', 0.1),
+            max_tokens=agent_config.get('max_tokens', 512),
+            timeout=agent_config.get('timeout', 60),
+            version=version
+        )
+    
     else:
-        raise ValueError(f"不支持的Agent类型: {agent_type}")
+        # 对于任何未知的类型，使用CustomAgent作为默认实现
+        # 而不是抛出异常，这样更灵活
+        logger = logging.getLogger(__name__)
+        logger.warning(f"未知的Agent类型 '{agent_type}'，使用CustomAgent作为默认实现: {name}")
+        return CustomAgent(
+            name=name,
+            api_key=agent_config.get('api_key'),
+            api_url=agent_config.get('api_url'),
+            request_template=agent_config.get('request_template', {}),
+            response_parser=agent_config.get('response_parser'),
+            temperature=agent_config.get('temperature', 0.1),
+            max_tokens=agent_config.get('max_tokens', 512),
+            timeout=agent_config.get('timeout', 60),
+            version=version
+        )

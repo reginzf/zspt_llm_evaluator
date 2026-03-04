@@ -66,6 +66,7 @@
                     <option value="deepseek">DeepSeek</option>
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
+                    <option value="qwen">通义千问(Qwen)</option>
                     <option value="other">其他</option>
                 </select>
                 
@@ -143,6 +144,7 @@
                         <option value="deepseek">DeepSeek</option>
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic</option>
+                        <option value="qwen">通义千问(Qwen)</option>
                         <option value="other">其他</option>
                     </select>
                 </div>
@@ -238,6 +240,18 @@ function loadModels() {
         });
 }
 
+// 获取模型类型显示文本
+function getModelTypeText(type) {
+    const typeMap = {
+        'deepseek': 'DeepSeek',
+        'openai': 'OpenAI',
+        'anthropic': 'Anthropic',
+        'qwen': '通义千问',
+        'other': '其他'
+    };
+    return typeMap[type] || type || '未知';
+}
+
 // 渲染模型表格
 function renderModelsTable(models) {
     const tableBody = document.getElementById('modelsTableBody');
@@ -253,12 +267,13 @@ function renderModelsTable(models) {
                            model.status === 'error' ? 'status-error' : 'status-unknown';
         const statusText = model.status === 'connected' ? '✓ 已连接' : 
                           model.status === 'error' ? '✗ 连接失败' : '? 未检测';
+        const typeText = getModelTypeText(model.type);
         
         html += `
         <tr>
             <td>${model.id}</td>
             <td><a href="/llm/models/${encodeURIComponent(model.name)}" class="group-link">${escapeHtml(model.name)}</a></td>
-            <td><span class="model-type-badge">${escapeHtml(model.type)}</span></td>
+            <td><span class="model-type-badge">${escapeHtml(typeText)}</span></td>
             <td class="text-truncate" title="${escapeHtml(model.api_url)}">${escapeHtml(model.api_url)}</td>
             <td>${escapeHtml(model.version || '-')}</td>
             <td class="${statusClass}">${statusText}</td>

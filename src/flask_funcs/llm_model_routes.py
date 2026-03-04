@@ -5,6 +5,8 @@ LLM模型管理API路由模块
 import logging
 import threading
 import uuid
+import os
+import tempfile
 
 from flask import Blueprint, request, jsonify, render_template
 from pathlib import Path
@@ -18,6 +20,7 @@ from src.sql_funs.ai_qa_data_crud import AIQADataManager
 from src.sql_funs.llm_model_crud import LLMModelManager
 from src.sql_funs.llm_evaluation_report_crud import LLMEvaluationReportManager
 from src.sql_funs.ai_qa_data_group_crud import AIQADataGroupManager
+from src.utils.minio_client import get_llm_evaluation_client
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +153,10 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
         # 生成报告文件名
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         report_filename = f"evaluation_{model_name}_{timestamp}.json"
-        report_path = output_dir / report_filename
-
+        
+        # 构建MinIO对象名称
+        minio_object_name = f"reports/{model_name}/{report_filename}"
+        
         # 将 numpy 类型转换为 Python 原生类型
         def convert_to_float(value):
             """将 numpy 类型或其他数值转换为 Python float"""
@@ -161,8 +166,37 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
                 return float(value.item())
             return float(value)
 
-        # 保存详细结果
-        evaluator.save_results(filename=report_filename, detailed=True)
+        # 保存详细结果到临时文件
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+            tmp_report_path = tmp_file.name
+        
+        try:
+            # 使用评估器保存结果到临时文件
+            evaluator.save_results(filename=os.path.basename(tmp_report_path), detailed=True)
+            
+            # 读取保存的文件内容并写入临时文件
+            local_report_path = os.path.join(evaluator.output_dir, os.path.basename(tmp_report_path))
+            with open(local_report_path, 'r', encoding='utf-8') as f:
+                report_content = f.read()
+            with open(tmp_report_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            
+            # 上传到MinIO
+            minio_client = get_llm_evaluation_client()
+            upload_success = minio_client.upload_file(tmp_report_path, minio_object_name)
+            
+            if not upload_success:
+                raise Exception("上传报告到MinIO失败")
+            
+            logger.info(f"评估报告已上传到MinIO: {minio_object_name}")
+            
+        finally:
+            # 清理临时文件
+            if os.path.exists(tmp_report_path):
+                os.unlink(tmp_report_path)
+            # 清理评估器生成的本地文件
+            if os.path.exists(local_report_path):
+                os.unlink(local_report_path)
 
         # 获取指标数据（转换为 Python 原生类型）
         metrics = result.metrics
@@ -171,7 +205,7 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
         semantic_similarity = convert_to_float(metrics.semantic_similarity)
         avg_inference_time = convert_to_float(metrics.avg_inference_time)
 
-        # 保存到数据库
+        # 保存到数据库，report_path存储MinIO对象名称
         with LLMEvaluationReportManager() as report_manager:
             with LLMModelManager() as model_manager:
                 model = model_manager.get_model_by_name(model_name)
@@ -183,7 +217,7 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
                 model_id=model_id,
                 group_id=group_id,
                 group_name=group_name,
-                report_path=str(report_path),
+                report_path=minio_object_name,  # 存储MinIO对象名称
                 qa_count=int(metrics.total_samples) if metrics.total_samples else 0,
                 qa_offset=int(offset),
                 qa_limit=int(limit),
@@ -713,59 +747,54 @@ def view_llm_evaluation_report(filename):
     """
     查看LLM评估报告页面
     
-    从 evaluation_results 目录加载LLM评估报告并渲染为HTML页面
+    从 MinIO 加载LLM评估报告并渲染为HTML页面
     """
-    import os
     from src.utils.pub_funs import read_json_file
     from src.flask_funcs.reports.flask_llm_evaluation_renderer import LLMEvaluationRenderer
 
     try:
-        # 标准化路径：将URL中的正斜杠转换为系统路径分隔符
-        filename = filename.replace('/', os.sep)
+        # 标准化路径：将URL中的正斜杠转换为正斜杠（MinIO使用正斜杠）
+        filename = filename.replace(os.sep, '/')
+        
+        logger.info(f"尝试从MinIO加载评估报告: {filename}")
 
-        # 构建完整的文件路径
-        # 支持相对路径和绝对路径
-        if os.path.isabs(filename):
-            full_path = filename
-        else:
-            # 默认从 evaluation_results 目录查找
-            full_path = os.path.join('evaluation_results', filename)
+        # 从MinIO下载报告到临时文件
+        minio_client = get_llm_evaluation_client()
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+            tmp_report_path = tmp_file.name
+        
+        try:
+            # 下载报告文件
+            download_success = minio_client.download_file(filename, tmp_report_path)
+            
+            if not download_success:
+                logger.warning(f"MinIO中不存在评估报告: {filename}")
+                return f"报告文件不存在: {filename}", 404
+            
+            # 加载评估数据
+            evaluation_data = read_json_file(tmp_report_path)
+            if not evaluation_data:
+                logger.warning(f"无法加载评估报告数据: {filename}")
+                return f"无法加载评估报告: {filename}", 404
 
-        # 如果文件不存在，尝试在文件名前添加 evaluation_results 前缀
-        if not os.path.exists(full_path) and not filename.startswith('evaluation_results'):
-            alt_path = os.path.join('evaluation_results', filename)
-            if os.path.exists(alt_path):
-                full_path = alt_path
+            # 创建LLM评估报告渲染器
+            renderer = LLMEvaluationRenderer()
 
-        # 安全检查：确保路径在项目目录下
-        project_dir = os.path.abspath('.')
-        abs_full_path = os.path.abspath(full_path)
-        if not abs_full_path.startswith(project_dir):
-            logger.warning(f"尝试访问非法路径: {filename}")
-            return "非法文件路径", 403
+            # 渲染报告页面
+            html_content = renderer.render_evaluation_report(evaluation_data, filename)
 
-        # 检查文件是否存在
-        if not os.path.exists(abs_full_path):
-            logger.warning(f"评估报告文件不存在: {abs_full_path}")
-            return f"报告文件不存在: {filename}", 404
-
-        # 加载评估数据
-        evaluation_data = read_json_file(abs_full_path)
-        if not evaluation_data:
-            logger.warning(f"无法加载评估报告数据: {abs_full_path}")
-            return f"无法加载评估报告: {filename}", 404
-
-        # 创建LLM评估报告渲染器
-        renderer = LLMEvaluationRenderer()
-
-        # 渲染报告页面
-        html_content = renderer.render_evaluation_report(evaluation_data, filename)
-
-        logger.info(f"成功渲染LLM评估报告: {abs_full_path}")
-        return html_content
+            logger.info(f"成功渲染LLM评估报告: {filename}")
+            return html_content
+            
+        finally:
+            # 清理临时文件
+            if os.path.exists(tmp_report_path):
+                os.unlink(tmp_report_path)
 
     except Exception as e:
-        logger.error(f"处理LLM评估报告 {filename} 时发生错误: {str(e)}")
+        logger.error(f"处理LLM评估报告 {filename} 时发生错误: {str(e)}", exc_info=True)
         return f"处理报告时发生错误: {str(e)}", 500
 
 
@@ -802,4 +831,77 @@ def get_model_reports(model_name):
         return jsonify({
             'success': False,
             'message': f'获取报告列表失败: {str(e)}'
+        }), 500
+
+
+@llm_model_bp.route('/api/llm/reports/<int:report_id>', methods=['DELETE'])
+def delete_evaluation_report(report_id: int):
+    """
+    删除评估报告
+    
+    Args:
+        report_id: 报告ID
+        
+    Returns:
+        JSON: {success: bool, message: str}
+    """
+    try:
+        logger.info(f"开始删除评估报告: ID={report_id}")
+        
+        # 获取报告信息
+        with LLMEvaluationReportManager() as report_manager:
+            report = report_manager.get_report_by_id(report_id)
+            
+            if not report:
+                logger.warning(f"报告不存在: ID={report_id}")
+                return jsonify({
+                    'success': False,
+                    'message': f'报告不存在: ID={report_id}'
+                }), 404
+            
+            report_path = report.get('report_path')
+            logger.info(f"找到报告: ID={report_id}, path={report_path}")
+            
+            # 删除MinIO中的文件（如果存在report_path）
+            if report_path:
+                try:
+                    minio_client = get_llm_evaluation_client()
+                    
+                    # 检查文件是否存在
+                    if minio_client.file_exists(report_path):
+                        # 删除文件
+                        delete_success = minio_client.delete_file(report_path)
+                        if delete_success:
+                            logger.info(f"MinIO文件删除成功: {report_path}")
+                        else:
+                            logger.warning(f"MinIO文件删除失败: {report_path}")
+                    else:
+                        logger.warning(f"MinIO文件不存在，跳过删除: {report_path}")
+                except Exception as minio_error:
+                    # MinIO删除失败，记录日志但继续删除数据库记录
+                    logger.error(f"删除MinIO文件时出错: {minio_error}", exc_info=True)
+            else:
+                logger.info(f"报告没有关联的文件路径，跳过MinIO删除")
+            
+            # 删除数据库记录
+            delete_success = report_manager.delete_report(report_id)
+            
+            if delete_success:
+                logger.info(f"评估报告删除成功: ID={report_id}")
+                return jsonify({
+                    'success': True,
+                    'message': '报告删除成功'
+                })
+            else:
+                logger.error(f"删除数据库记录失败: ID={report_id}")
+                return jsonify({
+                    'success': False,
+                    'message': '删除数据库记录失败'
+                }), 500
+                
+    except Exception as e:
+        logger.error(f"删除评估报告失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'删除评估报告失败: {str(e)}'
         }), 500
