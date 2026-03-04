@@ -137,8 +137,23 @@ class PostgreSQLManager:
                 try:
                     self.connection = self._connection_pool.getconn()
                     self.cursor = self.connection.cursor()
-                    logger.info("从连接池获取连接")
-                    return True
+                    
+                    # 检查连接是否有效（防止连接老化）
+                    if self.connection and not self.connection.closed:
+                        # 简单测试查询验证连接
+                        self.cursor.execute("SELECT 1")
+                        self.cursor.fetchone()
+                        logger.info("从连接池获取连接（连接有效）")
+                        return True
+                    else:
+                        # 连接已关闭，尝试重新获取
+                        logger.warning("从连接池获取的连接已关闭，尝试重新获取")
+                        self._connection_pool.putconn(self.connection)
+                        self.connection = self._connection_pool.getconn()
+                        self.cursor = self.connection.cursor()
+                        logger.info("重新从连接池获取连接")
+                        return True
+                        
                 except Exception as pool_error:
                     logger.warning(f"从连接池获取连接失败，尝试直接连接：{pool_error}")
                     # 如果连接池失败，降级为直接连接
@@ -280,10 +295,32 @@ class PostgreSQLManager:
             Optional[List[Tuple]]: SELECT 语句返回查询结果列表，其他语句返回 True 或 False
         """
         try:
-            # 检查连接是否已关闭，如果关闭则重新连接
+            # 检查连接是否已关闭或无效，如果关闭则重新连接
             if self.connection is None or self.connection.closed:
                 logger.debug("数据库连接已关闭，重新连接...")
                 self.connect()
+            
+            # 额外检查：如果连接池返回的连接失效，重新获取
+            elif self._connection_pool:
+                try:
+                    # 使用简单查询测试连接
+                    if self.cursor is None:
+                        self.cursor = self.connection.cursor()
+                    self.cursor.execute("SELECT 1")
+                    self.cursor.fetchone()
+                except Exception as test_error:
+                    logger.warning(f"连接池连接失效，重新获取连接：{test_error}")
+                    try:
+                        # 归还有问题的连接
+                        if self.connection:
+                            self._connection_pool.putconn(self.connection)
+                    except Exception as put_error:
+                        logger.warning(f"归还失效连接失败：{put_error}")
+                    
+                    # 获取新连接
+                    self.connection = self._connection_pool.getconn()
+                    self.cursor = self.connection.cursor()
+                    logger.info("已从连接池重新获取有效连接")
                 
             # 确保游标存在
             if self.cursor is None:

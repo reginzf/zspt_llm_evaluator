@@ -53,22 +53,30 @@ class Environment_Crud(PostgreSQLManager):
             - environment_list(domain="production", zlpt_name="prod_env")  # 多条件部分匹配查询
             - environment_list(zlpt_base_id="specific_id")  # 根据ID精确查询
         """
-        logging.info(f"查询环境列表，输入参数: {kwargs}")
+        logging.info(f"查询环境列表，输入参数：{kwargs}")
         if not kwargs:
             logging.info("查询所有环境信息")
             query = "SELECT * FROM ai_environment_info"
             result = self.execute_query(query)
-            logging.info(f"查询返回结果数量: {len(result) if result else 0}")
+            # 检查结果类型，防止返回 False 导致类型错误
+            if result is False:
+                logging.error("查询执行失败")
+                return []
+            logging.info(f"查询返回结果数量：{len(result) if result else 0}")
             return result
-
+        
         exact_match_fields = {'zlpt_base_id'}  # 精确匹配字段
         partial_match_fields = {'zlpt_name', 'zlpt_base_url', 'domain'}  # 部分匹配字段
-
+        
         query, values = self.gen_select_query('ai_environment_info', exact_match_fields=exact_match_fields,
                                               partial_match_fields=partial_match_fields, allowed_fileds=ALLOWED_FIELDS,
                                               **kwargs)
         result = self.execute_query(query, values)
-        logging.info(f"查询返回结果数量: {len(result) if result else 0}")
+        # 检查结果类型，防止返回 False 导致类型错误
+        if result is False:
+            logging.error("查询执行失败")
+            return []
+        logging.info(f"查询返回结果数量：{len(result) if result else 0}")
         return result
 
     def _environment_list_to_json(self, environment: Tuple):

@@ -9,6 +9,10 @@ from flask import Blueprint, request, jsonify
 import logging
 import os
 import tempfile
+import threading
+import uuid
+from typing import Dict, Any
+from datetime import datetime
 from src.sql_funs.ai_qa_data_crud import AIQADataManager
 from src.sql_funs.ai_qa_data_crud_enhanced import EnhancedAIQADataManager, DatasetPreview, ImportConfig
 from src.sql_funs.ai_qa_data_group_crud import AIQADataGroupManager
@@ -19,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 # 创建蓝图
 qa_data_bp = Blueprint('qa_data', __name__)
+
+# 全局导入任务管理器
+_import_tasks: Dict[str, Dict[str, Any]] = {}
+
+# 全局临时目录管理（preview -> execute 复用）
+_temp_directory_cache: Dict[str, Dict[str, Any]] = {}
 
 
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items', methods=['GET'])
@@ -815,43 +825,94 @@ def preview_huggingface_dataset(group_id: int):
         # 判断是否为MinIO路径
         is_minio_path = '/minio/' in file_path or minio_prefix is not None
         
-        if is_minio_path and saved_files:
-            # 从MinIO下载文件到临时目录
-            from src.flask_funcs.common_utils import download_minio_file_to_temp
+        if is_minio_path:
+            # 从 MinIO 下载文件到临时目录
             from src.utils.minio_client import get_qa_raw_files_client
             
             minio_client = get_qa_raw_files_client()
             
             # 创建临时目录
             temp_dir = tempfile.mkdtemp(prefix='qa_preview_')
+            logger.info(f"创建临时目录：{temp_dir}")
             
-            # 下载所有文件
-            for file_info in saved_files:
-                object_name = file_info.get('object_name')
-                relative_path = file_info.get('relative_path', file_info.get('original_name'))
+            # 如果有 saved_files，使用它；否则从 MinIO 列出文件
+            files_to_download = []
+            if saved_files:
+                for file_info in saved_files:
+                    files_to_download.append({
+                        'object_name': file_info.get('object_name'),
+                        'relative_path': file_info.get('relative_path', file_info.get('original_name'))
+                    })
+            else:
+                # 从 file_path 推断 minio_prefix
+                # file_path 格式: /minio/qa-raw-files/qa_data/group_X/YYYYMMDD_HHMMSS/
+                inferred_prefix = None
+                if '/minio/qa-raw-files/' in file_path:
+                    inferred_prefix = file_path.split('/minio/qa-raw-files/')[-1]
+                    if inferred_prefix.endswith('/'):
+                        inferred_prefix = inferred_prefix[:-1]
+                elif minio_prefix:
+                    inferred_prefix = minio_prefix
                 
-                if object_name:
-                    # 下载文件
-                    temp_path = download_minio_file_to_temp(object_name, bucket_name='qa-raw-files')
-                    if temp_path:
-                        # 构建目标路径保持目录结构
+                if not inferred_prefix:
+                    return jsonify({
+                        'success': False,
+                        'message': '无法从 file_path 推断 MinIO 前缀'
+                    }), 400
+                
+                logger.info(f"从 MinIO 列出文件，前缀：{inferred_prefix}")
+                
+                # 从 MinIO 列出文件
+                try:
+                    file_list = minio_client.list_files(prefix=inferred_prefix)
+                    logger.info(f"MinIO 文件列表：{file_list}")
+                    
+                    for file_info in file_list:
+                        object_name = file_info['name']
+                        # 计算相对路径
+                        relative_path = object_name[len(inferred_prefix):].lstrip('/')
+                        if relative_path:  # 跳过空路径（目录本身）
+                            files_to_download.append({
+                                'object_name': object_name,
+                                'relative_path': relative_path
+                            })
+                except Exception as e:
+                    logger.error(f"从 MinIO 列出文件失败：{e}")
+                    return jsonify({
+                        'success': False,
+                        'message': f'从 MinIO 列出文件失败：{str(e)}'
+                    }), 500
+            
+            logger.info(f"需要下载的文件：{files_to_download}")
+            
+            # 下载所有文件到临时目录
+            for file_info in files_to_download:
+                object_name = file_info.get('object_name')
+                relative_path = file_info.get('relative_path')
+                
+                if object_name and relative_path:
+                    try:
+                        # 构建目标路径（保持目录结构）
                         target_path = os.path.join(temp_dir, relative_path)
                         os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                        # 移动文件到正确位置
-                        import shutil
-                        shutil.move(temp_path, target_path)
-                        temp_downloaded_files.append(target_path)
-                        logger.info(f"文件下载并移动成功: {target_path}")
-                    else:
-                        logger.error(f"从MinIO下载文件失败: {object_name}")
+                        
+                        # 直接从 MinIO 读取并写入目标路径
+                        if minio_client.download_file(object_name, target_path):
+                            temp_downloaded_files.append(target_path)
+                            logger.info(f"成功下载 MinIO 文件：{object_name} -> {target_path}")
+                        else:
+                            logger.error(f"从 MinIO 下载文件失败：{object_name}")
+                    except Exception as e:
+                        logger.error(f"下载 MinIO 文件 {object_name} 时出错：{e}")
             
             # 使用临时目录作为预览路径
             if temp_downloaded_files:
                 preview_path = temp_dir
+                logger.info(f"MinIO 文件下载完成，共 {len(temp_downloaded_files)} 个文件")
             else:
                 return jsonify({
                     'success': False,
-                    'message': '从MinIO下载文件失败'
+                    'message': '从 MinIO 下载文件失败，没有文件可下载'
                 }), 500
         else:
             # 使用本地路径
@@ -895,10 +956,68 @@ def preview_huggingface_dataset(group_id: int):
         pass
 
 
+def _run_import_task(task_id: str, group_id: int, import_path: str, mapping: dict, 
+                     options: dict, is_minio_path: bool, file_path: str):
+    """
+    后台执行导入任务
+    
+    Args:
+        task_id: 任务ID
+        group_id: 分组ID
+        import_path: 导入文件路径
+        mapping: 字段映射配置
+        options: 导入选项
+        is_minio_path: 是否为MinIO路径
+        file_path: 原始文件路径（用于清理）
+    """
+    try:
+        logger.info(f"[任务 {task_id}] 开始执行导入任务")
+        _import_tasks[task_id]['status'] = 'running'
+        _import_tasks[task_id]['progress'] = 10
+        _import_tasks[task_id]['message'] = '正在创建导入配置...'
+        
+        # 创建导入配置
+        config = ImportConfig(
+            file_path=import_path,
+            group_id=group_id,
+            mapping=mapping,
+            options=options
+        )
+        
+        _import_tasks[task_id]['progress'] = 20
+        _import_tasks[task_id]['message'] = '正在导入数据...'
+        
+        # 执行导入
+        with EnhancedAIQADataManager() as manager:
+            stats = manager.import_with_mapping(config)
+            
+            _import_tasks[task_id]['status'] = 'completed'
+            _import_tasks[task_id]['progress'] = 100
+            _import_tasks[task_id]['message'] = f'导入完成，成功{stats.success}条，失败{stats.failed}条'
+            _import_tasks[task_id]['stats'] = {
+                'total': stats.total,
+                'success': stats.success,
+                'failed': stats.failed,
+                'skipped': stats.skipped,
+                'duration': stats.duration,
+                'error_count': len(stats.errors),
+                'errors': stats.errors[:10]
+            }
+            _import_tasks[task_id]['completed_at'] = datetime.now().isoformat()
+            
+            logger.info(f"[任务 {task_id}] 导入完成：total={stats.total}, success={stats.success}, failed={stats.failed}")
+            
+    except Exception as e:
+        logger.error(f"[任务 {task_id}] 导入失败: {e}", exc_info=True)
+        _import_tasks[task_id]['status'] = 'failed'
+        _import_tasks[task_id]['message'] = f'导入失败: {str(e)}'
+        _import_tasks[task_id]['error'] = str(e)
+
+
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/execute', methods=['POST'])
 def execute_import_with_mapping(group_id: int):
     """
-    执行带字段映射的导入（支持MinIO存储）
+    启动异步导入任务（支持MinIO存储）
     
     Args:
         group_id: 分组ID
@@ -915,7 +1034,7 @@ def execute_import_with_mapping(group_id: int):
             - unmapped_fields: 未映射字段处理方式，默认'ignore'
         
     Returns:
-        JSON: {success: bool, stats: dict, message: str}
+        JSON: {success: bool, task_id: str, message: str}
     """
     temp_downloaded_files = []
     
@@ -956,81 +1075,206 @@ def execute_import_with_mapping(group_id: int):
         
         # 判断是否为MinIO路径
         is_minio_path = '/minio/' in file_path or minio_prefix is not None
+        logger.info(f"is_minio_path={is_minio_path}, temp_path={temp_path}, saved_files count={len(saved_files)}")
         
         if is_minio_path:
             if temp_path and os.path.exists(temp_path):
                 # 使用预览时已经下载的临时目录
                 import_path = temp_path
-                logger.info(f"使用预览时下载的临时目录: {import_path}")
+                logger.info(f"使用预览时下载的临时目录：{import_path}")
             else:
-                # 需要从MinIO下载文件
-                from src.flask_funcs.common_utils import download_minio_file_to_temp
+                # 需要从 MinIO 下载文件
+                from src.utils.minio_client import get_qa_raw_files_client
                 
                 # 创建临时目录
                 temp_dir = tempfile.mkdtemp(prefix='qa_import_')
+                logger.info(f"创建临时目录：{temp_dir}")
                 
-                # 下载所有文件
-                for file_info in saved_files:
-                    object_name = file_info.get('object_name')
-                    relative_path = file_info.get('relative_path', file_info.get('original_name'))
+                minio_client = get_qa_raw_files_client()
+                logger.info(f"MinIO客户端创建成功")
+                
+                # 确定要下载的文件列表
+                files_to_download = []
+                
+                if saved_files:
+                    # 使用前端传递的文件列表
+                    logger.info(f"使用前端传递的 saved_files，数量：{len(saved_files)}")
+                    for file_info in saved_files:
+                        files_to_download.append({
+                            'object_name': file_info.get('object_name'),
+                            'relative_path': file_info.get('relative_path', file_info.get('original_name'))
+                        })
+                else:
+                    # 从 file_path 推断 minio_prefix 并列出文件
+                    # file_path 格式: /minio/qa-raw-files/qa_data/group_X/YYYYMMDD_HHMMSS/
+                    inferred_prefix = None
+                    if '/minio/qa-raw-files/' in file_path:
+                        inferred_prefix = file_path.split('/minio/qa-raw-files/')[-1]
+                        if inferred_prefix.endswith('/'):
+                            inferred_prefix = inferred_prefix[:-1]
+                    elif minio_prefix:
+                        inferred_prefix = minio_prefix
                     
-                    if object_name:
-                        temp_file_path = download_minio_file_to_temp(object_name, bucket_name='qa-raw-files')
-                        if temp_file_path:
-                            # 构建目标路径保持目录结构
+                    if not inferred_prefix:
+                        logger.error("无法从 file_path 推断 MinIO 前缀")
+                        return jsonify({
+                            'success': False,
+                            'message': '无法从 file_path 推断 MinIO 前缀'
+                        }), 400
+                    
+                    logger.info(f"从 MinIO 列出文件，前缀：{inferred_prefix}")
+                    
+                    # 从 MinIO 列出文件
+                    try:
+                        file_list = minio_client.list_files(prefix=inferred_prefix)
+                        logger.info(f"MinIO 文件列表：{file_list}")
+                        
+                        for file_info in file_list:
+                            object_name = file_info['name']
+                            # 计算相对路径
+                            relative_path = object_name[len(inferred_prefix):].lstrip('/')
+                            if relative_path:  # 跳过空路径（目录本身）
+                                files_to_download.append({
+                                    'object_name': object_name,
+                                    'relative_path': relative_path
+                                })
+                    except Exception as e:
+                        logger.error(f"从 MinIO 列出文件失败：{e}")
+                        return jsonify({
+                            'success': False,
+                            'message': f'从 MinIO 列出文件失败：{str(e)}'
+                        }), 500
+                
+                logger.info(f"需要下载的文件数量：{len(files_to_download)}")
+                
+                # 下载所有文件到临时目录
+                for file_info in files_to_download:
+                    object_name = file_info.get('object_name')
+                    relative_path = file_info.get('relative_path')
+                    
+                    if object_name and relative_path:
+                        try:
+                            # 构建目标路径（保持目录结构）
                             target_path = os.path.join(temp_dir, relative_path)
                             os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                            # 移动文件到正确位置
-                            import shutil
-                            shutil.move(temp_file_path, target_path)
-                            temp_downloaded_files.append(target_path)
-                            logger.info(f"文件下载并移动成功: {target_path}")
-                        else:
-                            logger.error(f"从MinIO下载文件失败: {object_name}")
+                            
+                            # 直接从 MinIO 读取并写入目标路径
+                            if minio_client.download_file(object_name, target_path):
+                                temp_downloaded_files.append(target_path)
+                                logger.info(f"成功下载 MinIO 文件：{object_name} -> {target_path}")
+                            else:
+                                logger.error(f"从 MinIO 下载文件失败：{object_name}")
+                        except Exception as e:
+                            logger.error(f"下载 MinIO 文件 {object_name} 时出错：{e}", exc_info=True)
+                
+                logger.info(f"文件下载完成，成功下载 {len(temp_downloaded_files)} 个文件")
                 
                 if not temp_downloaded_files:
+                    logger.error("没有成功下载任何文件，返回500错误")
                     return jsonify({
                         'success': False,
-                        'message': '从MinIO下载文件失败'
+                        'message': '从 MinIO 下载文件失败，没有文件可下载'
                     }), 500
                 
                 import_path = temp_dir
+                logger.info(f"设置导入路径：{import_path}")
         else:
             # 使用本地路径
             import_path = file_path
+            logger.info(f"使用本地路径：{import_path}")
         
-        # 创建导入配置
-        config = ImportConfig(
-            file_path=import_path,
-            group_id=group_id,
-            mapping=mapping,
-            options=options
+        # 生成任务ID
+        task_id = f"import_{uuid.uuid4().hex[:8]}"
+        
+        # 创建任务记录
+        _import_tasks[task_id] = {
+            'task_id': task_id,
+            'group_id': group_id,
+            'status': 'pending',
+            'progress': 0,
+            'message': '等待开始...',
+            'created_at': datetime.now().isoformat(),
+            'import_path': import_path,
+            'is_minio_path': is_minio_path,
+            'file_path': file_path
+        }
+        
+        # 启动后台线程执行导入
+        thread = threading.Thread(
+            target=_run_import_task,
+            args=(task_id, group_id, import_path, mapping, options, is_minio_path, file_path)
         )
+        thread.daemon = True
+        thread.start()
         
-        # 执行导入
-        with EnhancedAIQADataManager() as manager:
-            stats = manager.import_with_mapping(config)
-            
-            return jsonify({
-                'success': True,
-                'stats': {
-                    'total': stats.total,
-                    'success': stats.success,
-                    'failed': stats.failed,
-                    'skipped': stats.skipped,
-                    'duration': stats.duration,
-                    'error_count': len(stats.errors),
-                    'errors': stats.errors[:10]  # 只返回前10个错误
-                },
-                'temp_path': import_path if is_minio_path else None,
-                'message': f'导入完成，成功{stats.success}条，失败{stats.failed}条'
-            })
+        logger.info(f"导入任务 {task_id} 已启动")
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': '导入任务已启动',
+            'data': {
+                'task_id': task_id,
+                'status': 'pending',
+                'progress': 0
+            }
+        })
             
     except Exception as e:
-        logger.error(f"执行导入失败: {e}")
+        logger.error(f"启动导入任务失败: {e}", exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'执行导入失败: {str(e)}'
+            'message': f'启动导入任务失败: {str(e)}'
+        }), 500
+
+
+@qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/task/<task_id>', methods=['GET'])
+def get_import_task_status(group_id: int, task_id: str):
+    """
+    获取导入任务状态
+    
+    Args:
+        group_id: 分组ID
+        task_id: 任务ID
+        
+    Returns:
+        JSON: {success: bool, data: {task_id, status, progress, message, stats}}
+    """
+    try:
+        task = _import_tasks.get(task_id)
+        
+        if not task:
+            return jsonify({
+                'success': False,
+                'message': f'任务不存在: {task_id}'
+            }), 404
+        
+        # 验证分组ID是否匹配
+        if task.get('group_id') != group_id:
+            return jsonify({
+                'success': False,
+                'message': '任务分组不匹配'
+            }), 403
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'task_id': task_id,
+                'status': task.get('status'),
+                'progress': task.get('progress'),
+                'message': task.get('message'),
+                'stats': task.get('stats'),
+                'created_at': task.get('created_at'),
+                'completed_at': task.get('completed_at'),
+                'error': task.get('error')
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"获取任务状态失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'获取任务状态失败: {str(e)}'
         }), 500
 
 
