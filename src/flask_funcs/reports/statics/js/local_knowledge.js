@@ -385,10 +385,85 @@ function closeBindDialog() {
 
 
 // 初始化页面
+// 全局变量
+let searchComponent = null;
+let pagination = null;
+
 document.addEventListener('DOMContentLoaded', function () {
     console.log('本地知识库页面已加载');
-    initColumnResizing();
+    
+    // 初始化搜索组件
+    initSearchComponent();
+    
+    // 初始化列宽调整（如果需要）
+    // initColumnResizing();
 });
+
+// 初始化搜索组件
+function initSearchComponent() {
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const paginationArea = document.getElementById('paginationArea');
+    
+    if (searchInput && searchBtn) {
+        // 创建搜索组件
+        searchComponent = new SearchComponent('searchInput', 'searchBtn', (keyword) => {
+            searchKnowledgeBase(keyword);
+        });
+    }
+    
+    // 绑定刷新按钮事件
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            // 清空搜索框
+            document.getElementById('searchInput').value = '';
+            // 重置表格显示
+            resetTableDisplay();
+        });
+    }
+    
+    // 初始化分页组件
+    if (paginationArea) {
+        pagination = new PaginationComponent('paginationArea', (page, size) => {
+            // TODO: 实现服务端分页
+            console.log('切换到页码:', page, '每页条数:', size);
+        });
+        
+        // 计算总条数
+        const totalRows = document.querySelectorAll('.data-table tbody tr').length;
+        if (pagination && totalRows > 0) {
+            pagination.update(totalRows, 1, 20);
+        }
+    }
+}
+
+// 搜索本地知识库
+function searchKnowledgeBase(keyword) {
+    const tableRows = document.querySelectorAll('.data-table tbody tr');
+    const searchTerm = keyword.toLowerCase();
+    
+    tableRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        let found = false;
+        
+        cells.forEach(cell => {
+            if (cell.textContent.toLowerCase().includes(searchTerm)) {
+                found = true;
+            }
+        });
+        
+        row.style.display = found ? '' : 'none';
+    });
+}
+
+// 重置表格显示
+function resetTableDisplay() {
+    const tableRows = document.querySelectorAll('.data-table tbody tr');
+    tableRows.forEach(row => {
+        row.style.display = '';
+    });
+}
 
 // 初始化表格列宽调整功能
 function initColumnResizing() {
