@@ -1,0 +1,297 @@
+/* LLM 评估报告页面专用样式 */
+
+/* 报告头部 */
+.report-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.report-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 28px;
+}
+
+.report-meta {
+    opacity: 0.9;
+    font-size: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* 返回按钮 */
+.back-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #6c757d;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.back-btn:hover {
+    background: #5a6268;
+}
+
+/* 模型区块 */
+.model-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.model-header {
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.model-header h2 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.model-version {
+    color: #666;
+    font-size: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+/* 区块标题 */
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin: 25px 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* 指标卡片 */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.metric-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+}
+
+.metric-value.success {
+    color: #28a745;
+}
+
+.metric-value.warning {
+    color: #ffc107;
+}
+
+.metric-value.danger {
+    color: #dc3545;
+}
+
+/* 配置网格 */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.config-item {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.config-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.config-value {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* 匹配类型标签 */
+.match-types-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.match-type-tag {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+}
+
+/* 问答表格 */
+.qa-table-container {
+    overflow-x: auto;
+    margin-top: 15px;
+}
+
+.qa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.qa-table th, .qa-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.qa-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #555;
+}
+
+.qa-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* 成功/失败标记 */
+.success-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.success-badge.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.success-badge.failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* 单元格特殊处理 */
+.question-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.answer-cell {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.expandable {
+    cursor: pointer;
+    color: #667eea;
+}
+
+.expandable:hover {
+    text-decoration: underline;
+}
+
+/* 详情行 */
+.details-row {
+    background: #f8f9fa;
+}
+
+.details-content {
+    padding: 15px;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.detail-item h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.detail-item p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .report-header {
+        padding: 20px;
+    }
+    
+    .report-header h1 {
+        font-size: 22px;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .qa-table {
+        font-size: 12px;
+    }
+    
+    .qa-table th,
+    .qa-table td {
+        padding: 8px;
+    }
+}

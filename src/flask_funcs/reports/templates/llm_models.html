@@ -6,6 +6,9 @@
     <title>LLM模型管理</title>
     <link rel="stylesheet" href="/static/css/qa_management.css">
     <link rel="stylesheet" href="/static/css/llm_models.css">
+    <!-- 引用公共组件库 -->
+    <script src="/static/js/common_components.js"></script>
+    <script src="/static/js/ui_components.js"></script>
 </head>
 <body>
 <div class="container">
@@ -44,23 +47,11 @@
     
     <!-- 模型管理区域 -->
     <div class="qa-management-area">
-        <div class="qa-header">
-            <h3>模型列表</h3>
-            <div class="qa-actions">
-                <button class="action-btn create-btn" onclick="showCreateModelDialog()">新增模型</button>
-                <button class="action-btn refresh-btn" onclick="loadModels()">刷新</button>
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-primary" onclick="showCreateModelDialog()">+ 新增模型</button>
             </div>
-        </div>
-        
-        <!-- 搜索和筛选区域 -->
-        <div class="search-filter-area">
-            <div class="search-box">
-                <input type="text" id="searchKeyword" placeholder="搜索模型名称..." class="search-input">
-                <button onclick="searchModels()" class="search-btn">搜索</button>
-                <button onclick="resetSearch()" class="reset-btn">重置</button>
-            </div>
-            
-            <div class="filter-box">
+            <div class="action-right search-box">
                 <select id="filterType" class="filter-select" onchange="applyFilters()">
                     <option value="">所有类型</option>
                     <option value="deepseek">DeepSeek</option>
@@ -69,13 +60,25 @@
                     <option value="qwen">通义千问(Qwen)</option>
                     <option value="other">其他</option>
                 </select>
-                
                 <select id="filterStatus" class="filter-select" onchange="applyFilters()">
                     <option value="">所有状态</option>
                     <option value="connected">已连接</option>
                     <option value="error">连接失败</option>
                     <option value="unknown">未检测</option>
                 </select>
+                <input type="text" id="searchKeyword" placeholder="搜索模型名称...">
+                <button id="searchBtn" class="icon-btn" title="搜索">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <button id="refreshBtn" class="icon-btn" title="刷新列表">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path>
+                        <path d="M3 5v7h7"></path>
+                    </svg>
+                </button>
             </div>
         </div>
         
@@ -102,22 +105,8 @@
             </table>
         </div>
         
-        <!-- 分页控件 -->
-        <div class="pagination-area" id="paginationArea">
-            <div class="pagination-info" id="paginationInfo">
-                第 <span id="currentPage">1</span> 页 / 共 <span id="totalPages">1</span> 页，共 <span id="totalItems">0</span> 条记录
-            </div>
-            <div class="pagination-controls">
-                <button class="pagination-btn" onclick="goToPage(1)" id="firstPageBtn">首页</button>
-                <button class="pagination-btn" onclick="goToPrevPage()" id="prevPageBtn">上一页</button>
-                <div class="page-input">
-                    <input type="number" id="pageInput" class="pagination-input" min="1" value="1" onchange="goToPage(this.value)">
-                    <span>/ <span id="maxPage">1</span></span>
-                </div>
-                <button class="pagination-btn" onclick="goToNextPage()" id="nextPageBtn">下一页</button>
-                <button class="pagination-btn" onclick="goToLastPage()" id="lastPageBtn">末页</button>
-            </div>
-        </div>
+        <!-- 分页 -->
+        <div class="pagination-area" id="paginationArea"></div>
     </div>
 </div>
 
@@ -203,6 +192,8 @@ let pageSize = 20;
 let totalPages = 1;
 let totalItems = 0;
 let currentFilters = {};
+let paginationComponent = null;
+let modelDialogManager = null;
 
 const API_BASE = '/api/llm';
 
@@ -210,7 +201,49 @@ const API_BASE = '/api/llm';
 document.addEventListener('DOMContentLoaded', function() {
     loadModels();
     loadStats();
+    initComponents();
+    initEventListeners();
 });
+
+// 初始化组件
+function initComponents() {
+    // 初始化分页组件
+    paginationComponent = new PaginationComponent({
+        containerId: 'paginationArea',
+        currentPage: currentPage,
+        pageSize: pageSize,
+        totalItems: totalItems,
+        onPageChange: function(page) {
+            currentPage = page;
+            loadModels();
+        },
+        onPageSizeChange: function(size) {
+            pageSize = size;
+            currentPage = 1;
+            loadModels();
+        }
+    });
+}
+
+// 初始化事件监听
+function initEventListeners() {
+    // 搜索按钮点击事件
+    document.getElementById('searchBtn').addEventListener('click', function() {
+        searchModels();
+    });
+    
+    // 刷新按钮点击事件 - 清空搜索条件并重新加载
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        resetSearch();
+    });
+    
+    // 搜索框回车事件
+    document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchModels();
+        }
+    });
+}
 
 // 加载模型列表
 function loadModels() {
@@ -295,17 +328,14 @@ function updatePagination(data) {
     totalPages = data.pages || 1;
     currentPage = data.page || 1;
     
-    document.getElementById('currentPage').textContent = currentPage;
-    document.getElementById('totalPages').textContent = totalPages;
-    document.getElementById('totalItems').textContent = totalItems;
-    document.getElementById('maxPage').textContent = totalPages;
-    document.getElementById('pageInput').value = currentPage;
-    
-    // 更新按钮状态
-    document.getElementById('firstPageBtn').disabled = currentPage <= 1;
-    document.getElementById('prevPageBtn').disabled = currentPage <= 1;
-    document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
-    document.getElementById('lastPageBtn').disabled = currentPage >= totalPages;
+    // 使用 PaginationComponent 更新分页
+    if (paginationComponent) {
+        paginationComponent.update({
+            currentPage: currentPage,
+            pageSize: pageSize,
+            totalItems: totalItems
+        });
+    }
 }
 
 // 加载统计数据
@@ -339,33 +369,6 @@ function applyFilters() {
     currentFilters.type = type || undefined;
     currentFilters.status = status || undefined;
     currentPage = 1;
-    loadModels();
-}
-
-// 分页跳转
-function goToPage(page) {
-    page = parseInt(page);
-    if (page < 1 || page > totalPages) return;
-    currentPage = page;
-    loadModels();
-}
-
-function goToPrevPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        loadModels();
-    }
-}
-
-function goToNextPage() {
-    if (currentPage < totalPages) {
-        currentPage++;
-        loadModels();
-    }
-}
-
-function goToLastPage() {
-    currentPage = totalPages;
     loadModels();
 }
 
@@ -460,10 +463,28 @@ function submitModel() {
 
 // 删除模型
 function deleteModel(modelName) {
-    if (!confirm(`确定要删除模型 "${modelName}" 吗？`)) {
-        return;
+    // 使用 DialogManager 的确认对话框
+    if (typeof DialogManager !== 'undefined' && DialogManager.confirm) {
+        DialogManager.confirm(
+            '确定要删除模型 "' + modelName + '" 吗？',
+            function() {
+                performDeleteModel(modelName);
+            },
+            function() {
+                // 用户取消
+            }
+        );
+    } else {
+        // 回退到原生确认对话框
+        if (!confirm('确定要删除模型 "' + modelName + '" 吗？')) {
+            return;
+        }
+        performDeleteModel(modelName);
     }
-    
+}
+
+// 执行删除操作
+function performDeleteModel(modelName) {
     fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}`, {
         method: 'DELETE'
     })
@@ -501,11 +522,21 @@ function formatDate(dateStr) {
 }
 
 function showSuccess(message) {
-    alert('✅ ' + message);
+    // 优先使用 DialogManager 的提示
+    if (typeof DialogManager !== 'undefined' && DialogManager.showSuccess) {
+        DialogManager.showSuccess(message);
+    } else {
+        alert('✅ ' + message);
+    }
 }
 
 function showError(message) {
-    alert('❌ ' + message);
+    // 优先使用 DialogManager 的提示
+    if (typeof DialogManager !== 'undefined' && DialogManager.showError) {
+        DialogManager.showError(message);
+    } else {
+        alert('❌ ' + message);
+    }
 }
 </script>
 </body>

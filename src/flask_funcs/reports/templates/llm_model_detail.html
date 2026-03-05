@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ model_name }} - 模型详情</title>
-    <link rel="stylesheet" href="/static/css/qa_management.css">
-    <link rel="stylesheet" href="/static/css/llm_models.css">
+    <link rel="stylesheet" href="/static/css/qa_management.css?v=2">
+    <link rel="stylesheet" href="/static/css/llm_models.css?v=2">
+    <script src="/static/js/common_components.js?v=2"></script>
+    <script src="/static/js/ui_components.js?v=2"></script>
 </head>
 <body>
 <div class="container">
@@ -72,7 +74,6 @@
         
         <div class="group-info-footer">
             <button class="action-btn edit-btn" onclick="checkConnection()">检测连通性</button>
-            <button class="action-btn create-btn" onclick="showEvaluateDialog()">开始评估</button>
             <button class="action-btn delete-btn" onclick="deleteModel()">删除模型</button>
         </div>
     </div>
@@ -106,10 +107,24 @@
     
     <!-- 历史报告列表 -->
     <div class="qa-management-area">
-        <div class="qa-header">
-            <h3>历史评估报告</h3>
-            <div class="qa-actions">
-                <button class="action-btn refresh-btn" onclick="loadReports()">刷新</button>
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-primary" onclick="showEvaluateDialog()">开始评估</button>
+            </div>
+            <div class="action-right search-box">
+                <input type="text" id="searchReport" placeholder="搜索报告名称...">
+                <button id="searchBtn" class="icon-btn" title="搜索">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <button id="refreshBtn" class="icon-btn" title="刷新列表">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path>
+                        <path d="M3 5v7h7"></path>
+                    </svg>
+                </button>
             </div>
         </div>
         
@@ -135,18 +150,8 @@
             </table>
         </div>
         
-        <!-- 分页控件 -->
-        <div class="pagination-area" id="paginationArea">
-            <div class="pagination-info" id="paginationInfo">
-                第 <span id="currentPage">1</span> 页 / 共 <span id="totalPages">1</span> 页
-            </div>
-            <div class="pagination-controls">
-                <button class="pagination-btn" onclick="goToPage(1)">首页</button>
-                <button class="pagination-btn" onclick="goToPrevPage()">上一页</button>
-                <button class="pagination-btn" onclick="goToNextPage()">下一页</button>
-                <button class="pagination-btn" onclick="goToLastPage()">末页</button>
-            </div>
-        </div>
+        <!-- 分页 -->
+        <div class="pagination-area" id="paginationArea"></div>
     </div>
 </div>
 
@@ -482,6 +487,9 @@ let currentPage = 1;
 let pageSize = 20;
 let totalPages = 1;
 let modelConfig = null;
+let allReports = []; // 存储所有报告用于搜索
+let paginationComponent = null;
+let evaluateDialogManager = null;
 
 const API_BASE = '/api/llm';
 const QA_API_BASE = '/api/qa';
@@ -490,7 +498,106 @@ const QA_API_BASE = '/api/qa';
 document.addEventListener('DOMContentLoaded', function() {
     loadModelDetail();
     loadReports();
+    initComponents();
+    initEventListeners();
 });
+
+// 初始化组件
+function initComponents() {
+    // 初始化分页组件 - 使用与 common_components.js 匹配的方法签名
+    paginationComponent = new PaginationComponent('paginationArea', function(page, size) {
+        currentPage = page;
+        if (size) pageSize = size;
+        loadReports();
+    });
+}
+
+// 初始化事件监听
+function initEventListeners() {
+    // 搜索功能
+    const searchInput = document.getElementById('searchReport');
+    const searchBtn = document.getElementById('searchBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    
+    // 搜索按钮点击事件
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            performSearch();
+        });
+    }
+    
+    // 搜索框回车事件
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        // 实时搜索（输入后延迟执行）
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                performSearch();
+            }, 300);
+        });
+    }
+    
+    // 刷新按钮点击事件
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            // 清空搜索框
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            // 重新加载报告列表
+            currentPage = 1;
+            loadReports();
+        });
+    }
+}
+
+// 执行搜索
+function performSearch() {
+    const searchInput = document.getElementById('searchReport');
+    const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    
+    if (!keyword) {
+        // 如果搜索关键词为空，重新加载所有数据
+        currentPage = 1;
+        loadReports();
+        return;
+    }
+    
+    // 在本地数据中搜索
+    if (allReports.length > 0) {
+        const filteredReports = allReports.filter(report => {
+            const reportName = (report.report_name || '').toLowerCase();
+            const groupName = (report.group_name || '').toLowerCase();
+            return reportName.includes(keyword) || groupName.includes(keyword);
+        });
+        
+        // 更新分页信息
+        const totalItems = filteredReports.length;
+        totalPages = Math.ceil(totalItems / pageSize) || 1;
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        
+        // 分页显示搜索结果
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const paginatedReports = filteredReports.slice(start, end);
+        
+        renderReportsTable(paginatedReports);
+        
+        // 更新分页组件 - 使用三个独立参数
+        if (paginationComponent) {
+            paginationComponent.update(totalItems, currentPage, pageSize);
+        }
+    }
+}
 
 // 加载模型详情
 function loadModelDetail() {
@@ -567,6 +674,7 @@ function loadReports() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                allReports = data.data.rows || []; // 保存所有报告数据
                 renderReportsTable(data.data.rows);
                 updatePagination(data.data);
                 
@@ -644,35 +752,10 @@ function updatePagination(data) {
     totalPages = data.pages || 1;
     currentPage = data.page || 1;
     
-    document.getElementById('currentPage').textContent = currentPage;
-    document.getElementById('totalPages').textContent = totalPages;
-}
-
-// 分页跳转
-function goToPage(page) {
-    page = parseInt(page);
-    if (page < 1 || page > totalPages) return;
-    currentPage = page;
-    loadReports();
-}
-
-function goToPrevPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        loadReports();
+    // 使用分页组件更新 - 使用三个独立参数
+    if (paginationComponent) {
+        paginationComponent.update(data.total || 0, currentPage, pageSize);
     }
-}
-
-function goToNextPage() {
-    if (currentPage < totalPages) {
-        currentPage++;
-        loadReports();
-    }
-}
-
-function goToLastPage() {
-    currentPage = totalPages;
-    loadReports();
 }
 
 // 检测连通性
@@ -697,13 +780,21 @@ function checkConnection() {
 
 // 显示评估对话框
 function showEvaluateDialog() {
-    document.getElementById('evaluateDialog').classList.add('active');
+    if (evaluateDialogManager) {
+        evaluateDialogManager.open();
+    } else {
+        document.getElementById('evaluateDialog').classList.add('active');
+    }
     loadGroups();
 }
 
 // 关闭评估对话框
 function closeEvaluateDialog() {
-    document.getElementById('evaluateDialog').classList.remove('active');
+    if (evaluateDialogManager) {
+        evaluateDialogManager.close();
+    } else {
+        document.getElementById('evaluateDialog').classList.remove('active');
+    }
 }
 
 // 切换匹配类型配置显示
