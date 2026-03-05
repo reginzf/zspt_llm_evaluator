@@ -9,6 +9,7 @@ from src.flask_funcs.knowledge_base import knowledge_base_bp
 from src.flask_funcs.qa_data_group import qa_data_group_bp
 from src.flask_funcs.qa_data import qa_data_bp
 from src.flask_funcs.llm_model_routes import llm_model_bp
+from src.flask_funcs.annotation_tasks import annotation_tasks_bp
 from src.sql_funs.sql_base import PostgreSQLManager
 import os
 
@@ -31,6 +32,7 @@ app.register_blueprint(local_knowledge_detail_task_bp)
 app.register_blueprint(qa_data_group_bp)
 app.register_blueprint(qa_data_bp)
 app.register_blueprint(llm_model_bp)
+app.register_blueprint(annotation_tasks_bp)
 # 设置静态文件和模板文件目录
 template_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'templates')
 statics_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'statics')
