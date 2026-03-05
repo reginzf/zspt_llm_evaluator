@@ -101,16 +101,62 @@ function confirmDelete() {
     );
 }
 
+// 全局变量
+let searchComponent = null;
+let pagination = null;
+
 // 确保 DOM 加载完成后再绑定事件监听器
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-        initModalControllers();
-        bindFormSubmitHandler();
+        initPage();
     });
 } else {
     // DOM 已经加载完成
+    initPage();
+}
+
+// 初始化页面
+function initPage() {
     initModalControllers();
     bindFormSubmitHandler();
+    initSearchAndPagination();
+}
+
+// 初始化搜索和分页组件
+function initSearchAndPagination() {
+    // 1. 创建搜索组件
+    searchComponent = new SearchComponent('searchInput', 'searchBtn', (keyword) => {
+        searchEnvironments();
+    });
+    
+    // 2. 绑定刷新按钮事件
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            // 清空搜索框
+            document.getElementById('searchInput').value = '';
+            // 重置表格显示
+            const tableRows = document.querySelectorAll('#environmentTableBody tr');
+            tableRows.forEach(row => {
+                row.style.display = '';
+            });
+        });
+    }
+    
+    // 3. 创建分页组件（如果有分页功能）
+    const paginationArea = document.getElementById('paginationArea');
+    if (paginationArea) {
+        pagination = new PaginationComponent('paginationArea', (page, size) => {
+            // TODO: 实现服务端分页
+            console.log('切换到页码:', page, '每页条数:', size);
+        });
+        
+        // 计算总条数
+        const totalRows = document.querySelectorAll('#environmentTableBody tr').length;
+        if (pagination && totalRows > 0) {
+            pagination.update(totalRows, 1, 20);
+        }
+    }
 }
 
 // 初始化模态框控制器
