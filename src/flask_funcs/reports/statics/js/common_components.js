@@ -26,17 +26,14 @@ class PaginationComponent {
     }
 
     /**
-     * 渲染分页控件
+     * 渲染分页控件（布局：控制按钮居中，每页数量选择器靠右）
      */
     render() {
         if (!this.container) return;
 
         const html = `
             <div class="pagination-component">
-                <div class="pagination-info">
-                    第 <span class="current-page">${this.currentPage}</span> 页 / 共 <span class="total-pages">${this.totalPages}</span> 页，
-                    共 <span class="total-items">${this.totalItems}</span> 条记录
-                </div>
+                <div class="pagination-spacer"></div>
                 <div class="pagination-controls">
                     <button class="pagination-btn first-btn" onclick="pagination.goToPage(1)" ${this.currentPage === 1 ? 'disabled' : ''}>首页</button>
                     <button class="pagination-btn prev-btn" onclick="pagination.goToPrevPage()" ${this.currentPage === 1 ? 'disabled' : ''}>上一页</button>

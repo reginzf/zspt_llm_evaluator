@@ -266,14 +266,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. 创建搜索组件
     searchComponent = new SearchComponent('searchInput', 'searchBtn', handleSearch);
     
-    // 2. 创建分页组件
+    // 2. 绑定刷新按钮事件
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        // 清空搜索框
+        document.getElementById('searchInput').value = '';
+        currentKeyword = '';
+        currentPage = 1;
+        // 刷新列表
+        loadEnvironments(1, pageSize, '');
+    });
+    
+    // 3. 创建分页组件
     pagination = new PaginationComponent('paginationArea', (page, size) => {
         currentPage = page;
         pageSize = size;
         loadEnvironments(page, size, currentKeyword);
     });
     
-    // 3. 初始化模态框控制器
+    // 4. 初始化模态框控制器
     environmentModal = new ModalController('environmentModal', {
         closeOnOutsideClick: true,
         closeOnEsc: true
@@ -284,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
         closeOnEsc: true
     });
     
-    // 4. 设置关闭回调（清理）
+    // 5. 设置关闭回调（清理）
     environmentModal.setOnClose(() => {
         document.getElementById('environmentForm').reset();
         currentAction = '';
@@ -294,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteEnvId = '';
     });
     
-    // 5. 加载初始数据
+    // 6. 加载初始数据
     loadEnvironments(1, 20);
     
     console.log('环境管理页面已加载，组件初始化完成');
