@@ -26,8 +26,8 @@ def render_qa_groups_page() -> str:
         page_config = {
             'title': '问答对组管理',
             'heading': '问答对组管理',
-            'css_path': '/static/css/qa_management.css',
-            'js_path': '/static/js/qa_groups.js'
+            'css_path': '/static/css/qa_management.css?v=6',
+            'js_path': '/static/js/qa_groups.js?v=8'
         }
         
         # 获取初始数据（可选）
