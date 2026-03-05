@@ -11,22 +11,17 @@
     {% endfor %}
     {% endif %}
     <!-- 引用公共组件库 -->
-    <script src="/static/js/common_components.js"></script>
-    <script src="/static/js/ui_components.js"></script>
+    <script src="/static/js/common_components.js?v=2"></script>
+    <script src="/static/js/ui_components.js?v=2"></script>
 </head>
 <body>
 <div class="container">
-    <h1>{{ heading or '问答对组管理' }}</h1>
-    
-    <!-- 搜索和筛选区域 -->
-    <div class="search-filter-area">
-        <div class="search-box">
-            <input type="text" id="searchKeyword" placeholder="搜索分组名称或用途..." class="search-input">
-            <button onclick="searchGroups()" class="search-btn">搜索</button>
-            <button onclick="resetSearch()" class="reset-btn">重置</button>
+    <!-- 操作按钮和搜索区域 -->
+    <div class="action-bar">
+        <div class="action-left">
+            <button class="btn btn-primary" onclick="showCreateGroupDialog()">+ 创建分组</button>
         </div>
-        
-        <div class="filter-box">
+        <div class="action-right search-box">
             <select id="filterTestType" class="filter-select">
                 <option value="">所有测试类型</option>
                 <option value="accuracy">准确率测试</option>
@@ -35,27 +30,31 @@
                 <option value="comprehensive">综合测试</option>
                 <option value="custom">自定义测试</option>
             </select>
-            
             <select id="filterLanguage" class="filter-select">
                 <option value="">所有语言</option>
                 <option value="zh">中文</option>
                 <option value="en">英文</option>
                 <option value="multi">多语言</option>
             </select>
-            
             <select id="filterStatus" class="filter-select">
                 <option value="">所有状态</option>
                 <option value="true">已激活</option>
                 <option value="false">已停用</option>
             </select>
+            <input type="text" id="searchKeyword" placeholder="搜索分组名称或用途...">
+            <button id="searchBtn" class="icon-btn" title="搜索">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+            </button>
+            <button id="refreshBtn" class="icon-btn" title="刷新列表">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path>
+                    <path d="M3 3v9h9"></path>
+                </svg>
+            </button>
         </div>
-    </div>
-    
-    <!-- 操作按钮区域 -->
-    <div class="action-area">
-        <button class="action-btn create-btn" onclick="showCreateGroupDialog()">创建分组</button>
-        <button class="action-btn import-btn" onclick="showImportDialog()">批量导入</button>
-        <button class="action-btn refresh-btn" onclick="loadGroups()">刷新</button>
     </div>
     
     <!-- 数据表格 -->
@@ -85,31 +84,8 @@
         </table>
     </div>
     
-    <!-- 分页控件 -->
-    <div class="pagination-area" id="paginationArea">
-        <div class="pagination-info" id="paginationInfo">
-            第 <span id="currentPage">1</span> 页 / 共 <span id="totalPages">1</span> 页，共 <span id="totalItems">0</span> 条记录
-        </div>
-        <div class="pagination-controls">
-            <button class="pagination-btn first-btn" onclick="goToPage(1)" disabled>首页</button>
-            <button class="pagination-btn prev-btn" onclick="goToPrevPage()" disabled>上一页</button>
-            <div class="page-input">
-                <input type="number" id="pageInput" class="pagination-input" min="1" value="1" onchange="goToPage(this.value)">
-                <span>/ <span id="maxPage">1</span></span>
-            </div>
-            <button class="pagination-btn next-btn" onclick="goToNextPage()" disabled>下一页</button>
-            <button class="pagination-btn last-btn" onclick="goToLastPage()" disabled>末页</button>
-        </div>
-        <div class="page-size-selector">
-            <span>每页显示：</span>
-            <select id="pageSizeSelect" onchange="changePageSize(this.value)">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-    </div>
+    <!-- 分页区域 -->
+    <div class="pagination-area" id="paginationArea"></div>
 </div>
 
 <!-- 创建分组对话框 -->
@@ -355,17 +331,257 @@
 <!-- 加载JavaScript文件 -->
 <script src="{{ js_path }}"></script>
 <script>
+    // 分页组件实例
+    let paginationComponent = null;
+    
+    // 当前分页状态
+    let currentPageState = {
+        currentPage: 1,
+        pageSize: 20,
+        totalItems: 0
+    };
+    
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOMContentLoaded triggered');
+        
+        // 检查必要函数是否存在
+        if (typeof loadGroups !== 'function') {
+            console.error('loadGroups function not found!');
+            alert('加载错误: 找不到 loadGroups 函数，请清除缓存后刷新');
+            return;
+        }
+        
         // 初始化表格列宽调整
-        initResizableColumns();
+        if (typeof initResizableColumns === 'function') {
+            initResizableColumns();
+        }
+        
+        // 初始化分页组件
+        initPagination();
+        
+        // 初始化对话框管理器
+        initDialogManager();
         
         // 加载分组数据
+        console.log('Calling loadGroups...');
         loadGroups();
         
         // 加载分组选项（用于导入）
-        loadGroupOptions();
+        if (typeof loadGroupOptions === 'function') {
+            loadGroupOptions();
+        }
+        
+        // 绑定搜索和刷新按钮事件
+        bindActionBarEvents();
+        console.log('Initialization complete');
     });
+    
+    // 初始化分页组件
+    function initPagination() {
+        if (typeof PaginationComponent !== 'undefined') {
+            paginationComponent = new PaginationComponent('paginationArea', {
+                pageSize: currentPageState.pageSize,
+                onPageChange: function(page, pageSize) {
+                    currentPageState.currentPage = page;
+                    currentPageState.pageSize = pageSize;
+                    loadGroups();
+                }
+            });
+        }
+    }
+    
+    // 初始化对话框管理器（直接使用原生JS控制，不需要实例化）
+    function initDialogManager() {
+        // DialogManager 现在直接使用原生JS控制对话框，不需要初始化
+        console.log('Dialog management ready');
+    }
+    
+    // 绑定操作栏事件
+    function bindActionBarEvents() {
+        // 搜索按钮点击事件
+        const searchBtn = document.getElementById('searchBtn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function() {
+                currentPageState.currentPage = 1;
+                searchGroups();
+            });
+        }
+        
+        // 刷新按钮点击事件
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                refreshList();
+            });
+        }
+        
+        // 搜索框回车事件
+        const searchKeyword = document.getElementById('searchKeyword');
+        if (searchKeyword) {
+            searchKeyword.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    currentPageState.currentPage = 1;
+                    searchGroups();
+                }
+            });
+        }
+        
+        // 筛选下拉框变化事件
+        const filterTestType = document.getElementById('filterTestType');
+        const filterLanguage = document.getElementById('filterLanguage');
+        const filterStatus = document.getElementById('filterStatus');
+        
+        if (filterTestType) {
+            filterTestType.addEventListener('change', function() {
+                currentPageState.currentPage = 1;
+                searchGroups();
+            });
+        }
+        
+        if (filterLanguage) {
+            filterLanguage.addEventListener('change', function() {
+                currentPageState.currentPage = 1;
+                searchGroups();
+            });
+        }
+        
+        if (filterStatus) {
+            filterStatus.addEventListener('change', function() {
+                currentPageState.currentPage = 1;
+                searchGroups();
+            });
+        }
+    }
+    
+    // 更新分页组件状态
+    function updatePagination(data) {
+        // 兼容外部JS的调用方式：data可能是数字或者对象
+        const total = typeof data === 'object' ? (data.total || 0) : data;
+        currentPageState.totalItems = total;
+        if (paginationComponent) {
+            // PaginationComponent.update(totalItems, currentPage, pageSize) 接收3个独立参数
+            paginationComponent.update(total, currentPageState.currentPage, currentPageState.pageSize);
+        }
+    }
+    
+    // 搜索分组（带筛选条件）
+    function searchGroups() {
+        // 构建查询参数 - 使用外部JS的currentFilters变量
+        const keyword = document.getElementById('searchKeyword').value.trim();
+        const testType = document.getElementById('filterTestType').value;
+        const language = document.getElementById('filterLanguage').value;
+        const status = document.getElementById('filterStatus').value;
+        
+        // 更新外部JS的筛选变量
+        if (keyword) currentFilters.keyword = keyword;
+        else delete currentFilters.keyword;
+        
+        if (testType) currentFilters.test_type = testType;
+        else delete currentFilters.test_type;
+        
+        if (language) currentFilters.language = language;
+        else delete currentFilters.language;
+        
+        if (status) currentFilters.is_active = status;
+        else delete currentFilters.is_active;
+        
+        // 重置页码并加载
+        currentPage = 1;
+        loadGroups();
+    }
+    
+    // 刷新列表
+    function refreshList() {
+        // 清空搜索框
+        document.getElementById('searchKeyword').value = '';
+        document.getElementById('filterTestType').value = '';
+        document.getElementById('filterLanguage').value = '';
+        document.getElementById('filterStatus').value = '';
+        
+        // 重置筛选条件
+        currentFilters = {};
+        currentPage = 1;
+        
+        // 重新加载
+        loadGroups();
+    }
+    
+    // 清除表单错误
+    function clearFormErrors() {
+        const errorElements = document.querySelectorAll('.form-error');
+        errorElements.forEach(function(el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
+    }
+    
+    // 对话框控制函数 - 直接使用原生JS控制
+    function showCreateGroupDialog() {
+        const dialog = document.getElementById('createGroupDialog');
+        if (dialog) dialog.classList.add('active');
+    }
+    
+    function closeCreateGroupDialog() {
+        const dialog = document.getElementById('createGroupDialog');
+        if (dialog) {
+            dialog.classList.remove('active');
+            document.getElementById('createGroupForm').reset();
+            clearFormErrors();
+        }
+    }
+    
+    function showEditGroupDialog(groupId) {
+        const dialog = document.getElementById('editGroupDialog');
+        if (dialog) dialog.classList.add('active');
+    }
+    
+    function closeEditGroupDialog() {
+        const dialog = document.getElementById('editGroupDialog');
+        if (dialog) {
+            dialog.classList.remove('active');
+            document.getElementById('editGroupForm').reset();
+            clearFormErrors();
+        }
+    }
+    
+    function showDeleteConfirmDialog(groupId) {
+        const dialog = document.getElementById('deleteConfirmDialog');
+        if (dialog) dialog.classList.add('active');
+    }
+    
+    function closeDeleteConfirmDialog() {
+        const dialog = document.getElementById('deleteConfirmDialog');
+        if (dialog) {
+            dialog.classList.remove('active');
+            document.getElementById('forceDeleteCheckbox').checked = false;
+        }
+    }
+    
+    function showImportDialog() {
+        const dialog = document.getElementById('importDialog');
+        if (dialog) dialog.classList.add('active');
+    }
+    
+    function closeImportDialog() {
+        const dialog = document.getElementById('importDialog');
+        if (dialog) {
+            dialog.classList.remove('active');
+            document.getElementById('importFile').value = '';
+            const hfPath = document.getElementById('hfDatasetPath');
+            if (hfPath) hfPath.value = '';
+        }
+    }
+    
+    function showImportProgressDialog() {
+        const dialog = document.getElementById('importProgressDialog');
+        if (dialog) dialog.classList.add('active');
+    }
+    
+    function closeImportProgressDialog() {
+        const dialog = document.getElementById('importProgressDialog');
+        if (dialog) dialog.classList.remove('active');
+    }
 </script>
 </body>
 </html>

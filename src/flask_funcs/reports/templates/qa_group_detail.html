@@ -125,12 +125,60 @@
     
     <!-- 问答对管理区域 -->
     <div class="qa-management-area">
-        <div class="qa-header">
-            <h3>问答对管理</h3>
-            <div class="qa-actions">
-                <button class="action-btn create-btn" onclick="showCreateQADialog()">创建问答对</button>
-                <button class="action-btn batch-create-btn" onclick="showBatchCreateDialog()">批量创建</button>
-                <button class="action-btn import-btn" onclick="showImportQADialog()">导入问答对</button>
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-primary" onclick="showCreateQADialog()">+ 创建问答对</button>
+                <button class="btn btn-secondary" onclick="showBatchCreateDialog()">批量创建</button>
+                <button class="btn btn-secondary" onclick="showImportQADialog()">导入</button>
+            </div>
+            <div class="action-right search-box">
+                <select id="filterQuestionType" class="filter-select">
+                    <option value="">所有问题类型</option>
+                    <option value="factual">事实性问题</option>
+                    <option value="contextual">上下文问题</option>
+                    <option value="conceptual">概念性问题</option>
+                    <option value="reasoning">推理问题</option>
+                    <option value="application">应用问题</option>
+                    <option value="multi_choice">多选题</option>
+                </select>
+                <select id="filterDifficulty" class="filter-select">
+                    <option value="">所有难度</option>
+                    <option value="1">1 - 非常简单</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5 - 中等</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10 - 非常困难</option>
+                </select>
+                <select id="filterCategory" class="filter-select">
+                    <option value="">所有分类</option>
+                </select>
+                <input type="text" id="searchQuestion" placeholder="搜索问题内容...">
+                <button id="searchBtn" class="icon-btn" title="搜索" onclick="searchQA()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <button id="batchModeBtn" class="icon-btn" title="批量操作" onclick="toggleBatchMode()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                </button>
+                <button id="refreshBtn" class="icon-btn" title="刷新列表" onclick="refreshQAList()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path>
+                        <path d="M3 5v7h7"></path>
+                    </svg>
+                </button>
             </div>
         </div>
         
@@ -146,47 +194,6 @@
                 <button class="batch-btn batch-cancel-btn" onclick="clearBatchSelection()">
                     <span class="btn-icon">✕</span> 取消选择
                 </button>
-            </div>
-        </div>
-        
-        <!-- 搜索和筛选区域 -->
-        <div class="search-filter-area">
-            <div class="search-box">
-                <input type="text" id="searchQuestion" placeholder="搜索问题内容..." class="search-input">
-                <button onclick="searchQA()" class="search-btn">搜索</button>
-                <button onclick="resetQASearch()" class="reset-btn">重置</button>
-                <button onclick="toggleBatchMode()" class="batch-mode-btn" id="batchModeBtn">批量操作</button>
-            </div>
-            
-            <div class="filter-box">
-                <select id="filterQuestionType" class="filter-select">
-                    <option value="">所有问题类型</option>
-                    <option value="factual">事实性问题</option>
-                    <option value="contextual">上下文问题</option>
-                    <option value="conceptual">概念性问题</option>
-                    <option value="reasoning">推理问题</option>
-                    <option value="application">应用问题</option>
-                    <option value="multi_choice">多选题</option>
-                </select>
-                
-                <select id="filterDifficulty" class="filter-select">
-                    <option value="">所有难度</option>
-                    <option value="1">1 - 非常简单</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5 - 中等</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                    <option value="9">9</option>
-                    <option value="10">10 - 非常困难</option>
-                </select>
-                
-                <select id="filterCategory" class="filter-select">
-                    <option value="">所有分类</option>
-                    <!-- 分类选项将通过JavaScript动态加载 -->
-                </select>
             </div>
         </div>
         
@@ -219,31 +226,8 @@
             </table>
         </div>
         
-        <!-- 分页控件 -->
-        <div class="pagination-area" id="qaPaginationArea">
-            <div class="pagination-info" id="qaPaginationInfo">
-                第 <span id="qaCurrentPage">1</span> 页 / 共 <span id="qaTotalPages">1</span> 页，共 <span id="qaTotalItems">0</span> 条记录
-            </div>
-            <div class="pagination-controls">
-                <button class="pagination-btn first-btn" onclick="goToQAPage(1)" disabled>首页</button>
-                <button class="pagination-btn prev-btn" onclick="goToQAPrevPage()" disabled>上一页</button>
-                <div class="page-input">
-                    <input type="number" id="qaPageInput" class="pagination-input" min="1" value="1" onchange="goToQAPage(this.value)">
-                    <span>/ <span id="qaMaxPage">1</span></span>
-                </div>
-                <button class="pagination-btn next-btn" onclick="goToQANextPage()" disabled>下一页</button>
-                <button class="pagination-btn last-btn" onclick="goToQALastPage()" disabled>末页</button>
-            </div>
-            <div class="page-size-selector">
-                <span>每页显示：</span>
-                <select id="qaPageSizeSelect" onchange="changeQAPageSize(this.value)">
-                    <option value="10">10</option>
-                    <option value="20" selected>20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-            </div>
-        </div>
+        <!-- 分页 -->
+        <div class="pagination-area" id="qaPaginationArea"></div>
     </div>
 </div>
 

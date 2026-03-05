@@ -18,31 +18,47 @@ const API_BASE = '/api/qa';
 // 初始化事件监听器
 function initEventListeners() {
     // 搜索框回车事件
-    document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchGroups();
-        }
-    });
+    const searchKeyword = document.getElementById('searchKeyword');
+    if (searchKeyword) {
+        searchKeyword.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchGroups();
+            }
+        });
+    }
     
     // 筛选器变化事件
-    document.getElementById('filterTestType').addEventListener('change', function() {
-        applyFilters();
-    });
+    const filterTestType = document.getElementById('filterTestType');
+    const filterLanguage = document.getElementById('filterLanguage');
+    const filterStatus = document.getElementById('filterStatus');
     
-    document.getElementById('filterLanguage').addEventListener('change', function() {
-        applyFilters();
-    });
+    if (filterTestType) {
+        filterTestType.addEventListener('change', function() {
+            applyFilters();
+        });
+    }
     
-    document.getElementById('filterStatus').addEventListener('change', function() {
-        applyFilters();
-    });
+    if (filterLanguage) {
+        filterLanguage.addEventListener('change', function() {
+            applyFilters();
+        });
+    }
     
-    // 分页输入框事件
-    document.getElementById('pageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            goToPage(this.value);
-        }
-    });
+    if (filterStatus) {
+        filterStatus.addEventListener('change', function() {
+            applyFilters();
+        });
+    }
+    
+    // 分页输入框事件（兼容旧版HTML）
+    const pageInput = document.getElementById('pageInput');
+    if (pageInput) {
+        pageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                goToPage(this.value);
+            }
+        });
+    }
 }
 
 // 初始化表格列宽调整
@@ -197,15 +213,15 @@ function renderGroupsTable(data) {
             <td>${createdAt}</td>
             <td>
                 <button class="action-btn edit-btn" onclick="editGroup(${group.id}, '${escapeHtml(group.name)}')" title="编辑">
-                    ✏
+                    编辑
                 </button>
                 <button class="action-btn delete-btn" onclick="deleteGroup(${group.id}, '${escapeHtml(group.name)}')" title="删除">
-                    🗑
+                    删除
                 </button>
                 <button class="action-btn ${group.is_active ? 'deactivate-btn' : 'activate-btn'}" 
                         onclick="toggleGroupStatus(${group.id}, ${group.is_active})" 
                         title="${group.is_active ? '停用' : '激活'}">
-                    ${group.is_active ? '⚡' : '🔋'}
+                    ${group.is_active ? '停用' : '激活'}
                 </button>
             </td>
         </tr>
@@ -221,14 +237,20 @@ function updatePagination(data) {
     totalPages = data.pages || 1;
     currentPage = data.page || 1;
     
-    // 更新分页信息显示
-    document.getElementById('currentPage').textContent = currentPage;
-    document.getElementById('totalPages').textContent = totalPages;
-    document.getElementById('totalItems').textContent = totalItems;
-    document.getElementById('maxPage').textContent = totalPages;
-    document.getElementById('pageInput').value = currentPage;
+    // 更新分页信息显示（兼容旧版HTML）
+    const currentPageEl = document.getElementById('currentPage');
+    const totalPagesEl = document.getElementById('totalPages');
+    const totalItemsEl = document.getElementById('totalItems');
+    const maxPageEl = document.getElementById('maxPage');
+    const pageInputEl = document.getElementById('pageInput');
     
-    // 更新分页按钮状态
+    if (currentPageEl) currentPageEl.textContent = currentPage;
+    if (totalPagesEl) totalPagesEl.textContent = totalPages;
+    if (totalItemsEl) totalItemsEl.textContent = totalItems;
+    if (maxPageEl) maxPageEl.textContent = totalPages;
+    if (pageInputEl) pageInputEl.value = currentPage;
+    
+    // 更新分页按钮状态（兼容旧版HTML）
     const firstBtn = document.querySelector('.first-btn');
     const prevBtn = document.querySelector('.prev-btn');
     const nextBtn = document.querySelector('.next-btn');
@@ -908,17 +930,29 @@ function parseCSV(csvText) {
 
 // 工具函数：显示成功消息
 function showSuccess(message) {
-    DialogManager.showSuccess(message);
+    if (typeof DialogManager !== 'undefined') {
+        DialogManager.showSuccess(message);
+    } else {
+        alert('成功: ' + message);
+    }
 }
 
 // 工具函数：显示错误消息
 function showError(message) {
-    DialogManager.showError(message);
+    if (typeof DialogManager !== 'undefined') {
+        DialogManager.showError(message);
+    } else {
+        alert('错误: ' + message);
+    }
 }
 
 // 工具函数：显示信息消息
 function showInfo(message) {
-    DialogManager.showInfo(message);
+    if (typeof DialogManager !== 'undefined') {
+        DialogManager.showInfo(message);
+    } else {
+        alert('信息: ' + message);
+    }
 }
 
 // 工具函数：HTML转义
