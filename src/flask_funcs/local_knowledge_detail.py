@@ -127,8 +127,11 @@ def api_local_knowledge_detail():
         logger.error(f"获取本地知识详情时发生错误: {str(e)}")
         return jsonify({"error": "页面加载错误"}), 500
 
-    # 直接返回过滤后的知识列表详情，因为这是前端需要的数据格式
-    return jsonify(filtered_knowledge_list)
+    # 返回标准格式的响应
+    return jsonify({
+        'success': True,
+        'data': filtered_knowledge_list
+    })
 
 
 @local_knowledge_detail_bp.route('/local_knowledge/upload', methods=['POST'])
@@ -226,12 +229,13 @@ def get_local_knowledge_bindings_by_id(kno_id):
     """获取特定本地知识库的绑定状态 - 通过URL参数"""
     try:
         binding_info = _get_binding_info(kno_id)
-        if binding_info is None:
-            return jsonify([]), 200
-        return jsonify(binding_info), 200
+        return jsonify({
+            'success': True,
+            'data': binding_info if binding_info else []
+        })
     except Exception as e:
         logger.error(f"获取绑定状态时发生错误: {str(e)}")
-        return jsonify({'error': '获取绑定状态失败'}), 500
+        return jsonify({'success': False, 'message': f'获取绑定状态失败: {str(e)}'}), 500
 
 
 @local_knowledge_detail_bp.route('/local_knowledge/bindings', methods=['POST'])
@@ -591,17 +595,21 @@ def delete_local_knowledge_file(knol_id):
 def edit_local_knowledge_file(knol_id):
     """编辑本地知识库中的单个文件（仅支持编辑描述）"""
     try:
-        # 从请求中获取新的描述
-        knol_describe = request.form.get('knol_describe')
+        # 支持 JSON 和表单格式
+        if request.is_json:
+            data = request.get_json()
+            knol_describe = data.get('kno_describe') or data.get('knol_describe')
+        else:
+            knol_describe = request.form.get('knol_describe') or request.form.get('kno_describe')
 
         with LocalKnowledgeCrud() as crud:
             # 更新数据库记录
             success = crud.local_knowledge_list_update(knol_id=knol_id, knol_describe=knol_describe)
 
             if success:
-                return jsonify({'status': 'success', 'message': '文件描述更新成功'})
+                return jsonify({'success': True, 'message': '文件描述更新成功'})
             else:
-                return jsonify({'status': 'error', 'message': '文件描述更新失败'}), 500
+                return jsonify({'success': False, 'message': '文件描述更新失败'}), 500
     except Exception as e:
         logger.error(f"更新文件描述时发生错误: {str(e)}")
-        return jsonify({'status': 'error', 'message': f'更新文件描述时发生错误: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'更新文件描述时发生错误: {str(e)}'}), 500

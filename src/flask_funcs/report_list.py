@@ -1,7 +1,8 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify
 import os
 import logging
 import tempfile
+from datetime import datetime
 
 from env_config_init import REPORT_PATH
 from src.utils.pub_funs import load_metric_data
@@ -43,13 +44,94 @@ def list_reports():
     return html_content
 
 
+@report_list_bp.route('/report_list/data')
+def list_reports_data():
+    """从 MinIO 获取 reports 目录下的报告文件列表（JSON API供Vue前端使用）"""
+    try:
+        # 从 MinIO 获取文件列表
+        minio_client = get_knowledge_files_client()
+        file_list = minio_client.list_files(prefix='reports/', recursive=True)
+        
+        # 按目录分组
+        directory_structure = {}
+        reports = []
+        
+        for file_info in file_list:
+            object_name = file_info['name']
+            
+            # 只处理 .json 文件
+            if not object_name.endswith('.json'):
+                continue
+            
+            # 解析路径：reports/子目录/文件名.json 或 reports/文件名.json
+            # 去掉 'reports/' 前缀
+            relative_path = object_name[len('reports/'):] if object_name.startswith('reports/') else object_name
+            
+            # 确定目录和文件名
+            if '/' in relative_path:
+                # 有子目录
+                parts = relative_path.split('/')
+                directory = parts[0]
+                file_name = parts[-1]
+            else:
+                # 根目录
+                directory = '根目录'
+                file_name = relative_path
+            
+            # 添加到目录结构
+            if directory not in directory_structure:
+                directory_structure[directory] = []
+            directory_structure[directory].append(file_name)
+            
+            # 格式化时间
+            last_modified = file_info.get('last_modified')
+            created_at = None
+            if last_modified:
+                if isinstance(last_modified, datetime):
+                    created_at = last_modified.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    # 处理可能的字符串格式
+                    created_at = str(last_modified)
+            
+            reports.append({
+                'name': file_name,
+                'path': relative_path,  # 用于查看的相对路径
+                'object_name': object_name,  # 完整的 MinIO 对象名称
+                'directory': directory,
+                'size': file_info.get('size', 0),
+                'created_at': created_at
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': reports,
+            'directory_structure': directory_structure
+        })
+
+    except Exception as e:
+        logger.error(f"从 MinIO 获取报告列表时发生错误: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'获取报告列表失败: {str(e)}',
+            'data': [],
+            'directory_structure': {}
+        }), 500
+
+
 @report_list_bp.route('/report/<path:filename>')
 def report(filename):
+    """从 MinIO 加载并显示报告"""
     try:
         # 标准化路径：将URL中的反斜杠转换为正斜杠（MinIO使用正斜杠）
         filename = filename.replace(os.sep, '/')
         
-        logger.info(f"尝试从 MinIO 加载报告: {filename}")
+        # 确保路径包含 reports/ 前缀
+        if not filename.startswith('reports/'):
+            object_name = f'reports/{filename}'
+        else:
+            object_name = filename
+        
+        logger.info(f"尝试从 MinIO 加载报告: {object_name}")
         
         # 从 MinIO 下载报告到临时文件
         minio_client = get_knowledge_files_client()
@@ -60,23 +142,17 @@ def report(filename):
         
         try:
             # 下载报告文件
-            download_success = minio_client.download_file(filename, tmp_report_path)
+            download_success = minio_client.download_file(object_name, tmp_report_path)
             
             if not download_success:
-                logger.warning(f"MinIO 中不存在报告: {filename}")
-                # 尝试从本地文件系统加载（兼容性处理）
-                full_path = os.path.join(REPORT_PATH, filename)
-                if os.path.exists(full_path):
-                    logger.info(f"从本地文件系统加载报告: {full_path}")
-                    metric_data = load_metric_data(full_path)
-                else:
-                    return f"报告文件不存在: {filename}", 404
-            else:
-                # 从临时文件加载 metric 数据
-                metric_data = load_metric_data(tmp_report_path)
+                logger.warning(f"MinIO 中不存在报告: {object_name}")
+                return f"报告文件不存在: {filename}", 404
+            
+            # 从临时文件加载 metric 数据
+            metric_data = load_metric_data(tmp_report_path)
             
             if not metric_data:
-                logger.warning(f"无法加载报告数据: {filename}")
+                logger.warning(f"无法加载报告数据: {object_name}")
                 return f"无法加载报告数据: {filename}", 404
 
             # 分析数据
@@ -88,7 +164,7 @@ def report(filename):
             # 渲染模板
             html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)
 
-            logger.info(f"成功渲染报告: {filename}")
+            logger.info(f"成功渲染报告: {object_name}")
             
         finally:
             # 清理临时文件

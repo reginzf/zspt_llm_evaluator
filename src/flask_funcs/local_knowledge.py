@@ -40,6 +40,47 @@ def local_knowledge():
         return "页面加载错误", 500
 
 
+@local_knowledge_bp.route('/local_knowledge/list', methods=['GET'])
+def local_knowledge_list():
+    """获取本地知识库列表（JSON API）"""
+    try:
+        with LocalKnowledgeCrud() as crud:
+            # 获取数据库中的本地知识列表
+            db_knowledge_list = crud.get_local_knowledge()
+            logger.info(f"获取本地知识列表: {len(db_knowledge_list)} 条")
+            
+            # 转换为字典列表
+            # 表结构: id, kno_id, kno_name, kno_describe, kno_path, ls_status, 
+            #        created_at, updated_at, knowledge_domain, domain_description,
+            #        required_background, required_skills
+            knowledge_list = []
+            for item in db_knowledge_list:
+                knowledge_list.append({
+                    'kno_id': item[1],  # kno_id
+                    'kno_name': item[2],  # kno_name
+                    'kno_describe': item[3],  # kno_describe
+                    'kno_path': item[4],  # kno_path
+                    'ls_status': item[5],  # ls_status
+                    'created_at': item[6].isoformat() if item[6] else None,  # created_at
+                    'updated_at': item[7].isoformat() if item[7] else None,  # updated_at
+                    'knowledge_domain': item[8],  # knowledge_domain
+                    'domain_description': item[9],  # domain_description
+                    'required_background': item[10],  # required_background (JSON)
+                    'required_skills': item[11],  # required_skills (JSON)
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': knowledge_list
+            })
+    except Exception as e:
+        logger.error(f"获取本地知识列表时发生错误: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取本地知识列表失败: {str(e)}'
+        }), 500
+
+
 @local_knowledge_bp.route('/local_knowledge/create', methods=['POST'])
 def local_knowledge_create():
     """创建本地知识库"""
