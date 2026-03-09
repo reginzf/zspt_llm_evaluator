@@ -214,7 +214,7 @@ def get_annotation_projects():
 
                 projects.append({
                     'task_id': task_data.get('task_id'),
-                    'name': task_data.get('task_name'),
+                    'task_name': task_data.get('task_name'),
                     'knowledge_base_id': knowledge_base_id,
                     'knowledge_base_name': kb_name,
                     'environment_id': task_data.get('label_studio_env_id'),
@@ -337,7 +337,20 @@ def sync_annotation_project():
             
             logger.info(f"知识库ID: {knowledge_base_id}, 问题集ID: {question_set_id}, LS环境: {label_studio_env_id}")
 
-            ls_user = ls_login(None, None, label_studio_env_id, ls_crud)
+            # 检查必要的字段
+            if not label_studio_env_id:
+                return jsonify({'success': False, 'message': '任务缺少Label Studio环境ID'}), 400
+            if not knowledge_base_id:
+                return jsonify({'success': False, 'message': '任务缺少知识库ID'}), 400
+            if not question_set_id:
+                return jsonify({'success': False, 'message': '任务缺少问题集ID'}), 400
+
+            try:
+                ls_user = ls_login(None, None, label_studio_env_id, ls_crud)
+            except Exception as ls_error:
+                logger.error(f"Label Studio登录失败: {str(ls_error)}", exc_info=True)
+                return jsonify({'success': False, 'message': f'Label Studio登录失败: {str(ls_error)}'}), 500
+            
             if not ls_user:
                 return jsonify({'success': False, 'message': 'label studio环境信息查询失败'}), 500
             
@@ -375,6 +388,9 @@ def sync_annotation_project():
             
             # 根据doc_id和knowledge_base_id获取切片,并上传到label-studio
             zlpt_user = zlpt_login(None, None, knowledge_base_id)
+            if not zlpt_user:
+                return jsonify({'success': False, 'message': f'紫鸾平台登录失败，无法获取知识库 {knowledge_base_id} 的信息'}), 500
+            
             know_client = KnowledgeBase(zlpt_user)
             task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
             
