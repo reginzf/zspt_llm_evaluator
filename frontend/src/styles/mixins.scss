@@ -1,0 +1,98 @@
+// SCSS Mixins
+
+// 清除浮动
+@mixin clearfix {
+  &::after {
+    content: '';
+    display: table;
+    clear: both;
+  }
+}
+
+// 文本省略
+@mixin ellipsis($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// 弹性布局
+@mixin flex($direction: row, $justify: flex-start, $align: stretch, $wrap: nowrap) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+  flex-wrap: $wrap;
+}
+
+// 居中布局
+@mixin center($type: both) {
+  display: flex;
+  @if $type == both {
+    justify-content: center;
+    align-items: center;
+  } @else if $type == horizontal {
+    justify-content: center;
+  } @else if $type == vertical {
+    align-items: center;
+  }
+}
+
+// 滚动条样式
+@mixin scrollbar($width: 6px, $thumb-color: #c0c4cc, $track-color: transparent) {
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: $thumb-color;
+    border-radius: $width / 2;
+  }
+
+  &::-webkit-scrollbar-track {
+    background-color: $track-color;
+  }
+}
+
+// 响应式断点
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: 575px) { @content; }
+  } @else if $breakpoint == sm {
+    @media (min-width: 576px) { @content; }
+  } @else if $breakpoint == md {
+    @media (min-width: 768px) { @content; }
+  } @else if $breakpoint == lg {
+    @media (min-width: 992px) { @content; }
+  } @else if $breakpoint == xl {
+    @media (min-width: 1200px) { @content; }
+  }
+}
+
+// 卡片样式
+@mixin card($padding: 16px, $shadow: var(--shadow-light)) {
+  background-color: var(--bg-color);
+  border-radius: var(--border-radius-large);
+  padding: $padding;
+  box-shadow: $shadow;
+}
+
+// 按钮基础样式
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.3s;
+}

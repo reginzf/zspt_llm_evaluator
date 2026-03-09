@@ -1,0 +1,146 @@
+// 公共样式
+
+@import './mixins.scss';
+
+// 页面容器
+.page-container {
+  padding: var(--spacing-md);
+  background-color: var(--bg-page);
+  min-height: calc(100vh - var(--header-height));
+}
+
+// 内容卡片
+.content-card {
+  @include card();
+  margin-bottom: var(--spacing-md);
+}
+
+// 表格操作栏
+.table-toolbar {
+  @include flex(row, space-between, center);
+  margin-bottom: var(--spacing-md);
+}
+
+// 搜索区域
+.search-area {
+  @include flex(row, flex-start, center, wrap);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+// 表单操作区
+.form-actions {
+  @include flex(row, flex-end, center);
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+// 状态标签
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-xs);
+  
+  &.active {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+  }
+  
+  &.inactive {
+    background-color: var(--border-extra-light);
+    color: var(--text-secondary);
+  }
+}
+
+// 链接样式
+.link-text {
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: color 0.3s;
+  
+  &:hover {
+    color: var(--primary-dark);
+  }
+}
+
+// 文字按钮
+.text-btn {
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.3s;
+  
+  &:hover {
+    color: var(--primary-dark);
+  }
+  
+  &.danger {
+    color: var(--danger-color);
+    
+    &:hover {
+      color: darken(#f56c6c, 10%);
+    }
+  }
+}
+
+// 空状态
+.empty-state {
+  @include center(both);
+  flex-direction: column;
+  padding: var(--spacing-xl);
+  color: var(--text-secondary);
+}
+
+// 加载状态
+.loading-mask {
+  @include center(both);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-overlay);
+  z-index: 1000;
+}
+
+// 响应式工具类
+.hide-xs {
+  @include respond-to(xs) {
+    display: none !important;
+  }
+}
+
+.hide-sm {
+  @media (max-width: 575px) {
+    display: none !important;
+  }
+}
+
+// 滚动条美化
+.scrollbar-beautify {
+  @include scrollbar(6px, #c0c4cc);
+}
+
+// 动画
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
