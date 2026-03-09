@@ -127,23 +127,44 @@ class LoginManager:
             logger.error(f"Auth key retrieval error: {e}")
 
     def project_switch(self, project_id: str = None) -> bool:
+        """切换项目，如果已经认证则直接使用现有 token"""
         try:
+            # 如果已经有 auth_token，说明已经认证成功，直接使用
+            if self.auth_token:
+                logger.info(f"使用已认证的 token，当前项目: {self.current_project_id or 'default'}")
+                return True
+            
+            # 尝试获取用户信息
             user_id, current_project_id = self.login_unsafe(self.username, self.password)
+            
+            # 如果是 default 项目，不需要切换，直接使用当前 token
+            if user_id is None and current_project_id is None:
+                logger.info('使用 default 项目，无需切换')
+                self.current_project_id = 'default-project'
+                return True
+                
             if not user_id:
                 logger.error("Failed to retrieve user info")
                 return False
 
+            # 需要切换到指定项目
             switch_data = {"user": {"userId": user_id, "projectId": current_project_id}}
             switch_url = f"{self.base_url}/api/sys/oapi/v1/project/login"
 
             response = self.session.post(switch_url, json=switch_data, verify=False, timeout=30)
             if response.status_code == 200:
-                logger.info(f"Successfully switched to project: {project_id}")
-                res_json_token = response.json()['data']['token']
-                self.current_project_id = project_id
-                self.session.headers.update({'X-Auth-Token': res_json_token})
-                self.session.cookies.update({"token": res_json_token, "f.token": res_json_token})
-                return True
+                res_data = response.json()
+                if res_data.get('data') and res_data['data'].get('token'):
+                    res_json_token = res_data['data']['token']
+                    self.current_project_id = current_project_id
+                    self.auth_token = res_json_token
+                    self.session.headers.update({'X-Auth-Token': res_json_token})
+                    self.session.cookies.update({"token": res_json_token, "f.token": res_json_token})
+                    logger.info(f"Successfully switched to project: {current_project_id}")
+                    return True
+                else:
+                    logger.error(f"Project switch response missing token: {res_data}")
+                    return False
             else:
                 logger.error(f"Project switch failed with status code: {response.status_code}")
                 logger.error(f"Response content: {response.text}")
@@ -162,6 +183,11 @@ class LoginManager:
         try:
             response = self.session.post(url, json=payload if username else None, verify=False, timeout=30)
             res_dict = response.json()
+            domain_name = res_dict["token"]["user"]["domain"]
+            project_name = res_dict["token"]["project"]["name"]
+            if domain_name == 'default' and project_name == 'default-project':
+
+                return None,None
             user_id = res_dict["token"]["user"]["id"]
             project_id = res_dict["token"]["project"]["id"]
             return user_id, project_id
@@ -170,7 +196,7 @@ class LoginManager:
             return None, None
 
 if __name__ == "__main__":
-    base_url = 'https://10.220.49.203'
+    base_url = 'https://10.220.49.200'
     username = "nrgautotest"
     password = "Admin@123"
     domain = "default"

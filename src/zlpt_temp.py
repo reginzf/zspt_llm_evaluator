@@ -92,15 +92,44 @@ def zlpt_create_knowledge_base(know_client: KnowledgeBase, doc_name, chunk_size,
         chunk_overlap (int): 切片重叠大小
 
     Returns:
-        str: 创建的知识库名称
+        tuple: (知识库名称, 知识库ID)
     """
     name = f'{doc_name}_{chunk_size}_{chunk_overlap}'
     logger.info(f"创建知识库: {name}")
     try:
-        res = know_client.knowledge_addOrUpdate(name)
-        logger.info(f"知识库创建成功: {name}")
-        logger.info(res)
-        return name
+        # 使用实际观察到的API参数创建知识库
+        res = know_client.knowledge_addOrUpdate(
+            knowledgeName=name,
+            description='',
+            visibleRange=0,  # 组织内公开
+            deptIdList=[],
+            manageDeptIdList=['']  # 根部门管理
+        )
+        logger.info(f"知识库创建API响应: {res}")
+        
+        # 检查响应是否成功
+        if not isinstance(res, dict):
+            logger.error(f"API返回格式错误: {res}")
+            return name, None
+        
+        # 处理授权错误
+        if res.get('code') == 401 or 'Authorization Required' in str(res.get('message', '')):
+            logger.error(f"远程平台授权失败: {res}")
+            return name, None
+        
+        # 处理其他错误
+        if res.get('code') != 200:
+            logger.error(f"远程平台返回错误: {res}")
+            return name, None
+        
+        # 从响应中提取知识库ID (data字段直接包含ID)
+        kno_id = res.get('data')
+        if not kno_id:
+            logger.error(f"API响应中缺少知识库ID: {res}")
+            return name, None
+            
+        logger.info(f"知识库创建成功: {name}, ID: {kno_id}")
+        return name, kno_id
     except Exception as e:
         logger.error(f"知识库创建失败: {e}")
         raise
@@ -423,27 +452,59 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
         if knowledge_base_id:
             kb_result = crud.get_knowledge_base(knowledge_id=knowledge_base_id)
             if not kb_result:
+                logger.error(f"未找到知识库 {knowledge_base_id} 的信息")
+                return False
+            # 检查返回结果是否有足够的列
+            if len(kb_result[0]) <= 11:
+                logger.error(f"知识库 {knowledge_base_id} 的返回结果缺少zlpt_base_id字段")
                 return False
             zlpt_base_id = kb_result[0][11]
+            if not zlpt_base_id:
+                logger.error(f"知识库 {knowledge_base_id} 的zlpt_base_id为空")
+                return False
+
+        if not zlpt_base_id:
+            logger.error("zlpt_base_id不能为空")
+            return False
 
         # 获取环境列表信息
         env_result = crud.environment_list(zlpt_base_id=zlpt_base_id)
         if not env_result:
+            logger.error(f"未找到zlpt_base_id {zlpt_base_id} 的环境信息")
             return False
 
         # 转换环境信息为字典格式
         env_data = crud._environment_list_to_json(env_result[0])
+        if not env_data:
+            logger.error("环境数据转换失败")
+            return False
+        
+        # 检查必要的字段
+        required_fields = ['zlpt_base_url', 'username', 'password', 'domain', 'key1', 'key2_add', 'pk']
+        for field in required_fields:
+            if field not in env_data or env_data[field] is None:
+                logger.error(f"环境数据缺少必要字段: {field}")
+                return False
+        
         # 创建并返回登录管理器实例
-        zlpt_user = LoginManager(
-            env_data['zlpt_base_url'],
-            env_data['username'],
-            env_data['password'],
-            env_data['domain'],
-            env_data['key1'],
-            env_data['key2_add'],
-            env_data['pk']
-        )
-        return zlpt_user
+        try:
+            zlpt_user = LoginManager(
+                env_data['zlpt_base_url'],
+                env_data['username'],
+                env_data['password'],
+                env_data['domain'],
+                env_data['key1'],
+                env_data['key2_add'],
+                env_data['pk']
+            )
+            return zlpt_user
+        except Exception as e:
+            logger.error(f"LoginManager初始化失败: {str(e)}", exc_info=True)
+            return False
+
+    except Exception as e:
+        logger.error(f"zlpt_login执行失败: {str(e)}", exc_info=True)
+        return False
 
     finally:
         # 如果函数内部创建了数据库连接，则在此关闭
@@ -452,6 +513,18 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
 
 
 def ls_login(url, api, label_studio_id, crud=None):
+    """
+    登录Label Studio
+    
+    Args:
+        url: Label Studio URL
+        api: Label Studio API Key
+        label_studio_id: Label Studio环境ID
+        crud: 数据库操作实例
+    
+    Returns:
+        LabelStudioLogin实例或False（表示失败）
+    """
     ls_info = None
     if label_studio_id:
         if crud:
@@ -460,9 +533,31 @@ def ls_login(url, api, label_studio_id, crud=None):
             with LabelStudioCrud() as ls_crud:
                 ls_info = ls_crud.label_studio_list(label_studio_id=label_studio_id)
         if ls_info:
-            return LabelStudioLogin(url=ls_info[0][1], api_key=ls_info[0][2], label_studio_id=label_studio_id)
+            # 检查URL和API key是否有效
+            ls_url = ls_info[0][1] if len(ls_info[0]) > 1 else None
+            ls_api_key = ls_info[0][2] if len(ls_info[0]) > 2 else None
+            
+            if not ls_url:
+                logger.error(f"Label Studio环境 {label_studio_id} 的URL为空")
+                return False
+            if not ls_api_key:
+                logger.error(f"Label Studio环境 {label_studio_id} 的API Key为空")
+                return False
+            
+            try:
+                return LabelStudioLogin(url=ls_url, api_key=ls_api_key, label_studio_id=label_studio_id)
+            except Exception as e:
+                logger.error(f"Label Studio登录失败: {str(e)}", exc_info=True)
+                return False
         else:
             logger.info(f"未找到ID为{label_studio_id}的Label Studio信息")
             return False
     else:
-        return LabelStudioLogin(url, api, label_studio_id)
+        if not url or not api:
+            logger.error("Label Studio URL和API Key不能为空")
+            return False
+        try:
+            return LabelStudioLogin(url, api, label_studio_id)
+        except Exception as e:
+            logger.error(f"Label Studio登录失败: {str(e)}", exc_info=True)
+            return False
