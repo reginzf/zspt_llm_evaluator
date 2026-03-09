@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.sql_funs import LabelStudioCrud, QuestionsCRUD
+from src.sql_funs import LabelStudioCrud, QuestionsCRUD, LocalKnowledgeCrud
 import logging
 from src.flask_funcs.reports.flask_annotation_tasks_renderer import render_annotation_tasks_page
 from env_config_init import settings
@@ -107,6 +107,16 @@ def create_annotation_task():
                 "message": "缺少必要参数"
             }), 400
         
+        # 根据 local_knowledge_id 查询绑定的 knowledge_base_id
+        knowledge_base_id = None
+        with LocalKnowledgeCrud() as lk_crud:
+            bind_result = lk_crud.get_local_knowledge_bind(kno_id=local_knowledge_id, bind_status=2)
+            if bind_result and len(bind_result) > 0:
+                knowledge_base_id = bind_result[0][2]  # knowledge_id 在第3列（索引2）
+                logger.info(f"找到绑定的知识库ID: {knowledge_base_id}")
+            else:
+                logger.warning(f"未找到本地知识库 {local_knowledge_id} 的绑定关系")
+        
         # 生成任务 ID
         import uuid
         task_id = str(uuid.uuid4())[:8]
@@ -119,6 +129,7 @@ def create_annotation_task():
                 local_knowledge_id=local_knowledge_id,
                 question_set_id=question_set_id,
                 label_studio_env_id=label_studio_env_id,
+                knowledge_base_id=knowledge_base_id,
                 annotation_type=annotation_type,
                 task_status='未开始'
             )

@@ -54,15 +54,31 @@ def knowledge_base_create():
             if not zlpt_user:
                 return jsonify({'success': False, 'message': '知识库创建失败'}), 400
             know_client = KnowledgeBase(zlpt_user)
-            zlpt_base_name = zlpt_create_knowledge_base(know_client, knowledge_name, chunk_size, chunk_overlap, )
-            res = know_client.knowledge_list(knowledgeBaseName=zlpt_base_name)
-            # 查询是否创建成功
-            kno_id = jsonpath.jsonpath(res, '$.data..knowledgeId')[0]
+            zlpt_base_name, remote_kno_id = zlpt_create_knowledge_base(know_client, knowledge_name, chunk_size, chunk_overlap)
+            
+            # 检查远程 API 是否成功
+            if not remote_kno_id:
+                return jsonify({'success': False, 'message': '远程平台创建知识库失败，请检查环境配置和权限'}), 400
+            
+            kno_id = remote_kno_id
             data['knowledge_id'] = kno_id
-            # 查询root_id
-            res = know_client.knowledge_content_tree(knowledgeId=kno_id)
-            root_id = jsonpath.jsonpath(res, '$.data[?(@.plevel==0)]')[0]['contentCode']
-            data["kno_root_id"] = root_id
+            
+            # 查询root_id (知识库内容的根目录)
+            try:
+                res = know_client.knowledge_content_tree(knowledgeId=kno_id)
+                if res.get('code') == 200 and res.get('data'):
+                    # 查找 plevel=0 的根节点
+                    root_items = [item for item in res['data'] if item.get('plevel') == 0]
+                    if root_items:
+                        data["kno_root_id"] = root_items[0].get('contentCode', kno_id)
+                    else:
+                        data["kno_root_id"] = kno_id
+                else:
+                    # 如果查询失败，使用 knowledge_id 作为 root_id
+                    data["kno_root_id"] = kno_id
+            except Exception as e:
+                logger.warning(f"查询知识库root_id失败: {e}，使用knowledge_id作为root_id")
+                data["kno_root_id"] = kno_id
 
             logger.info(f'插入数据为：{data}')
             result = crud.knowledge_base_insert(**data)
