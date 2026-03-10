@@ -184,10 +184,9 @@ def serve_vue_app(path):
     # API 路由不应该到达这里，因为蓝图路由优先
     # 但如果用户直接访问某个 API URL，而 API 不存在时，会走到这里
     # 做一下防护，返回 404
+    # 注意：以下前缀已移至 Vue3 前端处理
     api_prefixes = (
-        'api/', 'local_knowledge', 'environment', 'label_studio',
-        'report', 'knowledge', 'llm/', 'annotation', 'knowledge_doc',
-        'knowledge_base', 'static/', 'css/', 'js/'
+        'api/', 'static/', 'css/', 'js/'
     )
     if any(path.startswith(prefix) for prefix in api_prefixes):
         abort(404)

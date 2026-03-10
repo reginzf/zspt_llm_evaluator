@@ -21,7 +21,7 @@ AGENTS_DIR = SKILLS_DIR.parent  # .agents/
 PROJECT_ROOT = AGENTS_DIR.parent  # 项目根目录
 
 MODELS_DIR = PROJECT_ROOT / "models"
-INDEX_FILE = PROJECT_ROOT / "qdrant_index.pkl"
+INDEX_FILE = SKILL_DIR / "qdrant_index.pkl"
 
 # 确保能找到项目根目录（通过检查 .git 或 src 目录）
 if not (PROJECT_ROOT / ".git").exists() and not (PROJECT_ROOT / "src").exists():

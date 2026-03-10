@@ -88,4 +88,4 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
   }
 }
 
-export type UseDialogReturn<T> = ReturnType<typeof useDialog<T>>
+export type UseDialogReturn<T extends Record<string, any> = Record<string, any>> = ReturnType<typeof useDialog<T>>
