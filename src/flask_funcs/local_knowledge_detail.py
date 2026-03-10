@@ -226,6 +226,7 @@ def _get_binding_info(kno_id):
 
 
 @local_knowledge_detail_bp.route('/local_knowledge/bindings/<kno_id>', methods=['GET'])
+@local_knowledge_detail_bp.route('/api/local_knowledge/bindings/<kno_id>', methods=['GET'])
 def get_local_knowledge_bindings_by_id(kno_id):
     """获取特定本地知识库的绑定状态 - 通过URL参数"""
     try:
