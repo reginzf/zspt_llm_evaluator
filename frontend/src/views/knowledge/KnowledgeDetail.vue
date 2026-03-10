@@ -1063,19 +1063,19 @@ async function uploadFiles() {
     })
     formData.append('kno_id', knoId)
     
-    const res: any = await legacyPost('/local_knowledge/upload', formData, {
+    const res: any = await legacyPost('/api/local_knowledge/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
     
-    if (res.data.success || res.data.status === 'success') {
-      ElMessage.success(res.data.message || '上传成功')
+    if (res.success || res.status === 'success') {
+      ElMessage.success(res.message || '上传成功')
       showUploadDialog.value = false
       uploadFileList.value = []
       loadFileList()
     } else {
-      ElMessage.error(res.data.message || '上传失败')
+      ElMessage.error(res.message || '上传失败')
     }
   } catch (error) {
     ElMessage.error('上传失败')
@@ -1112,8 +1112,8 @@ async function deleteFile(row: any) {
   try {
     await ElMessageBox.confirm(`确定删除文件 ${row.kno_name} 吗？`, '确认删除', { type: 'warning' })
     const res = await deleteFileApi(row.knol_id)
-    if (res.success) {
-      ElMessage.success('删除成功')
+    if (res.success || res.status === 'success') {
+      ElMessage.success(res.message || '删除成功')
       loadFileList()
     } else {
       ElMessage.error(res.message || '删除失败')

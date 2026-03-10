@@ -135,6 +135,7 @@ def api_local_knowledge_detail():
 
 
 @local_knowledge_detail_bp.route('/local_knowledge/upload', methods=['POST'])
+@local_knowledge_detail_bp.route('/api/local_knowledge/upload', methods=['POST'])
 def upload_local_knowledge():
     """上传文件到本地知识库（仅使用MinIO存储）"""
     try:
@@ -205,6 +206,20 @@ def local_knowledge_bind():
         with LocalKnowledgeCrud() as crud:
             success = crud.local_knowledge_bind_func(local_kno_id, kb_id, action, status)
             if success:
+                # 解绑时清理 ai_local_knowledge_file_upload 表中的相关记录
+                if action == 'unbind':
+                    try:
+                        # 获取该本地知识库下的所有文件
+                        file_list = crud.get_local_knowledge_file_list(kno_id=local_kno_id)
+                        if file_list:
+                            for file_record in file_list:
+                                knol_id = file_record[1]  # knol_id 是第2列
+                                # 删除上传记录
+                                crud.local_knowledge_file_upload_delete(knol_id, kb_id)
+                                logger.info(f"解绑时清理文件上传记录: knol_id={knol_id}, knowledge_id={kb_id}")
+                    except Exception as e:
+                        logger.warning(f"解绑时清理文件上传记录失败: {e}")
+                
                 return jsonify({
                     'success': True,
                     'message': f'{action}本地知识库 {local_kno_id} 知识库 {kb_id}成功'
@@ -443,12 +458,23 @@ def _update_local_file_status(local_files, uploaded_files, knowledge_id):
     with LocalKnowledgeCrud() as l_crud:
         for file in local_files:
             if file[2] not in uploaded_files:
+                # 更新本地文件列表状态
                 update_result = l_crud.local_knowledge_list_update(file[1], ls_status=0)  # 状态0表示已同步
-                l_crud.local_knowledge_file_upload_insert(file[1], knowledge_id, 0)
                 if not update_result:
                     logger.warning(f"更新文件 {file[1]} 状态失败")
                 else:
                     logger.info(f"成功更新文件 {file[1]} 状态为 0")
+                
+                # 检查是否已存在上传记录，存在则更新，不存在则插入
+                existing = l_crud.get_local_knowledge_file_upload(knol_id=file[1], knowledge_base_id=knowledge_id)
+                if existing:
+                    # 已存在，更新状态
+                    l_crud.local_knowledge_file_upload_update(file[1], knowledge_id, upload_status=0)
+                    logger.info(f"更新文件上传记录 {file[1]} 状态为 0")
+                else:
+                    # 不存在，插入新记录
+                    l_crud.local_knowledge_file_upload_insert(file[1], knowledge_id, 0)
+                    logger.info(f"插入文件上传记录 {file[1]}")
 
 
 def _download_minio_file_to_temp(minio_path):
@@ -540,9 +566,14 @@ def _update_database_records(sync_data, know_client):
         doc_records = know_client.knowledge_doc_list(sync_data['knowledge_id'], contentCode=sync_data['content_code'],
                                                      size=100)
         for doc_record in doc_records['data']['records']:
-            k_crud.knowledge_insert(doc_record['docId'], doc_record['docName'], doc_record['fileFormat'],
-                                    doc_record['description'], doc_record['docName'], sync_data['content_code'],
-                                    sync_data['knowledge_id'])
+            # 检查是否已存在该文档
+            if k_crud.knowledge_exists(doc_record['docId']):
+                logger.info(f"文档已存在，跳过插入: doc_id={doc_record['docId']}")
+            else:
+                k_crud.knowledge_insert(doc_record['docId'], doc_record['docName'], doc_record['fileFormat'],
+                                        doc_record['description'], doc_record['docName'], sync_data['content_code'],
+                                        sync_data['knowledge_id'])
+                logger.info(f"插入新文档: doc_id={doc_record['docId']}")
 
 
 @local_knowledge_detail_bp.route('/local_knowledge_doc/delete/<knol_id>', methods=['DELETE'])
