@@ -1,5 +1,5 @@
 import { legacyGet, legacyPost, legacyPut, legacyDel } from './index'
-import type { ApiResponse } from './qa'
+import type { ApiResponse, PaginationData, PaginationParams } from '@/types'
 
 // 本地知识库
 export interface LocalKnowledge {
@@ -56,14 +56,19 @@ export interface Question {
 export interface AnnotationTask {
   task_id: string
   task_name: string
-  knowledge_base_name?: string
-  knowledge_base_id?: string
-  question_set_name?: string
+  local_knowledge_id?: string
   question_set_id?: string
-  annotation_type?: string
-  task_status: string
-  annotated_chunks?: number
+  label_studio_env_id?: string
+  knowledge_base_id?: string
+  label_studio_project_id?: string
   total_chunks?: number
+  annotated_chunks?: number
+  task_status: string
+  task_created_at?: string
+  task_updated_at?: string
+  annotation_type?: string
+  knowledge_base_name?: string
+  question_set_name?: string
 }
 
 // Label-Studio 环境
@@ -266,10 +271,69 @@ export async function deleteQuestion(questionId: string, questionSetType: string
 // ============ 标注任务 API ============
 
 /**
+ * 获取标注任务列表（新 API，支持分页和筛选）
+ */
+export async function getAnnotationTaskList(params?: {
+  page?: number
+  limit?: number
+  keyword?: string
+  task_status?: string
+  annotation_type?: string
+}): Promise<ApiResponse<{
+  rows: AnnotationTask[]
+  total: number
+  page: number
+  limit: number
+}>> {
+  const queryParams = new URLSearchParams()
+  if (params?.page) queryParams.append('page', String(params.page))
+  if (params?.limit) queryParams.append('limit', String(params.limit))
+  if (params?.keyword) queryParams.append('keyword', params.keyword)
+  if (params?.task_status) queryParams.append('task_status', params.task_status)
+  if (params?.annotation_type) queryParams.append('annotation_type', params.annotation_type)
+  
+  const query = queryParams.toString()
+  return legacyGet<ApiResponse<{
+    rows: AnnotationTask[]
+    total: number
+    page: number
+    limit: number
+  }>>(`/api/annotation/tasks/list${query ? '?' + query : ''}`)
+}
+
+/**
  * 获取 Label-Studio 环境列表
  */
 export async function getLabelStudioEnvs(): Promise<ApiResponse<LabelStudioEnv[]>> {
   return legacyGet<ApiResponse<LabelStudioEnv[]>>('/label_studio_env/list/')
+}
+
+/**
+ * 获取 Label-Studio 环境列表（用于标注任务页面）
+ */
+export async function getLabelStudioEnvironmentsList(): Promise<ApiResponse<LabelStudioEnv[]>> {
+  return legacyGet<ApiResponse<LabelStudioEnv[]>>('/api/label_studio/environments/list')
+}
+
+/**
+ * 获取本地知识库列表（简化版，用于标注任务页面）
+ */
+export async function getLocalKnowledgeListSimple(): Promise<ApiResponse<{ 
+  knowledge_id: string
+  knowledge_name: string
+}[]>> {
+  return legacyGet<ApiResponse<{ knowledge_id: string; knowledge_name: string }[]>>('/api/local_knowledge/list')
+}
+
+/**
+ * 获取问题集列表（用于标注任务页面）
+ */
+export async function getQuestionsList(knowledgeId: string): Promise<ApiResponse<{
+  question_id: string
+  question_name: string
+  knowledge_id?: string
+}[]>> {
+  return legacyGet<ApiResponse<{ question_id: string; question_name: string; knowledge_id?: string }[]>>(`/api/questions/list?knowledge_id=${knowledgeId}`)
 }
 
 /**
@@ -357,10 +421,10 @@ export async function getTasksByEnvironment(envId: string, knoId: string): Promi
  */
 export async function createAnnotationTask(data: {
   task_name: string
+  local_knowledge_id: string
   question_set_id: string
+  label_studio_env_id: string
   annotation_type: string
-  local_knowledge_id?: string
-  label_studio_env_id?: string
 }): Promise<ApiResponse<void>> {
   return legacyPost<ApiResponse<void>>('/api/annotation/tasks/create', data)
 }
@@ -380,8 +444,8 @@ export async function updateAnnotationTask(data: {
  * 删除标注任务
  */
 export async function deleteAnnotationTask(taskId: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>('/local_knowledge_detail/label_studio/delete_project', {
-    data: { id: taskId }
+  return legacyDel<ApiResponse<void>>('/api/annotation/tasks/delete', {
+    data: { task_id: taskId }
   })
 }
 

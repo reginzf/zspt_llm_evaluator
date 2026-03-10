@@ -1,4 +1,5 @@
 import { get, post, put, del } from './index'
+import type { ApiResponse, PaginationData, PaginationParams } from '@/types'
 
 // 问答对组接口
 export interface QAGroup {
@@ -37,21 +38,8 @@ export interface QAItem {
   updated_at: string
 }
 
-// 分页响应
-export interface PaginationData<T> {
-  total: number
-  page: number
-  limit: number
-  pages: number
-  rows: T[]
-}
-
-// API 响应格式
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  message?: string
-}
+// 重新导出共享类型
+export type { ApiResponse, PaginationData, PaginationParams }
 
 // 查询参数
 export interface QAGroupQueryParams {
@@ -350,5 +338,83 @@ export async function previewDataset(groupId: number, filePath: string, previewR
     preview_rows: previewRows,
     minio_prefix: minioPrefix,
     saved_files: savedFiles
+  })
+}
+
+/**
+ * 执行导入（异步）
+ */
+export async function executeImport(
+  groupId: number,
+  filePath: string,
+  mapping: Record<string, string>,
+  options: {
+    batch_size?: number
+    skip_rows?: number
+    unmapped_fields?: string
+  },
+  minioPrefix?: string,
+  savedFiles?: any[],
+  tempPath?: string | null
+): Promise<ApiResponse<{
+  task_id: string
+  status: string
+  progress: number
+}>> {
+  return post<ApiResponse<{
+    task_id: string
+    status: string
+    progress: number
+  }>>(`/qa/groups/${groupId}/items/import/execute`, {
+    file_path: filePath,
+    mapping,
+    options,
+    minio_prefix: minioPrefix,
+    saved_files: savedFiles,
+    temp_path: tempPath
+  })
+}
+
+/**
+ * 获取导入任务状态
+ */
+export async function getImportTaskStatus(groupId: number, taskId: string): Promise<ApiResponse<{
+  task_id: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  progress: number
+  message: string
+  stats?: {
+    total: number
+    success: number
+    failed: number
+    skipped: number
+    duration: number
+    error_count: number
+    errors?: string[]
+  }
+}>> {
+  return get<ApiResponse<{
+    task_id: string
+    status: 'pending' | 'running' | 'completed' | 'failed'
+    progress: number
+    message: string
+    stats?: {
+      total: number
+      success: number
+      failed: number
+      skipped: number
+      duration: number
+      error_count: number
+      errors?: string[]
+    }
+  }>>(`/qa/groups/${groupId}/items/import/task/${taskId}`)
+}
+
+/**
+ * 清理导入文件
+ */
+export async function cleanupImportFiles(groupId: number, filePath: string): Promise<ApiResponse<void>> {
+  return post<ApiResponse<void>>(`/qa/groups/${groupId}/items/import/cleanup`, {
+    file_path: filePath
   })
 }

@@ -1,12 +1,14 @@
 import { get, post, put, del } from './index'
-import type { ApiResponse } from './qa'
+import type { ApiResponse, PaginationData, PaginationParams } from '@/types'
 
-// LLM 模型
+// LLM 模型 - 与后端字段保持一致
 export interface LLMModel {
-  model_name: string
-  model_type?: string
-  api_base: string
+  id?: number
+  name: string
+  type?: string
   api_key?: string
+  api_url: string
+  model?: string
   max_tokens?: number
   temperature?: number
   top_p?: number
@@ -14,10 +16,20 @@ export interface LLMModel {
   presence_penalty?: number
   timeout?: number
   max_retries?: number
-  description?: string
+  version?: string
+  status?: 'connected' | 'error' | 'unknown'
   is_active?: boolean
   created_at?: string
   updated_at?: string
+}
+
+// 模型列表响应
+export interface ModelListResponse {
+  total: number
+  page: number
+  limit: number
+  pages: number
+  rows: LLMModel[]
 }
 
 // 评估报告
@@ -31,30 +43,78 @@ export interface EvaluationReport {
 // ============ LLM 模型 API ============
 
 /**
- * 获取模型列表
+ * 获取模型列表 - 支持分页和筛选
  */
-export async function getModelList(): Promise<ApiResponse<LLMModel[]>> {
-  return get<ApiResponse<LLMModel[]>>('/llm/models')
+export async function getModelList(params?: {
+  page?: number
+  limit?: number
+  type?: string
+  status?: string
+  keyword?: string
+}): Promise<ApiResponse<ModelListResponse>> {
+  const queryParams = new URLSearchParams()
+  if (params?.page) queryParams.append('page', String(params.page))
+  if (params?.limit) queryParams.append('limit', String(params.limit))
+  if (params?.type) queryParams.append('type', params.type)
+  if (params?.status) queryParams.append('status', params.status)
+  if (params?.keyword) queryParams.append('keyword', params.keyword)
+  
+  const query = queryParams.toString()
+  return get<ApiResponse<ModelListResponse>>(`/llm/models${query ? '?' + query : ''}`)
 }
 
 /**
  * 获取模型详情
  */
-export async function getModelDetail(modelName: string): Promise<ApiResponse<LLMModel>> {
-  return get<ApiResponse<LLMModel>>(`/llm/models/${modelName}`)
+export async function getModelDetail(modelName: string): Promise<ApiResponse<{
+  config: LLMModel
+  connection_status: boolean
+  last_evaluation?: string
+  evaluation_count: number
+  recent_reports: EvaluationReport[]
+}>> {
+  return get<ApiResponse<{
+    config: LLMModel
+    connection_status: boolean
+    last_evaluation?: string
+    evaluation_count: number
+    recent_reports: EvaluationReport[]
+  }>>(`/llm/models/${modelName}`)
 }
 
 /**
- * 创建模型
+ * 创建模型 - 字段名与后端保持一致
  */
-export async function createModel(data: Omit<LLMModel, 'created_at' | 'updated_at'>): Promise<ApiResponse<void>> {
-  return post<ApiResponse<void>>('/llm/models', data)
+export async function createModel(data: {
+  name: string
+  type: string
+  api_key: string
+  api_url: string
+  model?: string
+  temperature?: number
+  max_tokens?: number
+  timeout?: number
+  version?: string
+}): Promise<ApiResponse<{ id: number }>> {
+  return post<ApiResponse<{ id: number }>>('/llm/models', data)
 }
 
 /**
  * 更新模型
  */
-export async function updateModel(modelName: string, data: Partial<LLMModel>): Promise<ApiResponse<void>> {
+export async function updateModel(
+  modelName: string, 
+  data: Partial<{
+    type: string
+    api_key: string
+    api_url: string
+    model?: string
+    temperature?: number
+    max_tokens?: number
+    timeout?: number
+    version?: string
+  }>
+): Promise<ApiResponse<void>> {
   return put<ApiResponse<void>>(`/llm/models/${modelName}`, data)
 }
 

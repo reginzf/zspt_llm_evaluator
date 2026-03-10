@@ -1,85 +1,98 @@
 import { ref, computed } from 'vue'
-
-export interface PaginationOptions {
-  pageSize?: number
-  pageSizes?: number[]
-  total?: number
-}
+import type { PaginationParams, PaginationData } from '@/types'
 
 /**
- * 分页逻辑封装
+ * 分页逻辑 Composable
+ * 提供统一的分页状态管理和分页计算
  */
-export function usePagination(options: PaginationOptions = {}) {
-  const { pageSize = 10, pageSizes = [10, 20, 50, 100], total = 0 } = options
+export function usePagination<T>(defaultLimit = 20) {
+  // 分页状态
+  const page = ref(1)
+  const limit = ref(defaultLimit)
+  const total = ref(0)
+  const pages = ref(0)
+  const data = ref<T[]>([])
+  const loading = ref(false)
 
-  const currentPage = ref(1)
-  const pageSizeRef = ref(pageSize)
-  const totalRef = ref(total)
+  // 计算属性
+  const isFirstPage = computed(() => page.value === 1)
+  const isLastPage = computed(() => page.value >= pages.value)
+  const hasData = computed(() => data.value.length > 0)
+  const offset = computed(() => (page.value - 1) * limit.value)
 
-  // 计算总页数
-  const totalPages = computed(() => {
-    return Math.ceil(totalRef.value / pageSizeRef.value)
+  // 获取分页参数
+  const getParams = (): PaginationParams => ({
+    page: page.value,
+    limit: limit.value
   })
 
-  // 计算当前页的起始索引
-  const startIndex = computed(() => {
-    return (currentPage.value - 1) * pageSizeRef.value
-  })
-
-  // 计算当前页的结束索引
-  const endIndex = computed(() => {
-    return Math.min(startIndex.value + pageSizeRef.value, totalRef.value)
-  })
-
-  // 设置当前页
-  const setPage = (page: number) => {
-    currentPage.value = page
+  // 更新分页数据
+  const updatePagination = (paginationData: PaginationData<T>) => {
+    total.value = paginationData.total
+    page.value = paginationData.page
+    limit.value = paginationData.limit
+    pages.value = paginationData.pages
+    data.value = paginationData.rows
   }
 
-  // 设置每页数量
-  const setPageSize = (size: number) => {
-    pageSizeRef.value = size
-    currentPage.value = 1 // 重置到第一页
+  // 重置分页
+  const reset = () => {
+    page.value = 1
+    limit.value = defaultLimit
+    total.value = 0
+    pages.value = 0
+    data.value = []
   }
 
-  // 设置总数
-  const setTotal = (count: number) => {
-    totalRef.value = count
+  // 跳转到指定页
+  const goToPage = (targetPage: number) => {
+    if (targetPage >= 1 && targetPage <= pages.value) {
+      page.value = targetPage
+    }
   }
 
   // 下一页
   const nextPage = () => {
-    if (currentPage.value < totalPages.value) {
-      currentPage.value++
+    if (!isLastPage.value) {
+      page.value++
     }
   }
 
   // 上一页
   const prevPage = () => {
-    if (currentPage.value > 1) {
-      currentPage.value--
+    if (!isFirstPage.value) {
+      page.value--
     }
   }
 
-  // 重置分页
-  const reset = () => {
-    currentPage.value = 1
-    pageSizeRef.value = pageSize
+  // 改变每页数量
+  const changeLimit = (newLimit: number) => {
+    limit.value = newLimit
+    page.value = 1 // 重置到第一页
   }
 
   return {
-    currentPage,
-    pageSize: pageSizeRef,
-    pageSizes,
-    total: totalRef,
-    totalPages,
-    startIndex,
-    endIndex,
-    setPage,
-    setPageSize,
-    setTotal,
+    // 状态
+    page,
+    limit,
+    total,
+    pages,
+    data,
+    loading,
+    // 计算属性
+    isFirstPage,
+    isLastPage,
+    hasData,
+    offset,
+    // 方法
+    getParams,
+    updatePagination,
+    reset,
+    goToPage,
     nextPage,
     prevPage,
-    reset,
+    changeLimit
   }
 }
+
+export type UsePaginationReturn<T> = ReturnType<typeof usePagination<T>>

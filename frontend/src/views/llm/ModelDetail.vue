@@ -12,17 +12,18 @@
       </template>
 
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="模型名称">{{ model?.model_name }}</el-descriptions-item>
-        <el-descriptions-item label="模型类型">{{ model?.model_type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="API地址">{{ model?.api_base }}</el-descriptions-item>
+        <el-descriptions-item label="模型名称">{{ model?.name }}</el-descriptions-item>
+        <el-descriptions-item label="模型类型">{{ getModelTypeText(model?.type) }}</el-descriptions-item>
+        <el-descriptions-item label="API地址">{{ model?.api_url }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="model?.is_active ? 'success' : 'info'">{{ model?.is_active ? '已激活' : '未激活' }}</el-tag>
+          <el-tag :type="getStatusType(model?.status)">{{ getStatusText(model?.status) }}</el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="具体模型">{{ model?.model || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="版本">{{ model?.version || '-' }}</el-descriptions-item>
         <el-descriptions-item label="最大Token">{{ model?.max_tokens || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="Temperature">{{ model?.temperature || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="Top P">{{ model?.top_p || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="Timeout">{{ model?.timeout || '-' }}ms</el-descriptions-item>
-        <el-descriptions-item label="描述" :span="2">{{ model?.description || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="Temperature">{{ model?.temperature ?? '-' }}</el-descriptions-item>
+        <el-descriptions-item label="Top P">{{ model?.top_p ?? '-' }}</el-descriptions-item>
+        <el-descriptions-item label="Timeout">{{ model?.timeout ?? '-' }}s</el-descriptions-item>
       </el-descriptions>
 
       <h3 class="section-title">评估报告</h3>
@@ -73,6 +74,15 @@ import {
   type EvaluationReport
 } from '@/api/llm'
 
+// 详情响应类型
+interface ModelDetailResponse {
+  config: LLMModel
+  connection_status: boolean
+  last_evaluation?: string
+  evaluation_count: number
+  recent_reports: EvaluationReport[]
+}
+
 const route = useRoute()
 const router = useRouter()
 const modelName = route.params.name as string
@@ -98,7 +108,7 @@ async function loadData() {
     ])
     
     if (modelRes.success && modelRes.data) {
-      model.value = modelRes.data
+      model.value = modelRes.data.config
     } else {
       ElMessage.error(modelRes.message || '获取模型详情失败')
     }
@@ -149,6 +159,33 @@ async function startEvaluate() {
     console.error(error)
   } finally {
     evaluating.value = false
+  }
+}
+
+function getModelTypeText(type?: string) {
+  const typeMap: Record<string, string> = {
+    'deepseek': 'DeepSeek',
+    'openai': 'OpenAI',
+    'anthropic': 'Anthropic',
+    'qwen': '通义千问',
+    'other': '其他'
+  }
+  return typeMap[type || ''] || type || '未知'
+}
+
+function getStatusType(status?: string) {
+  switch (status) {
+    case 'connected': return 'success'
+    case 'error': return 'danger'
+    default: return 'info'
+  }
+}
+
+function getStatusText(status?: string) {
+  switch (status) {
+    case 'connected': return '已连接'
+    case 'error': return '连接失败'
+    default: return '未检测'
   }
 }
 

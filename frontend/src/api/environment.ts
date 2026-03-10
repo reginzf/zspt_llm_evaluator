@@ -1,5 +1,5 @@
 import { legacyGet, legacyPost, legacyPut, legacyDel } from './index'
-import type { ApiResponse } from './qa'
+import type { ApiResponse } from '@/types'
 
 // 环境 - 匹配数据库字段
 export interface Environment {

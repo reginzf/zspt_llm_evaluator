@@ -1,5 +1,5 @@
 import { legacyGet } from './index'
-import type { ApiResponse } from './qa'
+import type { ApiResponse } from '@/types'
 
 // 报告
 export interface Report {

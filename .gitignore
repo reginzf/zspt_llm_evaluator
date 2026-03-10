@@ -1,11 +1,47 @@
+# Python
 /.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 日志
 /logs/
+/src/label_studio_api/ml_backed/logs/
+/src/zlpt/logs/
+
+# 模型和数据
 /models/
+*.pkl
+qdrant_index.pkl
+qdrant_data/
+
+# 报告和结果
 /reports/
 /tests/
-/src/label_studio_api/ml_backed/logs/
-configs/settings.toml
-/examples/
-*.pyc
 /evaluation_results/
+
+# 配置
+configs/settings.toml
+
+# 示例和文档
+/examples/
+/docs/
+
+# Node.js
 /node_modules/
+
+# IDE
+.idea/
+.vscode/
+
+# 临时文件
+*.tmp
+.DS_Store
+Thumbs.db
+
+# 其他
+.agents/
+.kimiignore

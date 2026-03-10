@@ -85,7 +85,7 @@ async function loadData() {
       reportsData.value = response.data || []
       // 默认展开第一个目录
       const dirs = Object.keys(directoryStructure.value)
-      if (dirs.length > 0) {
+      if (dirs.length > 0 && dirs[0]) {
         expandedDirs[dirs[0]] = true
       }
     } else {

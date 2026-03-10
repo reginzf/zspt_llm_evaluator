@@ -68,7 +68,7 @@
           stripe
           border
           style="width: 100%"
-          v-loading="qaStore.loading"
+          v-loading="loading"
         >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="id" label="ID" width="80" />
@@ -149,7 +149,7 @@
       </el-form>
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleUpdateGroup" :loading="qaStore.submitting">
+        <el-button type="primary" @click="handleUpdateGroup" :loading="submitting">
           确定
         </el-button>
       </template>
@@ -216,7 +216,7 @@
       </el-form>
       <template #footer>
         <el-button @click="qaItemDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitQAItem" :loading="qaStore.submitting">
+        <el-button type="primary" @click="handleSubmitQAItem" :loading="submitting">
           确定
         </el-button>
       </template>
@@ -241,6 +241,7 @@ const qaStore = useQAStore()
 
 const groupId = Number(route.params.id)
 const loading = ref(false)
+const submitting = ref(false)
 
 // 分组信息
 const group = computed(() => qaStore.currentGroup)
@@ -365,22 +366,27 @@ async function handleUpdateGroup() {
   const valid = await editFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
-  const tags = editForm.tagsInput.split(',').map(t => t.trim()).filter(Boolean)
-  const response = await qaStore.updateGroup(groupId, {
-    name: editForm.name,
-    purpose: editForm.purpose,
-    test_type: editForm.test_type,
-    language: editForm.language,
-    difficulty_range: editForm.difficulty_range,
-    tags: tags.length > 0 ? tags : undefined
-  })
+  submitting.value = true
+  try {
+    const tags = editForm.tagsInput.split(',').map(t => t.trim()).filter(Boolean)
+    const response = await qaStore.updateGroup(groupId, {
+      name: editForm.name,
+      purpose: editForm.purpose,
+      test_type: editForm.test_type,
+      language: editForm.language,
+      difficulty_range: editForm.difficulty_range,
+      tags: tags.length > 0 ? tags : undefined
+    })
 
-  if (response?.success) {
-    ElMessage.success('更新成功')
-    editDialogVisible.value = false
-    loadData()
-  } else {
-    ElMessage.error(response?.message || '更新失败')
+    if (response?.success) {
+      ElMessage.success('更新成功')
+      editDialogVisible.value = false
+      loadData()
+    } else {
+      ElMessage.error(response?.message || '更新失败')
+    }
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -413,29 +419,34 @@ async function handleSubmitQAItem() {
   const valid = await qaItemFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
-  const answers = qaItemForm.answersInput.split('\n').map(a => a.trim()).filter(Boolean)
-  const data: CreateQAItemParams = {
-    question: qaItemForm.question,
-    answers,
-    context: qaItemForm.context || undefined,
-    question_type: qaItemForm.question_type || undefined,
-    difficulty_level: qaItemForm.difficulty_level,
-    category: qaItemForm.category || undefined
-  }
+  submitting.value = true
+  try {
+    const answers = qaItemForm.answersInput.split('\n').map(a => a.trim()).filter(Boolean)
+    const data: CreateQAItemParams = {
+      question: qaItemForm.question,
+      answers,
+      context: qaItemForm.context || undefined,
+      question_type: qaItemForm.question_type || undefined,
+      difficulty_level: qaItemForm.difficulty_level,
+      category: qaItemForm.category || undefined
+    }
 
-  let response
-  if (isEditQAItem.value && currentQAItemId.value) {
-    response = await qaStore.updateQAItemById(currentQAItemId.value, data)
-  } else {
-    response = await qaStore.addQAItem(groupId, data)
-  }
+    let response
+    if (isEditQAItem.value && currentQAItemId.value) {
+      response = await qaStore.updateQAItemById(currentQAItemId.value, data)
+    } else {
+      response = await qaStore.addQAItem(groupId, data)
+    }
 
-  if (response?.success) {
-    ElMessage.success(isEditQAItem.value ? '更新成功' : '添加成功')
-    qaItemDialogVisible.value = false
-    loadData()
-  } else {
-    ElMessage.error(response?.message || '操作失败')
+    if (response?.success) {
+      ElMessage.success(isEditQAItem.value ? '更新成功' : '添加成功')
+      qaItemDialogVisible.value = false
+      loadData()
+    } else {
+      ElMessage.error(response?.message || '操作失败')
+    }
+  } finally {
+    submitting.value = false
   }
 }
 

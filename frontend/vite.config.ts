@@ -77,8 +77,12 @@ export default defineConfig({
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
-      // QA 相关 API（排除页面路由 /qa/groups）
-      '^/qa/': {
+      // QA 相关 API（排除页面路由 /qa/groups, /qa/groups/:id, /qa/groups/:id/import）
+      '^/qa/groups$': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      '^/api/qa/': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },

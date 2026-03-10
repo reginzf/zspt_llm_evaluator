@@ -504,12 +504,55 @@ function updateQAPagination(data) {
     qaTotalPages = data.pages || 1;
     currentQAPage = data.page || 1;
     
-    // 更新分页信息显示
-    document.getElementById('qaCurrentPage').textContent = currentQAPage;
-    document.getElementById('qaTotalPages').textContent = qaTotalPages;
-    document.getElementById('qaTotalItems').textContent = qaTotalItems;
-    document.getElementById('qaMaxPage').textContent = qaTotalPages;
-    document.getElementById('qaPageInput').value = currentQAPage;
+    const paginationArea = document.getElementById('qaPaginationArea');
+    if (!paginationArea) return;
+    
+    // 如果分页区域为空，先生成 HTML 结构
+    if (!paginationArea.innerHTML.trim()) {
+        paginationArea.innerHTML = `
+            <div class="pagination-left">
+                <button class="pagination-btn first-btn" onclick="goToQAPage(1)" title="首页">首页</button>
+                <button class="pagination-btn prev-btn" onclick="goToQAPage(${currentQAPage - 1})" title="上一页">上一页</button>
+                <span class="pagination-info">
+                    第 <span id="qaCurrentPage">${currentQAPage}</span> 页 / 共 <span id="qaTotalPages">${qaTotalPages}</span> 页
+                    (共 <span id="qaTotalItems">${qaTotalItems}</span> 条)
+                </span>
+                <button class="pagination-btn next-btn" onclick="goToQAPage(${currentQAPage + 1})" title="下一页">下一页</button>
+                <button class="pagination-btn last-btn" onclick="goToQAPage(${qaTotalPages})" title="末页">末页</button>
+            </div>
+            <div class="pagination-right">
+                <span>跳转到</span>
+                <input type="number" id="qaPageInput" class="page-input" value="${currentQAPage}" min="1" max="${qaTotalPages}" onkeypress="if(event.key==='Enter') goToQAPage(this.value)">
+                <span>页</span>
+                <span class="max-page">(共 <span id="qaMaxPage">${qaTotalPages}</span> 页)</span>
+            </div>
+            <div class="pagination-size">
+                <span>每页显示：</span>
+                <select id="qaPageSize" class="form-control" onchange="changeQAPageSize(this.value)">
+                    <option value="10" ${qaPageSize === 10 ? 'selected' : ''}>10</option>
+                    <option value="20" ${qaPageSize === 20 ? 'selected' : ''}>20</option>
+                    <option value="50" ${qaPageSize === 50 ? 'selected' : ''}>50</option>
+                    <option value="100" ${qaPageSize === 100 ? 'selected' : ''}>100</option>
+                </select>
+            </div>
+        `;
+    } else {
+        // 更新分页信息显示
+        const currentPageEl = document.getElementById('qaCurrentPage');
+        const totalPagesEl = document.getElementById('qaTotalPages');
+        const totalItemsEl = document.getElementById('qaTotalItems');
+        const maxPageEl = document.getElementById('qaMaxPage');
+        const pageInputEl = document.getElementById('qaPageInput');
+        
+        if (currentPageEl) currentPageEl.textContent = currentQAPage;
+        if (totalPagesEl) totalPagesEl.textContent = qaTotalPages;
+        if (totalItemsEl) totalItemsEl.textContent = qaTotalItems;
+        if (maxPageEl) maxPageEl.textContent = qaTotalPages;
+        if (pageInputEl) {
+            pageInputEl.value = currentQAPage;
+            pageInputEl.max = qaTotalPages;
+        }
+    }
     
     // 更新分页按钮状态
     const firstBtn = document.querySelector('#qaPaginationArea .first-btn');
@@ -521,6 +564,12 @@ function updateQAPagination(data) {
     if (prevBtn) prevBtn.disabled = currentQAPage <= 1;
     if (nextBtn) nextBtn.disabled = currentQAPage >= qaTotalPages;
     if (lastBtn) lastBtn.disabled = currentQAPage >= qaTotalPages;
+    
+    // 更新按钮的 onclick 事件
+    if (firstBtn) firstBtn.onclick = () => goToQAPage(1);
+    if (prevBtn) prevBtn.onclick = () => goToQAPage(currentQAPage - 1);
+    if (nextBtn) nextBtn.onclick = () => goToQAPage(currentQAPage + 1);
+    if (lastBtn) lastBtn.onclick = () => goToQAPage(qaTotalPages);
 }
 
 // 搜索问答对

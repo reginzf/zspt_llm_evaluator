@@ -1,33 +1,58 @@
 import { ref } from 'vue'
 
 /**
- * 加载状态管理
+ * 加载状态管理 Composable
+ * 提供加载状态和提交状态的统一管理
  */
-export function useLoading(initialValue: boolean = false) {
-  const loading = ref(initialValue)
+export function useLoading() {
+  const loading = ref(false)
+  const submitting = ref(false)
+  const refreshing = ref(false)
 
-  const startLoading = () => {
+  /**
+   * 执行异步函数并管理加载状态
+   */
+  async function withLoading<T>(fn: () => Promise<T>): Promise<T | undefined> {
     loading.value = true
-  }
-
-  const stopLoading = () => {
-    loading.value = false
-  }
-
-  const withLoading = async <T>(fn: () => Promise<T>): Promise<T> => {
-    startLoading()
     try {
-      const result = await fn()
-      return result
+      return await fn()
     } finally {
-      stopLoading()
+      loading.value = false
+    }
+  }
+
+  /**
+   * 执行异步函数并管理提交状态
+   */
+  async function withSubmitting<T>(fn: () => Promise<T>): Promise<T | undefined> {
+    submitting.value = true
+    try {
+      return await fn()
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  /**
+   * 执行异步函数并管理刷新状态
+   */
+  async function withRefreshing<T>(fn: () => Promise<T>): Promise<T | undefined> {
+    refreshing.value = true
+    try {
+      return await fn()
+    } finally {
+      refreshing.value = false
     }
   }
 
   return {
     loading,
-    startLoading,
-    stopLoading,
+    submitting,
+    refreshing,
     withLoading,
+    withSubmitting,
+    withRefreshing
   }
 }
+
+export type UseLoadingReturn = ReturnType<typeof useLoading>
