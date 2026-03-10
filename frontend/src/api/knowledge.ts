@@ -187,7 +187,7 @@ export async function deleteFile(knolId: string): Promise<ApiResponse<void>> {
  * 获取问题集列表
  */
 export async function getQuestionSets(knowledgeId: string): Promise<ApiResponse<QuestionSet[]>> {
-  return legacyGet<ApiResponse<QuestionSet[]>>(`/local_knowledge_detail/question/set/list?knowledge_id=${knowledgeId}`)
+  return legacyGet<ApiResponse<QuestionSet[]>>(`/api/local_knowledge_detail/question/set/list?knowledge_id=${knowledgeId}`)
 }
 
 /**
@@ -198,14 +198,14 @@ export async function createQuestionSet(data: {
   question_set_type: string
   knowledge_id: string
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/local_knowledge_detail/question_set/create', data)
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question_set/create', data)
 }
 
 /**
  * 删除问题集
  */
 export async function deleteQuestionSet(questionId: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>('/local_knowledge_detail/question/set/delete', {
+  return legacyDel<ApiResponse<void>>('/api/local_knowledge_detail/question/set/delete', {
     params: { question_id: questionId }
   })
 }
@@ -214,7 +214,7 @@ export async function deleteQuestionSet(questionId: string): Promise<ApiResponse
  * 获取问题列表
  */
 export async function getQuestions(setId: string, questionType: string): Promise<ApiResponse<Question[]>> {
-  return legacyPost<ApiResponse<Question[]>>('/local_knowledge_detail/question/list', {
+  return legacyPost<ApiResponse<Question[]>>('/api/local_knowledge_detail/question/list', {
     set_id: setId,
     question_type: questionType
   })
@@ -229,14 +229,14 @@ export async function createQuestion(data: {
   chunk_ids?: string
   set_id?: string
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/local_knowledge_detail/question/create', data)
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question/create', data)
 }
 
 /**
  * 获取问题详情
  */
 export async function getQuestionDetail(questionId: string, questionSetType: string): Promise<ApiResponse<Question>> {
-  return legacyPost<ApiResponse<Question>>('/local_knowledge_detail/question/detail', {
+  return legacyPost<ApiResponse<Question>>('/api/local_knowledge_detail/question/detail', {
     question_id: questionId,
     question_set_type: questionSetType
   })
@@ -250,17 +250,22 @@ export async function updateQuestion(questionId: string, data: {
   question_content?: string
   chunk_ids?: string
 }): Promise<ApiResponse<void>> {
-  return legacyPut<ApiResponse<void>>('/local_knowledge_detail/question/update', {
+  // 处理空 chunk_ids，避免 JSON 类型错误
+  const payload: any = {
     question_id: questionId,
     ...data
-  })
+  }
+  if (payload.chunk_ids === '') {
+    payload.chunk_ids = null  // 或 []，让后端处理默认值
+  }
+  return legacyPut<ApiResponse<void>>('/api/local_knowledge_detail/question/update', payload)
 }
 
 /**
  * 删除问题
  */
 export async function deleteQuestion(questionId: string, questionSetType: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>('/local_knowledge_detail/question/delete', {
+  return legacyDel<ApiResponse<void>>('/api/local_knowledge_detail/question/delete', {
     data: { 
       question_id: questionId,
       question_set_type: questionSetType
