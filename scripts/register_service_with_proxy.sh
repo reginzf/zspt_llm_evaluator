@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # AI-KEN Application Service Registration Script for CentOS with Proxy Support
-# 此脚本用于将Python应用注册为CentOS系统服务，并配置代理
-# 支持 Vue3 前端 + Flask 后端生产环境部署
+# 前后端分离部署：ai-ken-backend (Flask API, 端口5001) + ai-ken-frontend (Nginx, 端口5002)
 
 set -e
 
@@ -20,7 +19,7 @@ print_message() {
     echo -e "${color}${message}${NC}"
 }
 
-print_message ${BLUE} "=== AI-KEN Application Service Registration with Proxy ==="
+print_message ${BLUE} "=== AI-KEN 前后端分离服务注册 (CentOS) ==="
 
 # 获取当前工作目录
 PROJECT_DIR=$(pwd)
@@ -243,8 +242,9 @@ if [ -d "$PROJECT_DIR/frontend" ]; then
     # 构建前端
     print_message ${BLUE} "=== 构建 Vue3 前端（生产模式）==="
     
-    # 设置构建环境变量（生产模式）
+    # 设置构建环境变量（生产模式 - 前后端分离）
     export NODE_ENV=production
+    export VITE_API_BASE_URL=""  # 空字符串表示使用相对路径，Nginx会代理到后端
     
     print_message ${BLUE} "运行 npm run build..."
     # 先尝试正常构建，如果失败则跳过 type-check 直接构建
@@ -270,17 +270,133 @@ else
     exit 1
 fi
 
-# ==================== 创建 Systemd 服务 ====================
-print_message ${BLUE} "=== 创建 Systemd 服务 ==="
+# ==================== 安装并配置 Nginx ====================
+print_message ${BLUE} "=== 安装并配置 Nginx ==="
 
-SERVICE_FILE="/etc/systemd/system/ai-ken.service"
+# 检查 Nginx 是否已安装
+if ! command -v nginx &> /dev/null; then
+    print_message ${YELLOW} "Nginx 未安装，开始安装..."
+    sudo yum install -y nginx
+    print_message ${GREEN} "Nginx 安装完成"
+else
+    print_message ${GREEN} "Nginx 已安装: $(nginx -v 2>&1)"
+fi
 
-print_message ${BLUE} "创建服务文件: $SERVICE_FILE"
+# 创建 Nginx 配置文件
+NGINX_CONF="/etc/nginx/conf.d/ai-ken.conf"
 
-# 写入服务配置，包含代理环境变量
-sudo tee $SERVICE_FILE > /dev/null <<EOF
+print_message ${BLUE} "创建 Nginx 配置文件: $NGINX_CONF"
+
+sudo tee $NGINX_CONF > /dev/null <<EOF
+# AI-KEN 前后端分离 Nginx 配置
+# 前端端口: 5002
+# 后端端口: 5001
+
+# 前端服务
+server {
+    listen 5002;
+    server_name localhost;
+    
+    # 前端静态文件目录
+    root $PROJECT_DIR/frontend/dist;
+    index index.html;
+    
+    # 启用 gzip 压缩
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    
+    # 前端路由支持 (Vue Router history 模式)
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+    
+    # 静态文件缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # 代理 API 请求到后端 (5001端口)
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+    
+    # 代理其他后端路由
+    location /local_knowledge/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    location /environment/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    location /label_studio/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    location /qdrant/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # 健康检查端点
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+
+if [ $? -eq 0 ]; then
+    print_message ${GREEN} "Nginx 配置文件创建成功"
+else
+    print_message ${RED} "错误: Nginx 配置文件创建失败"
+    exit 1
+fi
+
+# 测试 Nginx 配置
+print_message ${BLUE} "测试 Nginx 配置..."
+if sudo nginx -t; then
+    print_message ${GREEN} "Nginx 配置测试通过"
+else
+    print_message ${RED} "错误: Nginx 配置测试失败"
+    exit 1
+fi
+
+# ==================== 创建 Systemd 服务：后端 ====================
+print_message ${BLUE} "=== 创建后端服务 (ai-ken-backend) ==="
+
+BACKEND_SERVICE="/etc/systemd/system/ai-ken-backend.service"
+
+print_message ${BLUE} "创建服务文件: $BACKEND_SERVICE"
+
+sudo tee $BACKEND_SERVICE > /dev/null <<EOF
 [Unit]
-Description=AI-KEN Application (Flask + Vue3)
+Description=AI-KEN Backend Service (Flask API)
 After=network.target
 
 [Service]
@@ -292,9 +408,10 @@ Environment=HTTP_PROXY=$PROXY_HTTP
 Environment=http_proxy=$PROXY_HTTP
 Environment=HTTPS_PROXY=$PROXY_HTTPS
 Environment=https_proxy=$PROXY_HTTPS
-Environment=VUE_FRONTEND_MODE=force
-# 生产模式：不使用 debug
-ExecStart=$PROJECT_DIR/venv/bin/python app.py --host 0.0.0.0 --port 5001
+Environment=FLASK_ENV=production
+Environment=CORS_ALLOW_ALL=false
+# 生产模式：不使用 debug，只监听 localhost（通过 Nginx 代理访问）
+ExecStart=$PROJECT_DIR/venv/bin/python app.py --host 127.0.0.1 --port 5001
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -305,80 +422,175 @@ WantedBy=multi-user.target
 EOF
 
 if [ $? -eq 0 ]; then
-    print_message ${GREEN} "服务文件创建成功，包含代理配置"
+    print_message ${GREEN} "后端服务文件创建成功"
 else
-    print_message ${RED} "错误: 服务文件创建失败"
+    print_message ${RED} "错误: 后端服务文件创建失败"
     exit 1
 fi
 
-# 重新加载systemd配置
-print_message ${BLUE} "重新加载systemd配置..."
+# ==================== 创建 Systemd 服务：前端 (Nginx) ====================
+print_message ${BLUE} "=== 创建前端服务 (ai-ken-frontend) ==="
+
+FRONTEND_SERVICE="/etc/systemd/system/ai-ken-frontend.service"
+
+print_message ${BLUE} "创建服务文件: $FRONTEND_SERVICE"
+
+sudo tee $FRONTEND_SERVICE > /dev/null <<EOF
+[Unit]
+Description=AI-KEN Frontend Service (Nginx)
+After=network.target ai-ken-backend.service
+Requires=ai-ken-backend.service
+
+[Service]
+Type=forking
+PIDFile=/run/nginx.pid
+ExecStartPre=/usr/sbin/nginx -t
+ExecStart=/usr/sbin/nginx
+ExecReload=/usr/sbin/nginx -s reload
+ExecStop=/bin/kill -s QUIT \$MAINPID
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if [ $? -eq 0 ]; then
+    print_message ${GREEN} "前端服务文件创建成功"
+else
+    print_message ${RED} "错误: 前端服务文件创建失败"
+    exit 1
+fi
+
+# ==================== 重新加载 Systemd 配置 ====================
+print_message ${BLUE} "重新加载 systemd 配置..."
 sudo systemctl daemon-reload
 
 if [ $? -eq 0 ]; then
-    print_message ${GREEN} "systemd配置重新加载成功"
+    print_message ${GREEN} "systemd 配置重新加载成功"
 else
-    print_message ${RED} "错误: systemd配置重新加载失败"
+    print_message ${RED} "错误: systemd 配置重新加载失败"
     exit 1
 fi
 
-# 启用服务（开机自启）
-print_message ${BLUE} "启用服务（设置开机自启）..."
-sudo systemctl enable ai-ken.service
+# ==================== 停止并清理旧服务 ====================
+print_message ${BLUE} "=== 停止并清理旧服务 ==="
 
-if [ $? -eq 0 ]; then
-    print_message ${GREEN} "服务已启用（开机自启）"
-else
-    print_message ${RED} "错误: 服务启用失败"
-    exit 1
+# 停止旧服务（如果存在）
+if sudo systemctl list-unit-files | grep -q "^ai-ken.service"; then
+    print_message ${YELLOW} "检测到旧版 ai-ken.service，正在停止并禁用..."
+    sudo systemctl stop ai-ken.service 2>/dev/null || true
+    sudo systemctl disable ai-ken.service 2>/dev/null || true
+    sudo rm -f /etc/systemd/system/ai-ken.service
+    print_message ${GREEN} "旧版服务已清理"
 fi
 
-# 如果服务正在运行，先停止它
-if sudo systemctl is-active --quiet ai-ken.service; then
-    print_message ${BLUE} "停止现有服务..."
-    sudo systemctl stop ai-ken.service
-fi
-
-# 清理可能存在的旧进程
-print_message ${BLUE} "清理可能存在的旧进程..."
-pkill -f "app.py" || true
+# 停止可能正在运行的进程
+pkill -f "app.py" 2>/dev/null || true
 sleep 2
 
-# 启动服务
-print_message ${BLUE} "启动服务..."
-sudo systemctl start ai-ken.service
+# ==================== 启用并启动新服务 ====================
+print_message ${BLUE} "=== 启用并启动服务 ==="
 
-# 等待服务启动
-print_message ${BLUE} "等待服务启动 (3秒)..."
-sleep 3
+# 启用后端服务
+print_message ${BLUE} "启用后端服务 (ai-ken-backend)..."
+sudo systemctl enable ai-ken-backend.service
 
-# 检查服务是否成功启动
-if sudo systemctl is-active --quiet ai-ken.service; then
-    print_message ${GREEN} "服务启动成功"
+# 启用前端服务
+print_message ${BLUE} "启用前端服务 (ai-ken-frontend)..."
+sudo systemctl enable ai-ken-frontend.service
+
+# 启动后端服务
+print_message ${BLUE} "启动后端服务..."
+sudo systemctl start ai-ken-backend.service
+
+# 等待后端启动
+print_message ${BLUE} "等待后端服务启动 (5秒)..."
+sleep 5
+
+# 检查后端服务状态
+if sudo systemctl is-active --quiet ai-ken-backend.service; then
+    print_message ${GREEN} "后端服务启动成功"
 else
-    print_message ${RED} "错误: 服务启动失败，查看日志："
-    sudo journalctl -u ai-ken.service --no-pager -n 20
+    print_message ${RED} "错误: 后端服务启动失败，查看日志："
+    sudo journalctl -u ai-ken-backend.service --no-pager -n 20
     exit 1
 fi
 
-# 检查服务状态
-print_message ${BLUE} "检查服务状态..."
-sudo systemctl status ai-ken.service --no-pager -l
+# 启动前端服务（Nginx）
+print_message ${BLUE} "启动前端服务 (Nginx)..."
+sudo systemctl start ai-ken-frontend.service
 
-print_message ${GREEN} "=== 服务注册完成（包含代理配置） ==="
-print_message ${GREEN} "服务名称: ai-ken"
-print_message ${GREEN} "端口: 5001"
-print_message ${GREEN} "项目路径: $PROJECT_DIR"
-print_message ${GREEN} "Python路径: $PYTHON_PATH"
-print_message ${GREEN} "HTTP代理: $PROXY_HTTP"
-print_message ${GREEN} "HTTPS代理: $PROXY_HTTPS"
-print_message ${GREEN} "前端模式: Vue3 生产模式 (frontend/dist)"
+# 等待前端启动
+sleep 2
+
+# 检查前端服务状态
+if sudo systemctl is-active --quiet ai-ken-frontend.service; then
+    print_message ${GREEN} "前端服务启动成功"
+else
+    print_message ${RED} "错误: 前端服务启动失败，查看日志："
+    sudo journalctl -u ai-ken-frontend.service --no-pager -n 20
+    exit 1
+fi
+
+# ==================== 服务状态检查 ====================
+print_message ${BLUE} "=== 服务状态检查 ==="
+
+print_message ${BLUE} "后端服务状态:"
+sudo systemctl status ai-ken-backend.service --no-pager -l
+
+echo ""
+print_message ${BLUE} "前端服务状态:"
+sudo systemctl status ai-ken-frontend.service --no-pager -l
+
+# ==================== 完成提示 ====================
+echo ""
+print_message ${GREEN} "=========================================="
+print_message ${GREEN} "=== 前后端分离部署完成 ==="
+print_message ${GREEN} "=========================================="
+echo ""
+print_message ${GREEN} "服务信息:"
+print_message ${GREEN} "  后端服务: ai-ken-backend"
+print_message ${GREEN} "    - 端口: 5001 (仅监听 127.0.0.1)"
+print_message ${GREEN} "    - 路径: $PROJECT_DIR"
+print_message ${GREEN} "    - Python: $PYTHON_PATH"
+print_message ${GREEN} ""
+print_message ${GREEN} "  前端服务: ai-ken-frontend"
+print_message ${GREEN} "    - 端口: 5002"
+print_message ${GREEN} "    - Nginx: 提供静态文件 + API 代理"
+print_message ${GREEN} "    - 静态文件: $PROJECT_DIR/frontend/dist"
+print_message ${GREEN} ""
+print_message ${GREEN} "访问地址:"
+print_message ${GREEN} "  前端: http://$(hostname -I | awk '{print $1}'):5002"
+print_message ${GREEN} "  API : http://$(hostname -I | awk '{print $1}'):5002/api/"
+print_message ${GREEN} ""
+print_message ${GREEN} "代理配置:"
+print_message ${GREEN} "  HTTP代理:  $PROXY_HTTP"
+print_message ${GREEN} "  HTTPS代理: $PROXY_HTTPS"
 print_message ${GREEN} ""
 print_message ${GREEN} "常用管理命令:"
-print_message ${GREEN} "  启动服务: sudo systemctl start ai-ken"
-print_message ${GREEN} "  停止服务: sudo systemctl stop ai-ken" 
-print_message ${GREEN} "  重启服务: sudo systemctl restart ai-ken"
-print_message ${GREEN} "  查看状态: sudo systemctl status ai-ken"
-print_message ${GREEN} "  查看日志: sudo journalctl -u ai-ken -f"
+print_message ${GREEN} "  查看状态:"
+print_message ${GREEN} "    sudo systemctl status ai-ken-backend"
+print_message ${GREEN} "    sudo systemctl status ai-ken-frontend"
 print_message ${GREEN} ""
-print_message ${YELLOW} "注意: 如果代理设置不正确，可能需要修改服务文件中的代理配置"
+print_message ${GREEN} "  启动服务:"
+print_message ${GREEN} "    sudo systemctl start ai-ken-backend"
+print_message ${GREEN} "    sudo systemctl start ai-ken-frontend"
+print_message ${GREEN} ""
+print_message ${GREEN} "  停止服务:"
+print_message ${GREEN} "    sudo systemctl stop ai-ken-backend"
+print_message ${GREEN} "    sudo systemctl stop ai-ken-frontend"
+print_message ${GREEN} ""
+print_message ${GREEN} "  重启服务:"
+print_message ${GREEN} "    sudo systemctl restart ai-ken-backend"
+print_message ${GREEN} "    sudo systemctl restart ai-ken-frontend"
+print_message ${GREEN} ""
+print_message ${GREEN} "  查看日志:"
+print_message ${GREEN} "    sudo journalctl -u ai-ken-backend -f"
+print_message ${GREEN} "    sudo journalctl -u ai-ken-frontend -f"
+print_message ${GREEN} ""
+print_message ${YELLOW} "注意:"
+print_message ${YELLOW} "  1. 后端服务仅监听 127.0.0.1:5001，外部访问需通过 Nginx (5002端口)"
+print_message ${YELLOW} "  2. Nginx 配置了 API 代理，所有 /api/* 请求会转发到后端"
+print_message ${YELLOW} "  3. 前端服务依赖于后端服务，启动时会自动启动后端"
+print_message ${YELLOW} "  4. 如需修改代理配置，编辑服务文件后执行: sudo systemctl daemon-reload"
