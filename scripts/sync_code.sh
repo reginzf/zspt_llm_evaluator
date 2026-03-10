@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# AI-KEN Code Synchronization Script (前后端分离版本)
+# 用于同步代码并重启 ai-ken-backend 和 ai-ken-frontend 服务
+
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -92,29 +95,133 @@ restore_configs() {
     done
 }
 
-# Function to restart the service
-restart_service() {
-    log_step "Restarting ai-ken service..."
+# Function to check if frontend code changed
+frontend_changed() {
+    # Check if there are changes in frontend directory since last sync
+    if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q "^frontend/"; then
+        return 0  # true - frontend changed
+    fi
+    return 1  # false - frontend not changed
+}
+
+# Function to rebuild frontend
+rebuild_frontend() {
+    log_step "Rebuilding frontend..."
     
-    sudo systemctl restart ai-ken
+    if [ ! -d "frontend" ]; then
+        log_warn "Frontend directory not found, skipping rebuild"
+        return
+    fi
+    
+    cd frontend
+    
+    # Check if node_modules exists
+    if [ ! -d "node_modules" ]; then
+        log_warn "node_modules not found, running npm install..."
+        npm install
+        if [ $? -ne 0 ]; then
+            log_error "npm install failed"
+            cd ..
+            return 1
+        fi
+    fi
+    
+    # Build frontend
+    log_info "Building frontend..."
+    npm run build-only
+    
+    if [ $? -eq 0 ]; then
+        log_info "Frontend built successfully"
+    else
+        log_error "Frontend build failed"
+        cd ..
+        return 1
+    fi
+    
+    cd ..
+}
+
+# Function to restart backend service
+restart_backend() {
+    log_step "Restarting ai-ken-backend service..."
+    
+    sudo systemctl restart ai-ken-backend
     
     # Wait a moment for service to restart
-    sleep 5
+    sleep 3
     
-    if systemctl is-active --quiet ai-ken; then
-        log_info "ai-ken service restarted successfully"
-        log_info "Service status:"
-        sudo systemctl status ai-ken --no-pager -l
+    if systemctl is-active --quiet ai-ken-backend; then
+        log_info "ai-ken-backend service restarted successfully"
     else
-        log_error "Failed to restart ai-ken service"
-        sudo journalctl -u ai-ken --no-pager -l
-        exit 1
+        log_error "Failed to restart ai-ken-backend service"
+        sudo journalctl -u ai-ken-backend --no-pager -n 20
+        return 1
     fi
+}
+
+# Function to restart frontend service
+restart_frontend() {
+    log_step "Restarting ai-ken-frontend service..."
+    
+    sudo systemctl restart ai-ken-frontend
+    
+    # Wait a moment for service to restart
+    sleep 2
+    
+    if systemctl is-active --quiet ai-ken-frontend; then
+        log_info "ai-ken-frontend service restarted successfully"
+    else
+        log_error "Failed to restart ai-ken-frontend service"
+        sudo journalctl -u ai-ken-frontend --no-pager -n 20
+        return 1
+    fi
+}
+
+# Function to restart services (both backend and frontend)
+restart_services() {
+    log_step "Restarting services..."
+    
+    # Restart backend first
+    restart_backend
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    # Check if frontend code changed or FORCE_REBUILD is set
+    if [ -n "$FORCE_REBUILD" ] || frontend_changed; then
+        log_info "Frontend code changed or FORCE_REBUILD set, rebuilding..."
+        rebuild_frontend
+        if [ $? -ne 0 ]; then
+            log_warn "Frontend rebuild failed, but backend is running"
+        fi
+    else
+        log_info "Frontend code not changed, skipping rebuild"
+    fi
+    
+    # Restart frontend (Nginx)
+    restart_frontend
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    log_info "All services restarted successfully"
+}
+
+# Function to show service status
+show_status() {
+    log_step "Service status:"
+    echo ""
+    echo "=== Backend Service ==="
+    sudo systemctl status ai-ken-backend --no-pager -l
+    echo ""
+    echo "=== Frontend Service ==="
+    sudo systemctl status ai-ken-frontend --no-pager -l
 }
 
 # Main function
 main() {
     log_info "Starting code synchronization process..."
+    log_info "Mode: 前后端分离部署"
     
     # Check if we're in a git repository
     if [ ! -d ".git" ] && [ ! -f ".git" ]; then
@@ -153,9 +260,6 @@ main() {
     
     log_info "Current remote URL: $remote_url"
     
-    # Store the original remote URL
-    original_remote_url="$remote_url"
-    
     # Fetch from the origin remote directly since credentials are configured
     log_step "Fetching latest code from remote repository..."
     if git fetch origin; then
@@ -177,13 +281,26 @@ main() {
     # Restore configuration files
     restore_configs
     
-    # Skip updating dependencies to avoid potential conflicts
+    # Restart services (backend + frontend)
+    restart_services
+    if [ $? -ne 0 ]; then
+        log_error "Service restart failed"
+        exit 1
+    fi
     
-    # Restart the service
-    restart_service
+    # Show final status
+    show_status
     
     log_info "Code synchronization completed successfully!"
-    log_info "Project is now running with latest code."
+    log_info ""
+    log_info "Services status:"
+    log_info "  - Backend (ai-ken-backend): http://127.0.0.1:5001"
+    log_info "  - Frontend (ai-ken-frontend): http://<server_ip>:5002"
+    log_info ""
+    log_info "Tips:"
+    log_info "  - Set FORCE_REBUILD=1 to force frontend rebuild"
+    log_info "  - Use 'sudo journalctl -u ai-ken-backend -f' to view backend logs"
+    log_info "  - Use 'sudo journalctl -u ai-ken-frontend -f' to view frontend logs"
 }
 
 # Run main function with error handling
