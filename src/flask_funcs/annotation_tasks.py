@@ -255,11 +255,21 @@ def get_local_knowledge_list():
             
             result = []
             for kb in knowledge_list:
+                # 表结构: id, kno_id, kno_name, kno_describe, kno_path, ls_status, 
+                #        created_at, updated_at, knowledge_domain, domain_description,
+                #        required_background, required_skills
                 result.append({
-                    'knowledge_id': kb[1],  # kno_id
-                    'knowledge_name': kb[2],  # kno_name
-                    'kno_describe': kb[3] if len(kb) > 2 else '',
-                    'kno_path': kb[4] if len(kb) > 3 else ''
+                    'kno_id': kb[1],  # kno_id
+                    'kno_name': kb[2],  # kno_name
+                    'kno_describe': kb[3] if len(kb) > 3 else '',  # kno_describe
+                    'kno_path': kb[4] if len(kb) > 4 else '',  # kno_path
+                    'ls_status': kb[5] if len(kb) > 5 else 0,  # ls_status
+                    'created_at': kb[6].isoformat() if len(kb) > 6 and kb[6] else None,  # created_at
+                    'updated_at': kb[7].isoformat() if len(kb) > 7 and kb[7] else None,  # updated_at
+                    'knowledge_domain': kb[8] if len(kb) > 8 else '',  # knowledge_domain
+                    'domain_description': kb[9] if len(kb) > 9 else '',  # domain_description
+                    'required_background': kb[10] if len(kb) > 10 else [],  # required_background (JSON)
+                    'required_skills': kb[11] if len(kb) > 11 else [],  # required_skills (JSON)
                 })
             
             return jsonify({
