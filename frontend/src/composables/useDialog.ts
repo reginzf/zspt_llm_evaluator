@@ -19,6 +19,9 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
   const formRef = ref<FormInstance>()
   
   const form = reactive<T>({ ...defaultForm })
+  
+  // 按钮加载状态
+  const confirmLoading = ref<boolean>(false)
 
   /**
    * 显示创建对话框
@@ -74,7 +77,8 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
     formRef.value?.resetFields()
   }
 
-  return {
+  // 使用 reactive 包装返回对象，确保模板中访问时会自动解包 ref
+  return reactive({
     visible,
     isEdit,
     editId,
@@ -85,8 +89,9 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
     showEdit,
     close,
     submit,
-    reset
-  }
+    reset,
+    confirmLoading
+  })
 }
 
 export type UseDialogReturn<T extends Record<string, any> = Record<string, any>> = ReturnType<typeof useDialog<T>>
