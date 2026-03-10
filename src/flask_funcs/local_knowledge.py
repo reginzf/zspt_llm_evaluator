@@ -41,6 +41,7 @@ def local_knowledge():
 
 
 @local_knowledge_bp.route('/local_knowledge/list', methods=['GET'])
+@local_knowledge_bp.route('/api/local_knowledge/list', methods=['GET'])
 def local_knowledge_list():
     """获取本地知识库列表（JSON API）"""
     try:
@@ -82,6 +83,7 @@ def local_knowledge_list():
 
 
 @local_knowledge_bp.route('/local_knowledge/create', methods=['POST'])
+@local_knowledge_bp.route('/api/local_knowledge/create', methods=['POST'])
 def local_knowledge_create():
     """创建本地知识库"""
     knowledge_path = None

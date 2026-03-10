@@ -15,6 +15,7 @@ knowledge_base_bp = Blueprint('knowledge_base', __name__)
 
 
 @knowledge_base_bp.route('/knowledge_base/list', methods=['GET'])
+@knowledge_base_bp.route('/api/knowledge_base/list', methods=['GET'])
 def knowledge_base_list():
     """获取知识库列表"""
     try:
@@ -35,6 +36,7 @@ def knowledge_base_list():
 
 
 @knowledge_base_bp.route('/knowledge_base/create', methods=['POST'])
+@knowledge_base_bp.route('/api/knowledge_base/create', methods=['POST'])
 def knowledge_base_create():
     """创建知识库"""
     try:
@@ -96,6 +98,7 @@ def knowledge_base_create():
 
 
 @knowledge_base_bp.route('/knowledge_base/update/<knowledge_id>', methods=['PUT'])
+@knowledge_base_bp.route('/api/knowledge_base/update/<knowledge_id>', methods=['PUT'])
 def knowledge_base_update(knowledge_id):
     """更新知识库"""
     try:
@@ -114,6 +117,7 @@ def knowledge_base_update(knowledge_id):
 
 
 @knowledge_base_bp.route('/knowledge_base/delete/<knowledge_id>', methods=['DELETE'])
+@knowledge_base_bp.route('/api/knowledge_base/delete/<knowledge_id>', methods=['DELETE'])
 def knowledge_base_delete(knowledge_id):
     """删除知识库"""
     try:

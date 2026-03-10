@@ -86,7 +86,7 @@ export interface LabelStudioEnv {
  * 获取本地知识库列表
  */
 export async function getLocalKnowledgeList(): Promise<ApiResponse<LocalKnowledge[]>> {
-  return legacyGet<ApiResponse<LocalKnowledge[]>>('/local_knowledge/list')
+  return legacyGet<ApiResponse<LocalKnowledge[]>>('/api/local_knowledge/list')
 }
 
 /**
@@ -96,7 +96,7 @@ export async function createLocalKnowledge(data: {
   kno_name: string
   kno_describe?: string
 }): Promise<ApiResponse<{ kno_id: string }>> {
-  return legacyPost<ApiResponse<{ kno_id: string }>>('/local_knowledge/create', data)
+  return legacyPost<ApiResponse<{ kno_id: string }>>('/api/local_knowledge/create', data)
 }
 
 /**
@@ -111,14 +111,14 @@ export async function updateLocalKnowledge(data: {
   required_background?: string[]
   required_skills?: string[]
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/local_knowledge/edit', data)
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge/edit', data)
 }
 
 /**
  * 删除本地知识库
  */
 export async function deleteLocalKnowledge(knoId: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>(`/local_knowledge/delete/${knoId}`)
+  return legacyDel<ApiResponse<void>>(`/api/local_knowledge/delete/${knoId}`)
 }
 
 // ============ 知识库详情 API ============
@@ -137,7 +137,7 @@ export async function getKnowledgeFiles(knoId: string, knoName: string): Promise
  * 获取知识库绑定状态
  */
 export async function getKnowledgeBindings(knoId: string): Promise<ApiResponse<KnowledgeBinding[]>> {
-  return legacyGet<ApiResponse<KnowledgeBinding[]>>(`/local_knowledge/bindings/${knoId}`)
+  return legacyGet<ApiResponse<KnowledgeBinding[]>>(`/api/local_knowledge/bindings/${knoId}`)
 }
 
 /**
@@ -149,7 +149,7 @@ export async function bindKnowledge(data: {
   operation: 'bind' | 'unbind' | 'update'
   status?: number
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/local_knowledge/bind', {
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge/bind', {
     local_kno_id: data.kno_id,
     kb_id: data.knowledge_id,
     action: data.operation,
@@ -305,7 +305,7 @@ export async function getAnnotationTaskList(params?: {
  * 获取 Label-Studio 环境列表
  */
 export async function getLabelStudioEnvs(): Promise<ApiResponse<LabelStudioEnv[]>> {
-  return legacyGet<ApiResponse<LabelStudioEnv[]>>('/label_studio_env/list/')
+  return legacyGet<ApiResponse<LabelStudioEnv[]>>('/api/label_studio_env/list/')
 }
 
 /**
@@ -376,7 +376,7 @@ export async function createLabelStudioEnv(data: {
   label_studio_url: string
   label_studio_token?: string
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/label_studio_env/create/', data)
+  return legacyPost<ApiResponse<void>>('/api/label_studio_env/create/', data)
 }
 
 /**
@@ -387,14 +387,14 @@ export async function updateLabelStudioEnv(data: {
   label_studio_url?: string
   label_studio_token?: string
 }): Promise<ApiResponse<void>> {
-  return legacyPut<ApiResponse<void>>('/label_studio_env/update/', data)
+  return legacyPut<ApiResponse<void>>('/api/label_studio_env/update/', data)
 }
 
 /**
  * 删除 Label-Studio 环境
  */
 export async function deleteLabelStudioEnv(labelStudioId: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>('/label_studio_env/delete/', {
+  return legacyDel<ApiResponse<void>>('/api/label_studio_env/delete/', {
     data: { label_studio_id: labelStudioId }
   })
 }

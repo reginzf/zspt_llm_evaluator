@@ -182,6 +182,7 @@ def upload_local_knowledge():
 
 
 @local_knowledge_detail_bp.route('/local_knowledge/bind', methods=['POST'])
+@local_knowledge_detail_bp.route('/api/local_knowledge/bind', methods=['POST'])
 def local_knowledge_bind():
     data = request.get_json()  # 获取请求数据
     # 验证必要参数

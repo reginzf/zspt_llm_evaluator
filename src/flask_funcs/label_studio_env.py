@@ -58,6 +58,7 @@ def label_studio_env():
 
 
 @label_studio_env_bp.route('/label_studio_env/create/', methods=['POST'])
+@label_studio_env_bp.route('/api/label_studio_env/create/', methods=['POST'])
 def label_studio_env_create():
     data = request.get_json()
 
@@ -82,6 +83,7 @@ def label_studio_env_create():
 
 
 @label_studio_env_bp.route('/label_studio_env/list/', methods=['GET'])
+@label_studio_env_bp.route('/api/label_studio_env/list/', methods=['GET'])
 def label_studio_env_list():
     try:
         # 获取查询参数
@@ -97,6 +99,7 @@ def label_studio_env_list():
 
 
 @label_studio_env_bp.route('/label_studio_env/update/', methods=['PUT'])
+@label_studio_env_bp.route('/api/label_studio_env/update/', methods=['PUT'])
 def label_studio_env_update():
     data = request.get_json()
     # 检查必要字段
@@ -121,6 +124,7 @@ def label_studio_env_update():
 
 
 @label_studio_env_bp.route('/label_studio_env/delete/', methods=['DELETE'])
+@label_studio_env_bp.route('/api/label_studio_env/delete/', methods=['DELETE'])
 def label_studio_env_delete():
     data = request.get_json()
 

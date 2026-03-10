@@ -23,7 +23,7 @@ export interface Environment {
  * 获取环境列表
  */
 export async function getEnvironmentList(): Promise<ApiResponse<Environment[]>> {
-  return legacyGet<ApiResponse<Environment[]>>('/environment/list/')
+  return legacyGet<ApiResponse<Environment[]>>('/api/environment/list/')
 }
 
 /**
@@ -37,7 +37,7 @@ export async function createEnvironment(data: {
   username: string
   password: string
 }): Promise<ApiResponse<{ zlpt_base_id: string }>> {
-  return legacyPost<ApiResponse<{ zlpt_base_id: string }>>('/environment/create/', data)
+  return legacyPost<ApiResponse<{ zlpt_base_id: string }>>('/api/environment/create/', data)
 }
 
 /**
@@ -52,14 +52,14 @@ export async function updateEnvironment(data: {
   username?: string
   password?: string
 }): Promise<ApiResponse<void>> {
-  return legacyPut<ApiResponse<void>>('/environment/update/', data)
+  return legacyPut<ApiResponse<void>>('/api/environment/update/', data)
 }
 
 /**
  * 删除环境
  */
 export async function deleteEnvironment(envId: string): Promise<ApiResponse<void>> {
-  return legacyDel<ApiResponse<void>>('/environment/delete/', {
+  return legacyDel<ApiResponse<void>>('/api/environment/delete/', {
     data: { zlpt_base_id: envId }
   })
 }
@@ -89,7 +89,7 @@ export async function getEnvironmentKnowledgeBases(
     params.search_field = searchField
     params.search_value = searchValue
   }
-  return legacyPost<ApiResponse<KnowledgeBase[]>>('/environment_detail_list', params)
+  return legacyPost<ApiResponse<KnowledgeBase[]>>('/api/environment_detail_list', params)
 }
 
 /**

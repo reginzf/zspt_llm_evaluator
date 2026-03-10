@@ -25,14 +25,14 @@ export interface ReportListResponse {
  * 获取报告列表
  */
 export async function getReportList(): Promise<ReportListResponse> {
-  return legacyGet<ReportListResponse>('/report_list/data')
+  return legacyGet<ReportListResponse>('/api/report_list/data')
 }
 
 /**
  * 获取报告详情
  */
 export async function getReportDetail(filename: string): Promise<string> {
-  const response = await fetch(`/report/${filename}`)
+  const response = await fetch(`/api/report/${filename}`)
   if (!response.ok) {
     throw new Error('获取报告失败')
   }

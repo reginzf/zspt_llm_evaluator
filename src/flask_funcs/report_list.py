@@ -45,6 +45,7 @@ def list_reports():
 
 
 @report_list_bp.route('/report_list/data')
+@report_list_bp.route('/api/report_list/data')
 def list_reports_data():
     """从 MinIO 获取 reports 目录下的报告文件列表（JSON API供Vue前端使用）"""
     try:

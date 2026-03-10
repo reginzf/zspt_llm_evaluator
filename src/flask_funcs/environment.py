@@ -63,6 +63,7 @@ def environment():
 
 
 @environment_bp.route('/environment/create/', methods=['POST'])
+@environment_bp.route('/api/environment/create/', methods=['POST'])
 def environment_create():
     data = request.get_json()
 
@@ -104,7 +105,8 @@ def environment_create():
     )
 
 
-@environment_bp.route('/environment/list/', methods=['GET'])  # todo 前端未实现
+@environment_bp.route('/environment/list/', methods=['GET'])
+@environment_bp.route('/api/environment/list/', methods=['GET'])
 def environment_list():
     try:
         # 获取查询参数
@@ -120,6 +122,7 @@ def environment_list():
 
 
 @environment_bp.route('/environment/update/', methods=['PUT'])
+@environment_bp.route('/api/environment/update/', methods=['PUT'])
 def environment_update():
     data = request.get_json()
     # 检查必要字段
@@ -145,6 +148,7 @@ def environment_update():
 
 
 @environment_bp.route('/environment/delete/', methods=['DELETE'])
+@environment_bp.route('/api/environment/delete/', methods=['DELETE'])
 def environment_delete():
     data = request.get_json()
 
@@ -203,6 +207,7 @@ def environment_detail_page():
 
 
 @environment_bp.route('/environment_detail_list', methods=['POST'])
+@environment_bp.route('/api/environment_detail_list', methods=['POST'])
 def environment_detail_list():
     try:
         data = request.get_json()  # 至少要包含zlpt_base_id，可选包含search_field和search_value
