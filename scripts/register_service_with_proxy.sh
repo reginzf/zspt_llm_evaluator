@@ -80,128 +80,134 @@ if [ -z "$PROXY_HTTP" ] && [ -z "$PROXY_HTTPS" ]; then
 fi
 
 # ==================== 初始化：Node.js 安装/升级 ====================
-print_message ${BLUE} "=== 检查并安装/升级 Node.js ==="
+# 可以通过设置 SKIP_NODE_INSTALL=1 来跳过 Node.js 安装检查
+if [ -z "$SKIP_NODE_INSTALL" ]; then
+    print_message ${BLUE} "=== 检查并安装/升级 Node.js ==="
 
-# 需要的 Node.js 版本
-REQUIRED_NODE_VERSION="20"
-NEED_INSTALL_NODE=false
+    # 需要的 Node.js 版本
+    REQUIRED_NODE_VERSION="20"
+    NEED_INSTALL_NODE=false
 
-# 检查 Node.js 是否已安装
-if command -v node &> /dev/null; then
-    CURRENT_NODE_VERSION=$(node --version)
-    print_message ${YELLOW} "当前 Node.js 版本: $CURRENT_NODE_VERSION"
-    
-    # 提取主版本号
-    CURRENT_MAJOR=$(echo $CURRENT_NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-    
-    if [ "$CURRENT_MAJOR" -lt "$REQUIRED_NODE_VERSION" ]; then
-        print_message ${YELLOW} "Node.js 版本过低，需要升级到 ${REQUIRED_NODE_VERSION}.x"
-        NEED_INSTALL_NODE=true
+    # 检查 Node.js 是否已安装
+    if command -v node &> /dev/null; then
+        CURRENT_NODE_VERSION=$(node --version)
+        print_message ${YELLOW} "当前 Node.js 版本: $CURRENT_NODE_VERSION"
+        
+        # 提取主版本号
+        CURRENT_MAJOR=$(echo $CURRENT_NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+        
+        if [ "$CURRENT_MAJOR" -lt "$REQUIRED_NODE_VERSION" ]; then
+            print_message ${YELLOW} "Node.js 版本过低，需要升级到 ${REQUIRED_NODE_VERSION}.x"
+            NEED_INSTALL_NODE=true
+        else
+            print_message ${GREEN} "Node.js 版本符合要求: $CURRENT_NODE_VERSION"
+        fi
     else
-        print_message ${GREEN} "Node.js 版本符合要求: $CURRENT_NODE_VERSION"
+        print_message ${YELLOW} "Node.js 未安装，开始安装..."
+        NEED_INSTALL_NODE=true
     fi
-else
-    print_message ${YELLOW} "Node.js 未安装，开始安装..."
-    NEED_INSTALL_NODE=true
-fi
 
-# 安装/升级 Node.js
-if [ "$NEED_INSTALL_NODE" = true ]; then
-    print_message ${BLUE} "彻底清理旧版本 Node.js..."
-    
-    # 完全卸载旧版本
-    sudo yum remove -y nodejs npm nodesource-release || true
-    sudo yum autoremove -y || true
-    
-    # 删除所有 NodeSource 仓库配置
-    sudo rm -rf /etc/yum.repos.d/nodesource*.repo
-    sudo rm -rf /etc/yum.repos.d/nodesource-*.repo
-    
-    # 清理 yum 缓存
-    print_message ${BLUE} "清理 yum 缓存..."
-    sudo yum clean all
-    sudo yum makecache
-    
-    # 删除旧的可执行文件
-    sudo rm -f /usr/bin/node
-    sudo rm -f /usr/bin/npm
-    sudo rm -f /usr/local/bin/node
-    sudo rm -f /usr/local/bin/npm
-    
-    print_message ${BLUE} "使用 NodeSource 安装 Node.js 20.x..."
-    
-    # 设置代理（如果有）用于下载 NodeSource 安装脚本
-    CURL_PROXY_ARG=""
-    if [ -n "$PROXY_HTTP" ]; then
-        CURL_PROXY_ARG="--proxy $PROXY_HTTP"
-    fi
-    
-    # 下载并运行 NodeSource 安装脚本
-    print_message ${BLUE} "配置 NodeSource 仓库..."
-    curl $CURL_PROXY_ARG -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-    
-    # 再次清理缓存，确保使用新仓库
-    sudo yum clean all
-    sudo yum makecache
-    
-    # 安装 Node.js
-    print_message ${BLUE} "安装 Node.js 20.x..."
-    sudo yum install -y nodejs
-    
-    # 验证安装
-    NODE_VERSION=$(node --version)
-    NPM_VERSION=$(npm --version)
-    print_message ${GREEN} "Node.js 安装成功: $NODE_VERSION"
-    print_message ${GREEN} "npm 安装成功: $NPM_VERSION"
-    
-    # 验证版本是否正确
-    INSTALLED_MAJOR=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-    if [ "$INSTALLED_MAJOR" -lt "$REQUIRED_NODE_VERSION" ]; then
-        print_message ${RED} "错误: Node.js 版本仍低于 ${REQUIRED_NODE_VERSION}.x，安装失败"
-        print_message ${YELLOW} "尝试使用备选方案安装..."
+    # 安装/升级 Node.js
+    if [ "$NEED_INSTALL_NODE" = true ]; then
+        print_message ${BLUE} "彻底清理旧版本 Node.js..."
         
-        # 备选方案：从官方二进制包安装
-        print_message ${BLUE} "从 Node.js 官方二进制包安装..."
+        # 完全卸载旧版本
+        sudo yum remove -y nodejs npm nodesource-release || true
+        sudo yum autoremove -y || true
         
-        # 下载并解压 Node.js 20.x
-        NODE_TARBALL="node-v20.19.0-linux-x64.tar.xz"
-        NODE_URL="https://nodejs.org/dist/v20.19.0/${NODE_TARBALL}"
+        # 删除所有 NodeSource 仓库配置
+        sudo rm -rf /etc/yum.repos.d/nodesource*.repo
+        sudo rm -rf /etc/yum.repos.d/nodesource-*.repo
         
-        cd /tmp
-        curl $CURL_PROXY_ARG -fsSL "$NODE_URL" -o "$NODE_TARBALL"
-        sudo tar -xJf "$NODE_TARBALL" -C /usr/local --strip-components=1
-        rm -f "$NODE_TARBALL"
-        cd "$PROJECT_DIR"
+        # 清理 yum 缓存
+        print_message ${BLUE} "清理 yum 缓存..."
+        sudo yum clean all
+        sudo yum makecache
         
-        # 创建符号链接
-        sudo ln -sf /usr/local/bin/node /usr/bin/node
-        sudo ln -sf /usr/local/bin/npm /usr/bin/npm
-        sudo ln -sf /usr/local/bin/npx /usr/bin/npx
+        # 删除旧的可执行文件
+        sudo rm -f /usr/bin/node
+        sudo rm -f /usr/bin/npm
+        sudo rm -f /usr/local/bin/node
+        sudo rm -f /usr/local/bin/npm
         
-        # 验证
+        print_message ${BLUE} "使用 NodeSource 安装 Node.js 20.x..."
+        
+        # 设置代理（如果有）用于下载 NodeSource 安装脚本
+        CURL_PROXY_ARG=""
+        if [ -n "$PROXY_HTTP" ]; then
+            CURL_PROXY_ARG="--proxy $PROXY_HTTP"
+        fi
+        
+        # 下载并运行 NodeSource 安装脚本
+        print_message ${BLUE} "配置 NodeSource 仓库..."
+        curl $CURL_PROXY_ARG -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+        
+        # 再次清理缓存，确保使用新仓库
+        sudo yum clean all
+        sudo yum makecache
+        
+        # 安装 Node.js
+        print_message ${BLUE} "安装 Node.js 20.x..."
+        sudo yum install -y nodejs
+        
+        # 验证安装
         NODE_VERSION=$(node --version)
         NPM_VERSION=$(npm --version)
         print_message ${GREEN} "Node.js 安装成功: $NODE_VERSION"
         print_message ${GREEN} "npm 安装成功: $NPM_VERSION"
+        
+        # 验证版本是否正确
+        INSTALLED_MAJOR=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$INSTALLED_MAJOR" -lt "$REQUIRED_NODE_VERSION" ]; then
+            print_message ${RED} "错误: Node.js 版本仍低于 ${REQUIRED_NODE_VERSION}.x，安装失败"
+            print_message ${YELLOW} "尝试使用备选方案安装..."
+            
+            # 备选方案：从官方二进制包安装
+            print_message ${BLUE} "从 Node.js 官方二进制包安装..."
+            
+            # 下载并解压 Node.js 20.x
+            NODE_TARBALL="node-v20.19.0-linux-x64.tar.xz"
+            NODE_URL="https://nodejs.org/dist/v20.19.0/${NODE_TARBALL}"
+            
+            cd /tmp
+            curl $CURL_PROXY_ARG -fsSL "$NODE_URL" -o "$NODE_TARBALL"
+            sudo tar -xJf "$NODE_TARBALL" -C /usr/local --strip-components=1
+            rm -f "$NODE_TARBALL"
+            cd "$PROJECT_DIR"
+            
+            # 创建符号链接
+            sudo ln -sf /usr/local/bin/node /usr/bin/node
+            sudo ln -sf /usr/local/bin/npm /usr/bin/npm
+            sudo ln -sf /usr/local/bin/npx /usr/bin/npx
+            
+            # 验证
+            NODE_VERSION=$(node --version)
+            NPM_VERSION=$(npm --version)
+            print_message ${GREEN} "Node.js 安装成功: $NODE_VERSION"
+            print_message ${GREEN} "npm 安装成功: $NPM_VERSION"
+        fi
+        
+        # 升级 npm 到与 Node 20 兼容的版本 (10.x)
+        print_message ${BLUE} "升级 npm 到兼容版本..."
+        if [ -n "$PROXY_HTTP" ]; then
+            npm config set proxy "$PROXY_HTTP"
+        fi
+        if [ -n "$PROXY_HTTPS" ]; then
+            npm config set https-proxy "$PROXY_HTTPS"
+        fi
+        
+        # 安装与 Node 20 兼容的 npm 10.x，而不是最新的 11.x
+        sudo npm install -g npm@10
+        print_message ${GREEN} "npm 升级完成: $(npm --version)"
     fi
+else
+    print_message ${YELLOW} "跳过 Node.js 安装检查（SKIP_NODE_INSTALL=1）"
 fi
-
-# 升级 npm 到与 Node 20 兼容的版本 (10.x)
-print_message ${BLUE} "升级 npm 到兼容版本..."
-if [ -n "$PROXY_HTTP" ]; then
-    npm config set proxy "$PROXY_HTTP"
-fi
-if [ -n "$PROXY_HTTPS" ]; then
-    npm config set https-proxy "$PROXY_HTTPS"
-fi
-
-# 安装与 Node 20 兼容的 npm 10.x，而不是最新的 11.x
-sudo npm install -g npm@10
-print_message ${GREEN} "npm 升级完成: $(npm --version)"
 
 # 检查 node 和 npm 是否可用
 if ! command -v node &> /dev/null; then
-    print_message ${RED} "错误: Node.js 未正确安装"
+    print_message ${RED} "错误: Node.js 未正确安装或未在 PATH 中"
+    print_message ${YELLOW} "提示: 如果已安装 Node.js，请确保其在 PATH 中，或设置 SKIP_NODE_INSTALL=1 跳过检查"
     exit 1
 fi
 
@@ -210,64 +216,82 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# ==================== 初始化：前端依赖安装和构建 ====================
-print_message ${BLUE} "=== 安装前端依赖并构建 ==="
+print_message ${GREEN} "Node.js 版本: $(node --version)"
+print_message ${GREEN} "npm 版本: $(npm --version)"
 
-if [ -d "$PROJECT_DIR/frontend" ]; then
-    cd "$PROJECT_DIR/frontend"
+# ==================== 初始化：前端依赖安装和构建 ====================
+# 可以通过设置 SKIP_FRONTEND_BUILD=1 来跳过前端构建（手动构建时使用）
+if [ -n "$SKIP_FRONTEND_BUILD" ]; then
+    print_message ${YELLOW} "跳过前端构建（SKIP_FRONTEND_BUILD=1）"
+    print_message ${YELLOW} "请确保 frontend/dist 目录已存在且是最新的构建结果"
+else
+    print_message ${BLUE} "=== 安装前端依赖并构建 ==="
     
-    # 配置 npm 代理（如果设置了代理）
-    if [ -n "$PROXY_HTTP" ]; then
-        print_message ${BLUE} "配置 npm HTTP 代理..."
-        npm config set proxy "$PROXY_HTTP"
-    fi
-    
-    if [ -n "$PROXY_HTTPS" ]; then
-        print_message ${BLUE} "配置 npm HTTPS 代理..."
-        npm config set https-proxy "$PROXY_HTTPS"
-    fi
-    
-    # 清理旧的构建和依赖（确保干净安装）
-    print_message ${YELLOW} "清理旧的构建文件和 node_modules..."
-    rm -rf "$PROJECT_DIR/frontend/dist"
-    rm -rf "$PROJECT_DIR/frontend/node_modules"
-    rm -f "$PROJECT_DIR/frontend/package-lock.json"
-    
-    # 安装依赖
-    print_message ${BLUE} "运行 npm install..."
-    npm install
-    
-    print_message ${GREEN} "前端依赖安装完成"
-    
-    # 构建前端
-    print_message ${BLUE} "=== 构建 Vue3 前端（生产模式）==="
-    
-    # 设置构建环境变量（生产模式 - 前后端分离）
-    export NODE_ENV=production
-    export VITE_API_BASE_URL=""  # 空字符串表示使用相对路径，Nginx会代理到后端
-    
-    print_message ${BLUE} "运行 npm run build..."
-    # 先尝试正常构建，如果失败则跳过 type-check 直接构建
-    if ! npm run build; then
-        print_message ${YELLOW} "TypeScript 检查失败，尝试跳过类型检查直接构建..."
-        npm run build-only
-    fi
-    
-    # 验证构建结果
-    if [ -d "$PROJECT_DIR/frontend/dist" ] && [ -f "$PROJECT_DIR/frontend/dist/index.html" ]; then
-        print_message ${GREEN} "前端构建成功: frontend/dist"
-        print_message ${GREEN} "构建文件列表:"
-        ls -la "$PROJECT_DIR/frontend/dist/"
+    if [ -d "$PROJECT_DIR/frontend" ]; then
+        cd "$PROJECT_DIR/frontend"
+        
+        # 配置 npm 代理（如果设置了代理）
+        if [ -n "$PROXY_HTTP" ]; then
+            print_message ${BLUE} "配置 npm HTTP 代理..."
+            npm config set proxy "$PROXY_HTTP"
+        fi
+        
+        if [ -n "$PROXY_HTTPS" ]; then
+            print_message ${BLUE} "配置 npm HTTPS 代理..."
+            npm config set https-proxy "$PROXY_HTTPS"
+        fi
+        
+        # 清理旧的构建和依赖（确保干净安装）
+        print_message ${YELLOW} "清理旧的构建文件和 node_modules..."
+        rm -rf "$PROJECT_DIR/frontend/dist"
+        rm -rf "$PROJECT_DIR/frontend/node_modules"
+        rm -f "$PROJECT_DIR/frontend/package-lock.json"
+        
+        # 安装依赖
+        print_message ${BLUE} "运行 npm install..."
+        npm install
+        
+        if [ $? -ne 0 ]; then
+            print_message ${RED} "错误: npm install 失败"
+            exit 1
+        fi
+        
+        print_message ${GREEN} "前端依赖安装完成"
+        
+        # 构建前端
+        print_message ${BLUE} "=== 构建 Vue3 前端（生产模式）==="
+        
+        # 设置构建环境变量（生产模式 - 前后端分离）
+        export NODE_ENV=production
+        export VITE_API_BASE_URL=""  # 空字符串表示使用相对路径，Nginx会代理到后端
+        
+        # 使用 npx 运行本地安装的命令
+        print_message ${BLUE} "运行 npm run build..."
+        if ! npx run-p type-check "build-only {@}" --; then
+            print_message ${YELLOW} "TypeScript 检查失败，尝试跳过类型检查直接构建..."
+            if ! npx vite build; then
+                print_message ${RED} "错误: 前端构建失败"
+                print_message ${YELLOW} "提示: 如果前端环境问题难以解决，可以手动构建后设置 SKIP_FRONTEND_BUILD=1 跳过此步骤"
+                exit 1
+            fi
+        fi
+        
+        # 验证构建结果
+        if [ -d "$PROJECT_DIR/frontend/dist" ] && [ -f "$PROJECT_DIR/frontend/dist/index.html" ]; then
+            print_message ${GREEN} "前端构建成功: frontend/dist"
+            print_message ${GREEN} "构建文件列表:"
+            ls -la "$PROJECT_DIR/frontend/dist/"
+        else
+            print_message ${RED} "错误: 前端构建失败，dist 目录或 index.html 不存在"
+            exit 1
+        fi
+        
+        # 返回项目根目录
+        cd "$PROJECT_DIR"
     else
-        print_message ${RED} "错误: 前端构建失败，dist 目录或 index.html 不存在"
+        print_message ${RED} "错误: 未找到 frontend 目录"
         exit 1
     fi
-    
-    # 返回项目根目录
-    cd "$PROJECT_DIR"
-else
-    print_message ${RED} "错误: 未找到 frontend 目录"
-    exit 1
 fi
 
 # ==================== 安装并配置 Nginx ====================
