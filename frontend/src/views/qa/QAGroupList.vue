@@ -253,7 +253,7 @@ const dialog = useDialog<{
     test_type: [{ required: true, message: '请选择测试类型', trigger: 'change' }],
     language: [{ required: true, message: '请选择语言', trigger: 'change' }]
   },
-  onSubmit: async (form, isEdit) => {
+  onSubmit: async (form, isEditMode) => {
     // 解析标签
     const tags = form.tagsInput
       .split(',')
@@ -281,12 +281,12 @@ const dialog = useDialog<{
       metadata
     }
 
-    const response = isEdit && dialog.editId.value
+    const response = isEditMode && dialog.editId.value
       ? await qaStore.updateGroup(Number(dialog.editId.value), data)
       : await qaStore.addGroup(data)
 
     if (response?.success) {
-      ElMessage.success(isEdit ? '更新成功' : '创建成功')
+      ElMessage.success(isEditMode ? '更新成功' : '创建成功')
       loadData()
     } else {
       ElMessage.error(response?.message || '操作失败')
@@ -345,6 +345,7 @@ function goToDetail(id: number) {
 
 // 编辑
 function handleEdit(row: QAGroup) {
+  console.log('[QAGroupList] handleEdit called for row:', row.id, row.name)
   dialog.showEdit({
     id: row.id,
     name: row.name,
