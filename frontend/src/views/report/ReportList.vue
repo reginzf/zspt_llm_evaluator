@@ -1,14 +1,13 @@
 <template>
   <div class="page-container">
-    <el-card v-loading="loading">
-      <template #header>
-        <div class="page-header">
-          <h2>评估报告列表</h2>
-          <el-button type="primary" @click="loadData">
-            <el-icon><Refresh /></el-icon>刷新
-          </el-button>
-        </div>
+    <PageHeader title="评估报告列表">
+      <template #extra>
+        <el-button type="primary" @click="loadData">
+          <el-icon><Refresh /></el-icon>刷新
+        </el-button>
       </template>
+    </PageHeader>
+    <el-card v-loading="loading">
 
       <!-- 目录树结构 -->
       <div v-if="Object.keys(directoryStructure).length > 0" class="directory-tree">
@@ -68,6 +67,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Folder, Document, ArrowRight, ArrowDown } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { getReportList } from '@/api/report'
 import type { Report } from '@/api/report'
 

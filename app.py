@@ -56,74 +56,121 @@ sys.stderr = DualLogger(STDERR_LOG, sys.stderr)
 # 创建Flask应用
 app = Flask(__name__)
 
-# 配置 CORS - 允许前端跨域访问（开发环境需要）
-# 生产环境建议限制为特定域名
+# 配置 CORS - 允许前端跨域访问
+# 支持从环境变量读取额外的来源，或者使用通配符*（仅开发环境）
+import os
+
+# 基础来源列表（本地开发）
+_base_origins = [
+    "http://localhost:5001",
+    "http://127.0.0.1:5001", 
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+
+# 从环境变量读取额外来源（生产环境配置）
+_extra_origins = os.environ.get('CORS_ORIGINS', '').split(',')
+_extra_origins = [o.strip() for o in _extra_origins if o.strip()]
+
+# 如果设置 CORS_ALLOW_ALL=true，则允许所有来源（仅开发环境！）
+_allow_all = os.environ.get('CORS_ALLOW_ALL', 'false').lower() == 'true'
+
+if _allow_all:
+    _cors_origins = "*"
+    print("[WARNING] CORS 已配置为允许所有来源（CORS_ALLOW_ALL=true），仅用于开发环境！")
+else:
+    _cors_origins = _base_origins + _extra_origins
+    print(f"[INFO] CORS 来源: {_cors_origins}")
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
+        "origins": _cors_origins,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
     },
     r"/local_knowledge/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/local_knowledge/upload": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["POST", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["POST", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/local_knowledge_detail/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/local_knowledge_doc/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/environment/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/environment_detail/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/environment_detail_list": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["POST", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["POST", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/label_studio_env/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/report_list/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/knowledge_base/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     },
     r"/annotation_tasks/*": {
-        "origins": ["http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:5173"],
-        "methods": ["GET", "OPTIONS"]
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
+    },
+    r"/llm/*": {
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
+    },
+    r"/qa/*": {
+        "origins": _cors_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
     }
 })
 
 # 注册蓝图 (API 路由优先)
+# 注意：前后端分离模式下，API 蓝图仍然需要注册，页面路由由 Vue 前端接管
 app.register_blueprint(qa_data_group_bp)
 app.register_blueprint(qa_data_bp)
 app.register_blueprint(llm_model_bp)
 app.register_blueprint(annotation_tasks_bp)
-# [Vue3] app.register_blueprint(knowledge_base_bp)  # 可能干扰URL路由，由Vue3接管
-# [Vue3] app.register_blueprint(local_knowledge_bp)  # 页面路由由Vue3接管
-# [Vue3] app.register_blueprint(local_knowledge_detail_bp)  # 页面路由由Vue3接管
-# [Vue3] app.register_blueprint(label_studio_env_bp)  # 页面路由由Vue3接管
-# [Vue3] app.register_blueprint(local_knowledge_question_bp)
-# [Vue3] app.register_blueprint(local_knowledge_label_studio_bp)
-# [Vue3] app.register_blueprint(local_knowledge_detail_task_bp)
-# [Vue3] app.register_blueprint(environment_bp)  # 页面路由由Vue3接管
-# [Vue3] app.register_blueprint(report_list_bp)  # 页面路由由Vue3接管
+app.register_blueprint(knowledge_base_bp)  # API 路由保留
+app.register_blueprint(local_knowledge_bp)  # API 路由保留（/local_knowledge/list 等）
+app.register_blueprint(local_knowledge_detail_bp)  # API 路由保留
+app.register_blueprint(label_studio_env_bp)  # API 路由保留
+app.register_blueprint(local_knowledge_question_bp)  # API 路由保留
+app.register_blueprint(local_knowledge_label_studio_bp)  # API 路由保留
+app.register_blueprint(local_knowledge_detail_task_bp)  # API 路由保留
+app.register_blueprint(environment_bp)  # API 路由保留
+app.register_blueprint(report_list_bp)  # API 路由保留
 app.register_blueprint(static_bp)
 app.register_blueprint(knowledge_doc_bp)
 

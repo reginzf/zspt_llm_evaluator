@@ -1,14 +1,13 @@
 <template>
   <div class="page-container">
-    <el-card v-loading="loading">
-      <template #header>
-        <div class="page-header">
-          <h2>标注任务管理</h2>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>创建任务
-          </el-button>
-        </div>
+    <PageHeader title="标注任务管理">
+      <template #extra>
+        <el-button type="primary" @click="showCreateDialog">
+          <el-icon><Plus /></el-icon>创建任务
+        </el-button>
       </template>
+    </PageHeader>
+    <el-card v-loading="loading">
 
       <!-- 搜索和筛选 -->
       <div class="action-bar">
@@ -194,6 +193,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import {
   getAnnotationTaskList,

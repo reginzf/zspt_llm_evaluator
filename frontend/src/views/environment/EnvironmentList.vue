@@ -1,11 +1,7 @@
 <template>
   <div class="page-container">
+    <PageHeader title="环境管理" />
     <el-card v-loading="loading">
-      <template #header>
-        <div class="page-header">
-          <h2>环境管理</h2>
-        </div>
-      </template>
 
       <!-- 操作栏：创建按钮 + 搜索 -->
       <div class="action-bar">
@@ -120,6 +116,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Hide } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   getEnvironmentList,
   createEnvironment,
@@ -338,17 +335,6 @@ onMounted(() => loadEnvironments())
   padding: 20px;
   background-color: #f5f7fa;
   min-height: 100vh;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  
-  h2 {
-    margin: 0;
-    color: #303133;
-  }
 }
 
 .action-bar {

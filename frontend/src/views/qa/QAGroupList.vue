@@ -1,15 +1,14 @@
 <template>
   <div class="page-container">
-    <el-card class="content-card" v-loading="loading">
-      <template #header>
-        <div class="page-header">
-          <h2>问答对组管理</h2>
-          <el-button type="primary" @click="dialog.showCreate">
-            <el-icon><Plus /></el-icon>
-            创建分组
-          </el-button>
-        </div>
+    <PageHeader title="问答对组管理">
+      <template #extra>
+        <el-button type="primary" @click="dialog.showCreate">
+          <el-icon><Plus /></el-icon>
+          创建分组
+        </el-button>
       </template>
+    </PageHeader>
+    <el-card class="content-card" v-loading="loading">
 
       <!-- 搜索和筛选区域 -->
       <FilterBar v-model="filters" :options="filterOptions" @search="handleSearch" />
@@ -175,6 +174,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import FilterBar from '@/components/common/FilterBar.vue'
 import { useQAStore } from '@/stores/qa'

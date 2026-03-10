@@ -1,14 +1,13 @@
 <template>
   <div class="page-container">
-    <el-card v-loading="loading">
-      <template #header>
-        <div class="page-header">
-          <h2>Label-Studio环境管理</h2>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>创建环境
-          </el-button>
-        </div>
+    <PageHeader title="Label-Studio环境管理">
+      <template #extra>
+        <el-button type="primary" @click="showCreateDialog">
+          <el-icon><Plus /></el-icon>创建环境
+        </el-button>
       </template>
+    </PageHeader>
+    <el-card v-loading="loading">
 
       <!-- 搜索区域 -->
       <div class="search-bar">
@@ -99,6 +98,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, View, Hide } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   getLabelStudioEnvs,
   createLabelStudioEnv,
@@ -268,17 +268,6 @@ onMounted(() => loadData())
   padding: 20px;
   background-color: #f5f7fa;
   min-height: 100vh;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  
-  h2 {
-    margin: 0;
-    color: #303133;
-  }
 }
 
 .search-bar {
