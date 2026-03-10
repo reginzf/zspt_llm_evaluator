@@ -1,4 +1,4 @@
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import type { FormInstance } from 'element-plus'
 
 /**
@@ -12,55 +12,39 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
 }) {
   const { defaultForm, rules = {}, onSubmit } = options
 
-  // 对话框显示状态
-  const _visible = ref<boolean>(false)
-  const _isEdit = ref<boolean>(false)
-  const _editId = ref<string | number>('')
+  // 对话框显示状态 - 使用普通 ref，避免 computed 的响应式问题
+  const visible = ref<boolean>(false)
+  const isEdit = ref<boolean>(false)
+  const editId = ref<string | number>('')
   const formRef = ref<FormInstance>()
   
   const form = reactive<T>({ ...defaultForm })
-
-  // 使用 computed 提供 getter/setter，支持 v-model
-  const visible = computed({
-    get: () => _visible.value,
-    set: (val: boolean) => { _visible.value = val }
-  })
-
-  const isEdit = computed({
-    get: () => _isEdit.value,
-    set: (val: boolean) => { _isEdit.value = val }
-  })
-
-  const editId = computed({
-    get: () => _editId.value,
-    set: (val: string | number) => { _editId.value = val }
-  })
 
   /**
    * 显示创建对话框
    */
   const showCreate = () => {
-    _isEdit.value = false
-    _editId.value = ''
+    isEdit.value = false
+    editId.value = ''
     Object.assign(form, defaultForm)
-    _visible.value = true
+    visible.value = true
   }
 
   /**
    * 显示编辑对话框
    */
   const showEdit = (data: T & { id?: string | number }) => {
-    _isEdit.value = true
-    _editId.value = data.id || ''
+    isEdit.value = true
+    editId.value = data.id || ''
     Object.assign(form, data)
-    _visible.value = true
+    visible.value = true
   }
 
   /**
    * 关闭对话框
    */
   const close = () => {
-    _visible.value = false
+    visible.value = false
     formRef.value?.resetFields()
   }
 
@@ -74,7 +58,7 @@ export function useDialog<T extends Record<string, any> = Record<string, any>>(o
     if (!valid) return false
 
     try {
-      await onSubmit(form as T, _isEdit.value)
+      await onSubmit(form as T, isEdit.value)
       close()
       return true
     } catch (error) {
