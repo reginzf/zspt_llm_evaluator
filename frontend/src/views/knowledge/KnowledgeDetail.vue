@@ -802,12 +802,14 @@ function handleCurrentChange(set: any) {
   // 分页切换时无需额外操作
 }
 
-async function refreshQuestionSet(set: any) {
+async function refreshQuestionSet(set: any, showMessage = true) {
   set.loading = true
   try {
     const res = await getQuestions(set.question_id, set.question_set_type || 'basic')
     set.questions = (res.data as any) || []
-    ElMessage.success('刷新成功')
+    if (showMessage) {
+      ElMessage.success('刷新成功')
+    }
   } catch (error) {
     ElMessage.error('刷新失败')
   } finally {
@@ -1349,7 +1351,7 @@ async function saveEditQuestion() {
         (s: any) => s.question_set_type === editQuestionForm.question_set_type
       )
       if (targetSet) {
-        await refreshQuestionSet(targetSet)
+        await refreshQuestionSet(targetSet, false)  // 不显示刷新成功提示
       }
     } else {
       ElMessage.error(res.message || '更新失败')
@@ -1372,7 +1374,7 @@ async function deleteQuestion(question: any, questionSetType: string) {
         (s: any) => s.question_set_type === questionSetType
       )
       if (targetSet) {
-        await refreshQuestionSet(targetSet)
+        await refreshQuestionSet(targetSet, false)  // 不显示刷新成功提示
       }
     } else {
       ElMessage.error(res.message || '删除失败')
@@ -1778,7 +1780,7 @@ watch(activeTab, (tab) => {
   
   if (tab === 'files') loadFileList()
   else if (tab === 'bindings') loadBindings()
-  else if (tab === 'questions') loadQuestionSets()  // 使用缓存，不强制刷新
+  else if (tab === 'questions') loadQuestionSets(true)  // 切换标签页时强制刷新
   else if (tab === 'annotations') { 
     // 标注标签页：加载绑定的环境（任务在展开环境时按需加载）
     loadEnvironments()

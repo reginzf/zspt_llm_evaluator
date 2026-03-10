@@ -16,6 +16,7 @@ local_knowledge_question_bp = Blueprint('local_knowledge_question', __name__)
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question_set/create', methods=['POST'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question_set/create', methods=['POST'])
 def create_question_set():
     """创建问题集"""
     try:
@@ -58,6 +59,7 @@ def create_question_set():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/set/list', methods=['GET'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/set/list', methods=['GET'])
 def get_question_set_list():
     """获取问题集列表"""
     try:
@@ -90,6 +92,7 @@ def get_question_set_list():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/set/detail', methods=['GET'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/set/detail', methods=['GET'])
 def get_question_set_detail():
     """获取问题集详情"""
     try:
@@ -119,6 +122,7 @@ def get_question_set_detail():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/set/delete', methods=['DELETE'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/set/delete', methods=['DELETE'])
 def delete_question_set():
     """删除问题集"""
     try:
@@ -154,6 +158,7 @@ def delete_question_set():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/set/update', methods=['PUT'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/set/update', methods=['PUT'])
 def update_question_set():
     """更新问题集信息"""
     try:
@@ -192,6 +197,7 @@ def update_question_set():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/create', methods=['POST'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/create', methods=['POST'])
 def create_question():
     """创建问题"""
     try:
@@ -258,6 +264,7 @@ def create_question():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/list', methods=['POST'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/list', methods=['POST'])
 def get_question_list():
     """获取问题列表 (新版本，使用JSON格式)"""
     try:
@@ -309,6 +316,7 @@ def get_question_list():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/detail', methods=['POST'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/detail', methods=['POST'])
 def get_question_detail():
     """获取问题详情 (新版本，使用JSON格式)"""
     try:
@@ -355,6 +363,7 @@ def get_question_detail():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/update', methods=['PUT'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/update', methods=['PUT'])
 def update_question():
     """更新问题"""
     try:
@@ -395,6 +404,7 @@ def update_question():
 
 
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/delete', methods=['DELETE'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question/delete', methods=['DELETE'])
 def delete_question():
     """删除问题"""
     try:
