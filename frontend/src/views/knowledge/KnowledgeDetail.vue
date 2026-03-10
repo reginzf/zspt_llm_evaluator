@@ -240,7 +240,6 @@
                   <el-table-column label="操作" width="250" fixed="right">
                     <template #default="{ row }">
                       <el-button link type="primary" size="small" @click="annotateTask(row)">标注</el-button>
-                      <el-button link type="primary" size="small" @click="showAnnotationDialog(row)">修改标注方式</el-button>
                       <el-button link type="primary" size="small" @click="syncTask(row)">同步</el-button>
                       <el-button link type="danger" size="small" @click="deleteTask(row)">删除</el-button>
                     </template>
@@ -1649,13 +1648,6 @@ async function deleteMetricTask(row: any) {
       ElMessage.error('删除任务失败')
     }
   }
-}
-
-function showAnnotationDialog(row: any) {
-  // 打开标注方式选择模态框
-  currentAnnotationTask.value = row
-  annotationType.value = row.annotation_type || 'llm'
-  showAnnotationModal.value = true
 }
 
 async function confirmAnnotationType() {
