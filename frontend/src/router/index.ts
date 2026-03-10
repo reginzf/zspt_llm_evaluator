@@ -13,6 +13,7 @@ const router = createRouter({
     },
     {
       path: '/qa/groups',
+      alias: '/qa/groups/',
       name: 'qa-groups',
       component: () => import('@/views/qa/QAGroupList.vue'),
       meta: {
@@ -37,6 +38,7 @@ const router = createRouter({
     },
     {
       path: '/llm/models',
+      alias: '/llm/models/',
       name: 'llm-models',
       component: () => import('@/views/llm/ModelList.vue'),
       meta: {
@@ -53,6 +55,7 @@ const router = createRouter({
     },
     {
       path: '/local_knowledge',
+      alias: ['/local_knowledge/', '/localKnowledge'],
       name: 'local-knowledge',
       component: () => import('@/views/knowledge/KnowledgeList.vue'),
       meta: {
@@ -69,6 +72,7 @@ const router = createRouter({
     },
     {
       path: '/environment',
+      alias: '/environment/',
       name: 'environment',
       component: () => import('@/views/environment/EnvironmentList.vue'),
       meta: {
@@ -77,6 +81,7 @@ const router = createRouter({
     },
     {
       path: '/environment_detail',
+      alias: '/environment_detail/',
       name: 'environment-detail',
       component: () => import('@/views/environment/EnvironmentDetail.vue'),
       meta: {
@@ -85,6 +90,7 @@ const router = createRouter({
     },
     {
       path: '/label_studio_env',
+      alias: '/label_studio_env/',
       name: 'label-studio-env',
       component: () => import('@/views/environment/LabelStudioEnv.vue'),
       meta: {
@@ -93,6 +99,7 @@ const router = createRouter({
     },
     {
       path: '/annotation_tasks',
+      alias: '/annotation_tasks/',
       name: 'annotation-tasks',
       component: () => import('@/views/annotation/TaskList.vue'),
       meta: {
@@ -101,6 +108,7 @@ const router = createRouter({
     },
     {
       path: '/report_list',
+      alias: '/report_list/',
       name: 'report-list',
       component: () => import('@/views/report/ReportList.vue'),
       meta: {
