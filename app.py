@@ -115,15 +115,15 @@ app.register_blueprint(qa_data_group_bp)
 app.register_blueprint(qa_data_bp)
 app.register_blueprint(llm_model_bp)
 app.register_blueprint(annotation_tasks_bp)
-app.register_blueprint(knowledge_base_bp)
-app.register_blueprint(local_knowledge_bp)
-app.register_blueprint(local_knowledge_detail_bp)
-app.register_blueprint(label_studio_env_bp)
-app.register_blueprint(local_knowledge_question_bp)
-app.register_blueprint(local_knowledge_label_studio_bp)
-app.register_blueprint(local_knowledge_detail_task_bp)
-app.register_blueprint(environment_bp)
-app.register_blueprint(report_list_bp)
+# [Vue3] app.register_blueprint(knowledge_base_bp)  # 可能干扰URL路由，由Vue3接管
+# [Vue3] app.register_blueprint(local_knowledge_bp)  # 页面路由由Vue3接管
+# [Vue3] app.register_blueprint(local_knowledge_detail_bp)  # 页面路由由Vue3接管
+# [Vue3] app.register_blueprint(label_studio_env_bp)  # 页面路由由Vue3接管
+# [Vue3] app.register_blueprint(local_knowledge_question_bp)
+# [Vue3] app.register_blueprint(local_knowledge_label_studio_bp)
+# [Vue3] app.register_blueprint(local_knowledge_detail_task_bp)
+# [Vue3] app.register_blueprint(environment_bp)  # 页面路由由Vue3接管
+# [Vue3] app.register_blueprint(report_list_bp)  # 页面路由由Vue3接管
 app.register_blueprint(static_bp)
 app.register_blueprint(knowledge_doc_bp)
 
@@ -163,7 +163,8 @@ else:
 
 # 如果使用传统模板，注册 home_bp
 if not use_vue_frontend:
-    app.register_blueprint(home_bp)
+    pass  # [Vue3] 传统模板蓝图已注释，由Vue3接管
+    # [Vue3] app.register_blueprint(home_bp)  # 页面路由由Vue3接管
 
 
 # Vue SPA 路由回退 - 所有非 API 路由返回 Vue 的 index.html
