@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flask import Flask, send_from_directory, abort
 from flask_cors import CORS
-from src.flask_funcs import environment_bp, report_list_bp, static_bp, local_knowledge_bp, \
+from src.flask_funcs import environment_bp, report_list_bp, local_knowledge_bp, \
     local_knowledge_detail_bp, label_studio_env_bp, local_knowledge_question_bp
 from src.flask_funcs.local_knowledge_detail_label_studio import local_knowledge_label_studio_bp
 from src.flask_funcs.local_knowledge_detail_task import local_knowledge_detail_task_bp
@@ -171,17 +171,6 @@ app.register_blueprint(local_knowledge_label_studio_bp)  # API 路由保留
 app.register_blueprint(local_knowledge_detail_task_bp)  # API 路由保留
 app.register_blueprint(environment_bp)  # API 路由保留
 app.register_blueprint(report_list_bp)  # API 路由保留
-app.register_blueprint(static_bp)
-
-# 设置静态文件和模板文件目录
-template_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'templates')
-statics_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'statics')
-js_dir = os.path.join(statics_dir, 'js')
-css_dir = os.path.join(statics_dir, 'css')
-
-# 更新 Flask app 的模板和静态文件配置
-app.template_folder = template_dir
-app.static_folder = statics_dir
 
 # Vue 3 前端静态文件目录
 frontend_dist_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
@@ -218,9 +207,8 @@ def serve_vue_app(path):
     - 其他所有路由返回 index.html (SPA 回退)
     """
     if not use_vue_frontend:
-        # 如果没有 Vue 构建，返回传统首页
-        from flask import render_template, url_for
-        return render_template('home.html', css_path=url_for('static_bp.custom_css', filename='styles.css'))
+        # 如果没有 Vue 构建，返回简单提示
+        return "Vue frontend not built. Please build the frontend first.", 503
     
     # API 路由不应该到达这里，因为蓝图路由优先
     # 但如果用户直接访问某个 API URL，而 API 不存在时，会走到这里

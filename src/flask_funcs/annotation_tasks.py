@@ -1,25 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.sql_funs import LabelStudioCrud, QuestionsCRUD, LocalKnowledgeCrud
 import logging
-from src.flask_funcs.reports.flask_annotation_tasks_renderer import render_annotation_tasks_page
 from env_config_init import settings
 
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 annotation_tasks_bp = Blueprint('annotation_tasks_bp', __name__)
-
-
-@annotation_tasks_bp.route('/annotation_tasks', methods=['GET'])
-def annotation_tasks_page():
-    """
-    标注任务管理页面
-    """
-    try:
-        return render_annotation_tasks_page()
-    except Exception as e:
-        logger.error(f"访问标注任务管理页面时发生错误：{str(e)}")
-        return f"<h1>页面加载错误：{str(e)}</h1>", 500
 
 
 @annotation_tasks_bp.route('/api/annotation/tasks/list', methods=['GET'])

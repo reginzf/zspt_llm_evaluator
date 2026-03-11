@@ -58,11 +58,17 @@ def index_code():
     # 收集文件
     print("\n[2/3] 扫描文件...")
     src_dir = PROJECT_ROOT / "src"
+    memory_dir = PROJECT_ROOT / ".agents" / "memory"
+    
     files = list(src_dir.rglob("*.py"))
     files.extend(src_dir.rglob("*.js"))
     files.extend(src_dir.rglob("*.ts"))
     files.extend(src_dir.rglob("*.vue"))
     files.extend(src_dir.rglob("*.md"))
+    
+    # 添加 memory 目录下的配置文档
+    if memory_dir.exists():
+        files.extend(memory_dir.rglob("*.md"))
     
     files = [f for f in files if "__pycache__" not in str(f) and ".venv" not in str(f)]
     print(f"      找到 {len(files)} 个文件")

@@ -8,7 +8,7 @@ import uuid
 import os
 import tempfile
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
@@ -257,20 +257,6 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
         _evaluation_tasks[task_id]['status'] = 'failed'
         _evaluation_tasks[task_id]['message'] = f'评估失败: {str(e)}'
         _evaluation_tasks[task_id]['error'] = str(e)
-
-
-# ==================== 页面路由 ====================
-
-@llm_model_bp.route('/llm/models')
-def llm_models_page():
-    """LLM模型管理页面"""
-    return render_template('llm_models.html')
-
-
-@llm_model_bp.route('/llm/models/<string:model_name>')
-def llm_model_detail_page(model_name):
-    """LLM模型详情页面"""
-    return render_template('llm_model_detail.html', model_name=model_name)
 
 
 # ==================== API路由 - 模型管理 ====================
@@ -804,27 +790,53 @@ def view_llm_evaluation_report(filename):
 def get_model_reports(model_name):
     """获取模型的评估报告列表"""
     try:
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 20))
-
-        offset = (page - 1) * limit
-
+        # Check if simple list mode is requested (no pagination)
+        simple_mode = request.args.get('simple', 'false').lower() == 'true'
+        
         with LLMEvaluationReportManager() as manager:
-            reports = manager.list_reports(model_name=model_name, limit=limit, offset=offset)
-            total = manager.count_reports(model_name=model_name)
+            if simple_mode:
+                # Simple mode: return all reports as array
+                reports = manager.list_reports(model_name=model_name, limit=1000, offset=0)
+                # Map database field names to frontend expected field names
+                mapped_reports = []
+                for report in reports:
+                    mapped_report = {
+                        'id': report.get('id'),
+                        'filename': report.get('report_name'),
+                        'model_name': report.get('model_name'),
+                        'created_at': report.get('created_at'),
+                        'path': report.get('report_path'),
+                        'status': report.get('status'),
+                        'exact_match': report.get('exact_match'),
+                        'f1_score': report.get('f1_score'),
+                        'semantic_similarity': report.get('semantic_similarity'),
+                        'avg_inference_time': report.get('avg_inference_time')
+                    }
+                    mapped_reports.append(mapped_report)
+                return jsonify({
+                    'success': True,
+                    'data': mapped_reports
+                })
+            else:
+                # Pagination mode: return paginated response
+                page = int(request.args.get('page', 1))
+                limit = int(request.args.get('limit', 20))
+                offset = (page - 1) * limit
+                
+                reports = manager.list_reports(model_name=model_name, limit=limit, offset=offset)
+                total = manager.count_reports(model_name=model_name)
+                pages = (total + limit - 1) // limit if limit > 0 else 0
 
-        pages = (total + limit - 1) // limit if limit > 0 else 0
-
-        return jsonify({
-            'success': True,
-            'data': {
-                'total': total,
-                'page': page,
-                'limit': limit,
-                'pages': pages,
-                'rows': reports
-            }
-        })
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'total': total,
+                        'page': page,
+                        'limit': limit,
+                        'pages': pages,
+                        'rows': reports
+                    }
+                })
 
     except Exception as e:
         logger.error(f"获取报告列表失败: {e}")

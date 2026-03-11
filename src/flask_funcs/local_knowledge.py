@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from flask import Blueprint, request, jsonify, render_template_string
+from flask import Blueprint, request, jsonify
 import os
 import logging
 
@@ -8,37 +8,13 @@ import shutil
 from env_config_init import settings
 from src.sql_funs import LocalKnowledgeCrud
 
-from src.flask_funcs.common_utils import     generate_unique_id
+from src.flask_funcs.common_utils import generate_unique_id
 
 # 创建logger
 logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_bp = Blueprint('local_knowledge', __name__)
-
-# 导入渲染器
-from src.flask_funcs.reports.flask_local_knowledge_renderer import LocalKnowledgeRendererFlask
-
-renderer = LocalKnowledgeRendererFlask()
-
-
-@local_knowledge_bp.route('/local_knowledge/')
-def local_knowledge():
-    """获取本地知识目录结构，按列表展示"""
-    try:
-        # 获取在sql ai_local_knowledge表中的数据，和本地目录中第一级目录，按名称匹配
-        # 如果有数据库中的数据则展示数据库的，否则展示本地目录的
-        with LocalKnowledgeCrud() as crud:
-            # 获取数据库中的本地知识列表
-            db_knowledge_list = crud.get_local_knowledge()
-            logger.info(f"获取数据库中的本地知识列表: {db_knowledge_list}")
-            html_content = renderer.render_local_knowledge_page(db_knowledge_list)
-
-        return html_content
-    except Exception as e:
-        logger.error(f"获取本地知识列表时发生错误: {str(e)}")
-        return "页面加载错误", 500
-
 
 @local_knowledge_bp.route('/local_knowledge/list', methods=['GET'])
 @local_knowledge_bp.route('/api/local_knowledge/list', methods=['GET'])

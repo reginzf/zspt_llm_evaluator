@@ -155,5 +155,5 @@ export async function startEvaluation(modelName: string, data: {
  * 获取评估报告列表
  */
 export async function getEvaluationReports(modelName: string): Promise<ApiResponse<EvaluationReport[]>> {
-  return get<ApiResponse<EvaluationReport[]>>(`/llm/models/${modelName}/reports`)
+  return get<ApiResponse<EvaluationReport[]>>(`/llm/models/${modelName}/reports?simple=true`)
 }

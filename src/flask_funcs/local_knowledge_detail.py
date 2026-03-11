@@ -20,51 +20,6 @@ local_knowledge_detail_bp = Blueprint('local_knowledge_detail', __name__)
 UPLOAD_DIR = 'knowledge-files'
 
 
-@local_knowledge_detail_bp.route('/local_knowledge_detail/<kno_id>/<kno_name>')
-def local_knowledge_detail(kno_id, kno_name):
-    """获取特定本地知识的详细信息页面"""
-    try:
-        with LocalKnowledgeCrud() as crud:
-            # 获取本地知识详情
-            knowledge_list = crud.get_local_knowledge(kno_id=kno_id)
-            logger.info(f"获取本地知识详情: {knowledge_list}")
-            if not knowledge_list or len(knowledge_list) == 0:
-                return "未找到知识库信息", 404
-
-            knowledge_detail = knowledge_list[0]  # 获取第一个结果
-            # 将元组转换为字典格式，以便模板使用
-            knowledge_detail_dict = {
-                "kno_id": knowledge_detail[1],  # kno_id 是第二个字段
-                "kno_name": knowledge_detail[2],  # kno_name 是第三个字段
-                "kno_describe": knowledge_detail[3],  # kno_describe 是第四个字段
-                "kno_path": knowledge_detail[4],  # kno_path 是第五个字段
-                "ls_status": knowledge_detail[5],  # ls_status 是第六个字段
-                "created_at": knowledge_detail[6],  # created_at 是第七个字段
-                "updated_at": knowledge_detail[7]  # updated_at 是第八个字段
-            }
-
-            # 渲染新的详情页面模板
-            from flask import render_template
-            import os
-            css_path = f"/static/css/local_knowledge.css?version={os.urandom(4).hex()}"
-            detail_css_path = f"/static/css/local_knowledge_detail.css?version={os.urandom(4).hex()}"
-            js_url = f"/static/js/local_knowledge.js?version={os.urandom(4).hex()}"
-            detail_js_url = f"/static/js/local_knowledge_detail.js?version={os.urandom(4).hex()}"
-
-            return render_template('local_knowledge_detail.html',
-                                   knowledge_detail=knowledge_detail_dict,
-                                   title=f'{knowledge_detail_dict["kno_name"]} - 本地知识库详情',
-                                   heading=f'{knowledge_detail_dict["kno_name"]} 详情',
-                                   css_path=css_path,
-                                   detail_css_path=detail_css_path,
-                                   js_url=js_url,
-                                   detail_js_url=detail_js_url)
-
-    except Exception as e:
-        logger.error(f"获取本地知识详情时发生错误: {str(e)}")
-        return "页面加载错误", 500
-
-
 @local_knowledge_detail_bp.route('/api/local_knowledge_detail', methods=['POST'])
 def api_local_knowledge_detail():
     data = request.get_json()

@@ -2,8 +2,6 @@ import uuid
 import logging
 from flask import Blueprint, request, jsonify
 from env_config_init import settings
-from src.flask_funcs.reports.flask_environment_renderer import EnvironmentRendererFlask
-from src.flask_funcs.reports.flask_environment_detail_renderer import EnvironmentDetailRendererFlask
 from src.sql_funs.environment_crud import Environment_Crud
 from src.flask_funcs.common_utils import validate_required_fields, execute_with_crud_operation
 from src.zlpt.login import LoginManager
@@ -33,33 +31,6 @@ def _execute_with_crud_operation(operation_func, success_message, error_message_
                 return jsonify({'success': False, 'message': f'{error_message_prefix}失败'}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': f'{error_message_prefix}时发生错误: {str(e)}'}), 500
-
-
-@environment_bp.route('/environment/')
-def environment():
-    # 获取环境列表数据
-    try:
-        with Environment_Crud() as env_crud:
-            environment_data = env_crud.environment_list()
-            environment_data = [env_crud._environment_list_to_json(env) for env in environment_data]
-            logger.info(f"成功获取环境列表数据，共{len(environment_data)}条记录\n{environment_data}")
-        current_environment_id = ""  # 默认当前环境ID为空，可以根据需要设置
-    except Exception as e:
-        environment_data = []
-        current_environment_id = ""
-        logger.error(f"获取环境列表数据时发生错误: {str(e)}")
-
-    # 创建HTML渲染器
-    renderer = EnvironmentRendererFlask()
-
-    # 渲染模板
-    try:
-        html_content = renderer.render_environment_page(environment_data, current_environment_id)
-    except Exception as e:
-        logger.error(f"渲染环境页面时发生错误: {str(e)}")
-        return "页面渲染错误", 500
-
-    return html_content
 
 
 @environment_bp.route('/environment/create/', methods=['POST'])

@@ -9,7 +9,7 @@ import logging
 import uuid
 import datetime
 from pathlib import Path
-from flask import jsonify, render_template
+from flask import jsonify
 
 from src.utils.minio_client import MinIOClient
 
@@ -757,38 +757,6 @@ def cleanup_minio_temp_files(object_names, bucket_name=None):
     except Exception as e:
         logger.error(f"清理MinIO临时文件失败: {e}")
         return 0
-
-
-def render_template_with_version(template_name, css_static_dir="css", js_static_dir="js", **kwargs):
-    """
-    带版本参数的模板渲染函数，用于避免静态资源缓存问题
-    
-    Args:
-        template_name: 模板名称
-        css_static_dir: CSS静态文件目录
-        js_static_dir: JS静态文件目录
-        **kwargs: 传递给模板的其他参数
-        
-    Returns:
-        渲染后的模板
-    """
-    # 生成带版本参数的静态资源路径
-    css_path = f"/static/{css_static_dir}/local_knowledge.css?version={os.urandom(4).hex()}"
-    js_url = f"/static/{js_static_dir}/local_knowledge.js?version={os.urandom(4).hex()}"
-
-    # 如果有额外的CSS和JS参数
-    detail_css_path = f"/static/{css_static_dir}/local_knowledge_detail.css?version={os.urandom(4).hex()}"
-    detail_js_url = f"/static/{js_static_dir}/local_knowledge_detail.js?version={os.urandom(4).hex()}"
-
-    # 将路径添加到参数中
-    kwargs.update({
-        'css_path': css_path,
-        'js_url': js_url,
-        'detail_css_path': detail_css_path,
-        'detail_js_url': detail_js_url
-    })
-
-    return render_template(template_name, **kwargs)
 
 
 def get_knowledge_base_binding_info(kno_id, local_crud_class, env_crud_class):

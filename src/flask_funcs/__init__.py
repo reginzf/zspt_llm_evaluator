@@ -3,7 +3,6 @@ Flask功能模块包
 """
 from .environment import environment_bp
 from .report_list import report_list_bp
-from .static_routes import static_bp
 from .local_knowledge import local_knowledge_bp
 from .knowledge_base import knowledge_base_bp
 from .local_knowledge_detail import local_knowledge_detail_bp

@@ -2,7 +2,6 @@ import uuid
 import logging
 from flask import Blueprint, request, jsonify
 
-from src.flask_funcs.reports.flask_label_studio_env_renderer import LabelStudioEnvRendererFlask
 from src.sql_funs.label_studio_crud import LabelStudioCrud
 from src.flask_funcs.common_utils import validate_required_fields, execute_with_crud_operation
 
@@ -31,30 +30,6 @@ def _execute_with_crud_operation(operation_func, success_message, error_message_
                 return jsonify({'success': False, 'message': f'{error_message_prefix}失败'}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': f'{error_message_prefix}时发生错误: {str(e)}'}), 500
-
-
-@label_studio_env_bp.route('/label_studio_env/')
-def label_studio_env():
-    # 获取Label Studio环境列表数据
-    try:
-        with LabelStudioCrud() as env_crud:
-            environment_data = env_crud.label_studio_list()
-            environment_data = [env_crud._label_studio_to_json(env) for env in environment_data]
-            logger.info(f"成功获取Label Studio环境列表数据，共{len(environment_data)}条记录\n{environment_data}")
-    except Exception as e:
-        environment_data = []
-        logger.error(f"获取Label Studio环境列表数据时发生错误: {str(e)}")
-
-    # 创建HTML渲染器
-    renderer = LabelStudioEnvRendererFlask()
-
-    # 渲染模板
-    try:
-        html_content = renderer.render_label_studio_env_page(environment_data)
-    except Exception as e:
-        logger.error(f"渲染Label Studio环境页面时发生错误: {str(e)}")
-        return "页面渲染错误", 500
-    return html_content
 
 
 @label_studio_env_bp.route('/label_studio_env/create/', methods=['POST'])

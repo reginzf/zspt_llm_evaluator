@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Any, Optional
 from src.sql_funs.ai_qa_data_group_crud import AIQADataGroupManager
 from src.flask_funcs.common_utils import validate_required_fields
-from src.flask_funcs.reports.flask_qa_renderer import render_qa_groups_page, render_qa_group_detail_page, render_error_page
+
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -618,53 +618,3 @@ def remove_qa_group_tags(group_id: int):
         }), 500
 
 
-@qa_data_group_bp.route('/qa/groups', methods=['GET'])
-def qa_groups_page():
-    """
-    问答对组管理页面
-    
-    Returns:
-        HTML: 问答对组管理页面
-    """
-    try:
-        return render_qa_groups_page()
-    except Exception as e:
-        logger.error(f"加载问答对组管理页面失败: {e}")
-        return render_error_page(500, "页面加载失败")
-
-
-@qa_data_group_bp.route('/qa/groups/<int:group_id>', methods=['GET'])
-def qa_group_detail_page(group_id: int):
-    """
-    问答对组详情页面
-    
-    Args:
-        group_id: 分组ID
-        
-    Returns:
-        HTML: 问答对组详情页面
-    """
-    try:
-        return render_qa_group_detail_page(group_id)
-    except Exception as e:
-        logger.error(f"加载问答对组详情页面失败: {e}")
-        return render_error_page(500, "页面加载失败")
-
-
-@qa_data_group_bp.route('/qa/groups/<int:group_id>/import', methods=['GET'])
-def import_qa_data_page(group_id: int):
-    """
-    问答对导入页面
-    
-    Args:
-        group_id: 分组ID
-        
-    Returns:
-        HTML: 问答对导入页面
-    """
-    try:
-        from src.flask_funcs.reports.flask_qa_renderer import render_qa_group_import_page
-        return render_qa_group_import_page(group_id)
-    except Exception as e:
-        logger.error(f"加载问答对导入页面失败: {e}")
-        return render_error_page(500, "页面加载失败")
