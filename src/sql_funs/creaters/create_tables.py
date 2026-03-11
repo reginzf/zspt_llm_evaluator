@@ -393,6 +393,7 @@ class CreateTables(PostgreSQLManager):
         self.create_ai_qa_data_table()  # 新增 AI 问答对数据表
         self.create_llm_models_table()
         self.create_llm_evaluation_reports_table()
+        self.create_llm_evaluation_question_details_table()  # 新增 LLM 评估问题详情表
 
     # ==================== AI问答对数据表 ====================
 
@@ -740,6 +741,61 @@ class CreateTables(PostgreSQLManager):
         if success:
             logger.info("✓ llm_evaluation_reports 表创建成功")
         return success
+
+    def create_llm_evaluation_question_details_table(self) -> bool:
+        """创建LLM评估问题详情表"""
+        columns = {
+            "id": "SERIAL",
+            "report_id": "INTEGER NOT NULL",
+            "question_id": "VARCHAR(100) NOT NULL",
+            "question": "TEXT NOT NULL",
+            "context": "TEXT",
+            "predicted_answer": "TEXT NOT NULL",
+            "ground_truth": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+            "success": "BOOLEAN DEFAULT TRUE",
+            "inference_time": "DECIMAL(10,4) DEFAULT 0",
+            "exact_match": "DECIMAL(5,4) DEFAULT 0",
+            "f1_score": "DECIMAL(5,4) DEFAULT 0",
+            "semantic_similarity": "DECIMAL(5,4) DEFAULT 0",
+            "answer_coverage": "DECIMAL(5,4) DEFAULT 0",
+            "answer_relevance": "DECIMAL(5,4) DEFAULT 0",
+            "context_utilization": "DECIMAL(5,4) DEFAULT 0",
+            "answer_completeness": "DECIMAL(5,4) DEFAULT 0",
+            "answer_conciseness": "DECIMAL(5,4) DEFAULT 0",
+            "error_message": "TEXT",
+            "metadata": "JSONB DEFAULT '{}'::jsonb"
+        }
+        columns.update(self.COMMON_FIELDS)
+        # 添加外键约束
+        columns["FOREIGN KEY (report_id)"] = "REFERENCES ai_llm_evaluation_reports(id) ON DELETE CASCADE"
+
+        success = self.create_table("ai_llm_evaluation_question_details", columns)
+        if success:
+            logger.info("✓ llm_evaluation_question_details 表创建成功")
+            # 创建索引
+            self._create_llm_evaluation_question_details_indexes()
+        return success
+
+    def _create_llm_evaluation_question_details_indexes(self):
+        """为 ai_llm_evaluation_question_details 表创建索引"""
+        indexes = [
+            ("idx_eval_qdetails_report_id", f"CREATE INDEX idx_eval_qdetails_report_id ON ai_llm_evaluation_question_details(report_id)"),
+            ("idx_eval_qdetails_question_id", f"CREATE INDEX idx_eval_qdetails_question_id ON ai_llm_evaluation_question_details(question_id)"),
+            ("idx_eval_qdetails_success", f"CREATE INDEX idx_eval_qdetails_success ON ai_llm_evaluation_question_details(success)"),
+            ("idx_eval_qdetails_f1_score", f"CREATE INDEX idx_eval_qdetails_f1_score ON ai_llm_evaluation_question_details(f1_score)"),
+            ("idx_eval_qdetails_exact_match", f"CREATE INDEX idx_eval_qdetails_exact_match ON ai_llm_evaluation_question_details(exact_match)"),
+            ("idx_eval_qdetails_semantic_sim", f"CREATE INDEX idx_eval_qdetails_semantic_sim ON ai_llm_evaluation_question_details(semantic_similarity)"),
+        ]
+        
+        for index_name, create_sql in indexes:
+            try:
+                self.cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                self.cursor.execute(create_sql)
+                self.connection.commit()
+                logger.info(f"索引 {index_name} 创建成功")
+            except Exception as e:
+                self.connection.rollback()
+                logger.warning(f"索引 {index_name} 创建失败: {e}")
 
 
 if __name__ == '__main__':

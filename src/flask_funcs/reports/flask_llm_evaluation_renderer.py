@@ -90,6 +90,7 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
         config = result.get('model_config', {})
         responses = result.get('responses', [])
         eval_config = result.get('evaluation_config', {})
+        question_metrics = result.get('question_metrics', {})
 
         # 准备指标数据
         metrics_data = {
@@ -102,7 +103,6 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
             # 准确性指标
             'exact_match': self._format_percent(metrics.get('exact_match')),
             'f1_score': self._format_percent(metrics.get('f1_score')),
-            'partial_match': self._format_percent(metrics.get('partial_match')),
             'semantic_similarity': self._format_percent(metrics.get('semantic_similarity')),
 
             # 知识库能力指标
@@ -115,13 +115,28 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
             # 效率指标
             'avg_inference_time': self._format_time(metrics.get('avg_inference_time')),
             'total_inference_time': self._format_time(metrics.get('total_inference_time')),
+            
+            # 原始数值（用于图表）
+            'exact_match_value': metrics.get('exact_match', 0),
+            'f1_score_value': metrics.get('f1_score', 0),
+            'semantic_similarity_value': metrics.get('semantic_similarity', 0),
+            'answer_coverage_value': metrics.get('answer_coverage', 0),
+            'answer_relevance_value': metrics.get('answer_relevance', 0),
+            'context_utilization_value': metrics.get('context_utilization', 0),
         }
 
-        # 准备问答对详情
+        # 准备问答对详情（包含指标）
         qa_details = []
         for resp in responses:
+            qid = str(resp.get('question_id', ''))
+            # 获取该问题的详细指标
+            q_metrics = question_metrics.get(qid, {})
+            if not q_metrics and 'metrics' in resp:
+                # 兼容新格式：metrics直接存储在response中
+                q_metrics = resp.get('metrics', {})
+            
             qa_details.append({
-                'question_id': resp.get('question_id', ''),
+                'question_id': qid,
                 'question': resp.get('question', ''),
                 'context': resp.get('context', ''),
                 'predicted_answer': resp.get('predicted_answer', ''),
@@ -129,8 +144,27 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
                 'success': resp.get('success', False),
                 'inference_time': self._format_time(resp.get('inference_time')),
                 'error_message': resp.get('error_message', ''),
-                'metadata': resp.get('metadata', {}),  # 包含token使用情况等信息
+                'metadata': resp.get('metadata', {}),
+                # 新增：单个问题的详细指标
+                'metrics': {
+                    'exact_match': self._format_percent(q_metrics.get('exact_match')),
+                    'f1_score': self._format_percent(q_metrics.get('f1_score')),
+                    'semantic_similarity': self._format_percent(q_metrics.get('semantic_similarity')),
+                    'answer_coverage': self._format_percent(q_metrics.get('answer_coverage')),
+                    'answer_relevance': self._format_percent(q_metrics.get('answer_relevance')),
+                    'context_utilization': self._format_percent(q_metrics.get('context_utilization')),
+                    'answer_completeness': self._format_percent(q_metrics.get('answer_completeness')),
+                    'answer_conciseness': self._format_percent(q_metrics.get('answer_conciseness')),
+                    # 原始数值（用于排序）
+                    'exact_match_value': q_metrics.get('exact_match', 0) if q_metrics.get('exact_match') else 0,
+                    'f1_score_value': q_metrics.get('f1_score', 0) if q_metrics.get('f1_score') else 0,
+                    'semantic_similarity_value': q_metrics.get('semantic_similarity', 0) if q_metrics.get('semantic_similarity') else 0,
+                    'answer_coverage_value': q_metrics.get('answer_coverage', 0) if q_metrics.get('answer_coverage') else 0,
+                }
             })
+
+        # 计算最佳/最差问题
+        best_worst = self._calculate_best_worst(qa_details)
 
         # 准备匹配类型配置
         match_types = eval_config.get('match_types', {})
@@ -154,6 +188,8 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
             'model_config': model_config,
             'metrics': metrics_data,
             'qa_details': qa_details,
+            'qa_details_json': self._safe_json_dumps(qa_details),  # 用于前端JS处理
+            'best_worst': best_worst,
             'evaluation_config': {
                 'sample_size': eval_config.get('sample_size', 0),
                 'parallel': eval_config.get('parallel', False),
@@ -161,6 +197,64 @@ class LLMEvaluationRenderer(FlaskHTMLRenderer):
                 'match_types': match_types_display,
             },
         }
+
+    def _calculate_best_worst(self, qa_details: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        计算最佳和最差表现的问题
+        
+        Args:
+            qa_details: 问答详情列表
+            
+        Returns:
+            {"best_f1": [...], "worst_f1": [...], "best_exact": [...], ...}
+        """
+        if not qa_details:
+            return {}
+
+        # 过滤出成功的回答
+        successful_qa = [qa for qa in qa_details if qa.get('success', False)]
+        if not successful_qa:
+            return {}
+
+        result = {}
+        
+        # 按F1分数排序
+        sorted_by_f1 = sorted(
+            successful_qa, 
+            key=lambda x: x.get('metrics', {}).get('f1_score_value', 0), 
+            reverse=True
+        )
+        result['best_f1'] = sorted_by_f1[:5]
+        result['worst_f1'] = sorted_by_f1[-5:][::-1]
+
+        # 按精确匹配排序
+        sorted_by_exact = sorted(
+            successful_qa,
+            key=lambda x: x.get('metrics', {}).get('exact_match_value', 0),
+            reverse=True
+        )
+        result['best_exact'] = sorted_by_exact[:5]
+        result['worst_exact'] = sorted_by_exact[-5:][::-1]
+
+        # 按语义相似度排序
+        sorted_by_semantic = sorted(
+            successful_qa,
+            key=lambda x: x.get('metrics', {}).get('semantic_similarity_value', 0),
+            reverse=True
+        )
+        result['best_semantic'] = sorted_by_semantic[:5]
+        result['worst_semantic'] = sorted_by_semantic[-5:][::-1]
+
+        return result
+
+    def _safe_json_dumps(self, data: Any) -> str:
+        """安全地将数据转换为JSON字符串"""
+        import json
+        try:
+            return json.dumps(data, ensure_ascii=False, default=str)
+        except Exception as e:
+            logger.warning(f"JSON序列化失败: {e}")
+            return "[]"
 
     def _prepare_match_types_display(self, match_types: Dict[str, Any]) -> List[Dict[str, str]]:
         """准备匹配类型配置的显示数据"""

@@ -183,6 +183,34 @@ class MinIOClient:
             logger.error(f"下载过程中发生错误: {e}")
             return False
     
+    def get_file_content(self, object_name: str) -> bytes:
+        """
+        从MinIO获取文件内容（直接读取到内存）
+        
+        Args:
+            object_name: 对象名称
+            
+        Returns:
+            bytes: 文件内容，失败返回None
+        """
+        try:
+            # 获取对象
+            response = self.client.get_object(self.bucket_name, object_name)
+            # 读取内容
+            data = response.read()
+            response.close()
+            response.release_conn()
+            
+            logger.info(f"文件内容获取成功: {object_name}, 大小: {len(data)} bytes")
+            return data
+            
+        except S3Error as e:
+            logger.error(f"获取文件内容失败: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"获取文件内容过程中发生错误: {e}")
+            return None
+    
     def delete_file(self, object_name: str) -> bool:
         """
         删除MinIO中的文件
