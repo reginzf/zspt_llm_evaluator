@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flask import Flask, send_from_directory, abort
 from flask_cors import CORS
-from src.flask_funcs import home_bp, environment_bp, report_list_bp, static_bp, knowledge_doc_bp, local_knowledge_bp, \
+from src.flask_funcs import environment_bp, report_list_bp, static_bp, local_knowledge_bp, \
     local_knowledge_detail_bp, label_studio_env_bp, local_knowledge_question_bp
 from src.flask_funcs.local_knowledge_detail_label_studio import local_knowledge_label_studio_bp
 from src.flask_funcs.local_knowledge_detail_task import local_knowledge_detail_task_bp
@@ -172,7 +172,6 @@ app.register_blueprint(local_knowledge_detail_task_bp)  # API 路由保留
 app.register_blueprint(environment_bp)  # API 路由保留
 app.register_blueprint(report_list_bp)  # API 路由保留
 app.register_blueprint(static_bp)
-app.register_blueprint(knowledge_doc_bp)
 
 # 设置静态文件和模板文件目录
 template_dir = os.path.join(os.path.dirname(__file__), 'src', 'flask_funcs', 'reports', 'templates')
@@ -207,12 +206,6 @@ else:
     else:
         print(f"[WARNING] Vue 前端构建目录不存在或缺少 index.html: {frontend_dist_dir}")
         print("[WARNING] 将回退到使用传统 Flask 模板")
-
-# 如果使用传统模板，注册 home_bp
-if not use_vue_frontend:
-    pass  # [Vue3] 传统模板蓝图已注释，由Vue3接管
-    # [Vue3] app.register_blueprint(home_bp)  # 页面路由由Vue3接管
-
 
 # Vue SPA 路由回退 - 所有非 API 路由返回 Vue 的 index.html
 @app.route('/', defaults={'path': ''})
