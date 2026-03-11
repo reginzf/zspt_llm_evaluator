@@ -13,19 +13,19 @@ import os
 import sys
 from pathlib import Path
 
-# 配置 - 自动检测项目根目录
-SCRIPT_DIR = Path(__file__).parent.resolve()  # scripts/
+# 配置 - 固定项目根目录
+PROJECT_ROOT = Path("D:\\pyworkplace\\git_place\\ai-ken")
+SCRIPT_DIR = PROJECT_ROOT / ".agents" / "skills" / "qdrant-memory" / "scripts"
 SKILL_DIR = SCRIPT_DIR.parent  # qdrant-memory/
-SKILLS_DIR = SKILL_DIR.parent  # skills/
-AGENTS_DIR = SKILLS_DIR.parent  # .agents/
-PROJECT_ROOT = AGENTS_DIR.parent  # 项目根目录
 
 MODELS_DIR = PROJECT_ROOT / "models"
 INDEX_FILE = SKILL_DIR / "qdrant_index.pkl"
 
-# 确保能找到项目根目录（通过检查 .git 或 src 目录）
-if not (PROJECT_ROOT / ".git").exists() and not (PROJECT_ROOT / "src").exists():
-    print(f"[Warning] 可能未正确检测到项目根目录: {PROJECT_ROOT}")
+# 验证项目根目录
+if not PROJECT_ROOT.exists():
+    print(f"[Warning] 项目根目录不存在: {PROJECT_ROOT}")
+elif not (PROJECT_ROOT / ".git").exists() and not (PROJECT_ROOT / "src").exists():
+    print(f"[Warning] 可能未正确设置项目根目录: {PROJECT_ROOT}")
 
 
 def get_model():

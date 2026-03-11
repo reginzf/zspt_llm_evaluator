@@ -11,8 +11,9 @@ import sys
 import subprocess
 from pathlib import Path
 
-# 检测路径
-SCRIPT_DIR = Path(__file__).parent.resolve()
+# 固定项目根目录
+PROJECT_ROOT = Path("D:\\pyworkplace\\git_place\\ai-ken")
+SCRIPT_DIR = PROJECT_ROOT / ".agents" / "skills" / "qdrant-memory" / "scripts"
 
 def search(query: str):
     """执行代码搜索"""
@@ -20,7 +21,7 @@ def search(query: str):
         print("[Error] 搜索词不能为空")
         return 1
     
-    # 构建命令 - 使用当前脚本所在目录的 qdrant_search.py
+    # 构建命令 - 使用项目根目录下的 qdrant_search.py
     qdrant_script = SCRIPT_DIR / "qdrant_search.py"
     cmd = [
         ".venv\\Scripts\\python",
