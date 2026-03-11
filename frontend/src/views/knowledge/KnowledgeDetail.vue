@@ -1070,7 +1070,7 @@ async function uploadFiles() {
       }
     })
     
-    if (res.success || res.status === 'success') {
+    if (res.success) {
       ElMessage.success(res.message || '上传成功')
       showUploadDialog.value = false
       uploadFileList.value = []
@@ -1113,7 +1113,7 @@ async function deleteFile(row: any) {
   try {
     await ElMessageBox.confirm(`确定删除文件 ${row.kno_name} 吗？`, '确认删除', { type: 'warning' })
     const res = await deleteFileApi(row.knol_id)
-    if (res.success || res.status === 'success') {
+    if (res.success) {
       ElMessage.success(res.message || '删除成功')
       loadFileList()
     } else {

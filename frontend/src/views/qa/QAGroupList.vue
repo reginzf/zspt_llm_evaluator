@@ -281,8 +281,8 @@ const dialog = useDialog<{
       metadata
     }
 
-    const response = isEditMode && dialog.editId.value
-      ? await qaStore.updateGroup(Number(dialog.editId.value), data)
+    const response = isEditMode && dialog.editId
+      ? await qaStore.updateGroup(Number(dialog.editId), data)
       : await qaStore.addGroup(data)
 
     if (response?.success) {
