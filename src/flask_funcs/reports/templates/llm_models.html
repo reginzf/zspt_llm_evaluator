@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM模型管理</title>
+    <link rel="stylesheet" href="/static/css/qa_management.css">
+    <link rel="stylesheet" href="/static/css/llm_models.css">
+    <!-- 引用公共组件库 -->
+    <script src="/static/js/common_components.js"></script>
+    <script src="/static/js/ui_components.js"></script>
+</head>
+<body>
+<div class="container">
+    <!-- 返回按钮和标题 -->
+    <div class="page-header">
+        <button class="back-btn" onclick="goBack()">← 返回首页</button>
+        <h1>LLM模型管理</h1>
+    </div>
+    
+    <!-- 统计信息卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">🤖</div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalModels">0</div>
+                <div class="stat-label">模型总数</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">✓</div>
+            <div class="stat-content">
+                <div class="stat-value" id="connectedModels">0</div>
+                <div class="stat-label">已连接</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalEvaluations">0</div>
+                <div class="stat-label">评估次数</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 模型管理区域 -->
+    <div class="qa-management-area">
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-primary" onclick="showCreateModelDialog()">+ 新增模型</button>
+            </div>
+            <div class="action-right search-box">
+                <select id="filterType" class="filter-select" onchange="applyFilters()">
+                    <option value="">所有类型</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="qwen">通义千问(Qwen)</option>
+                    <option value="other">其他</option>
+                </select>
+                <select id="filterStatus" class="filter-select" onchange="applyFilters()">
+                    <option value="">所有状态</option>
+                    <option value="connected">已连接</option>
+                    <option value="error">连接失败</option>
+                    <option value="unknown">未检测</option>
+                </select>
+                <input type="text" id="searchKeyword" placeholder="搜索模型名称...">
+                <button id="searchBtn" class="icon-btn" title="搜索">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <button id="refreshBtn" class="icon-btn" title="刷新列表">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path>
+                        <path d="M3 5v7h7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 数据表格 -->
+        <div class="data-table-area">
+            <table class="data-table" id="modelsTable">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>模型名称</th>
+                    <th>类型</th>
+                    <th>API地址</th>
+                    <th>版本</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="modelsTableBody">
+                <tr>
+                    <td colspan="8" class="loading-cell">加载中...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        <div class="pagination-area" id="paginationArea"></div>
+    </div>
+</div>
+
+<!-- 新增/编辑模型对话框 -->
+<div id="modelDialog" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="dialogTitle">新增模型</h3>
+            <span class="close" onclick="closeModelDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="modelForm">
+                <input type="hidden" id="modelId">
+                
+                <div class="form-group">
+                    <label for="modelName">模型名称 *</label>
+                    <input type="text" id="modelName" class="form-control" placeholder="请输入模型名称" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modelType">模型类型 *</label>
+                    <select id="modelType" class="form-control" required>
+                        <option value="">请选择</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="qwen">通义千问(Qwen)</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="apiKey">API密钥 *</label>
+                    <input type="password" id="apiKey" class="form-control" placeholder="请输入API密钥" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="apiUrl">API地址 *</label>
+                    <input type="text" id="apiUrl" class="form-control" placeholder="https://api.example.com/v1/chat/completions" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modelVersion">具体模型名称</label>
+                    <input type="text" id="modelVersion" class="form-control" placeholder="如: gpt-4, deepseek-chat">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="temperature">温度参数</label>
+                        <input type="number" id="temperature" class="form-control" min="0" max="1" step="0.1" value="0.7">
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="maxTokens">最大Token数</label>
+                        <input type="number" id="maxTokens" class="form-control" min="1" value="2048">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label for="timeout">超时时间(秒)</label>
+                        <input type="number" id="timeout" class="form-control" min="1" value="30">
+                    </div>
+                    
+                    <div class="form-group half-width">
+                        <label for="version">版本号</label>
+                        <input type="text" id="version" class="form-control" placeholder="如: 20240201">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn secondary" onclick="closeModelDialog()">取消</button>
+            <button class="modal-btn primary" onclick="submitModel()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 全局变量
+let currentPage = 1;
+let pageSize = 20;
+let totalPages = 1;
+let totalItems = 0;
+let currentFilters = {};
+let paginationComponent = null;
+let modelDialogManager = null;
+
+const API_BASE = '/api/llm';
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadModels();
+    loadStats();
+    initComponents();
+    initEventListeners();
+});
+
+// 初始化组件
+function initComponents() {
+    // 初始化分页组件
+    paginationComponent = new PaginationComponent({
+        containerId: 'paginationArea',
+        currentPage: currentPage,
+        pageSize: pageSize,
+        totalItems: totalItems,
+        onPageChange: function(page) {
+            currentPage = page;
+            loadModels();
+        },
+        onPageSizeChange: function(size) {
+            pageSize = size;
+            currentPage = 1;
+            loadModels();
+        }
+    });
+}
+
+// 初始化事件监听
+function initEventListeners() {
+    // 搜索按钮点击事件
+    document.getElementById('searchBtn').addEventListener('click', function() {
+        searchModels();
+    });
+    
+    // 刷新按钮点击事件 - 清空搜索条件并重新加载
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        resetSearch();
+    });
+    
+    // 搜索框回车事件
+    document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchModels();
+        }
+    });
+}
+
+// 加载模型列表
+function loadModels() {
+    const tableBody = document.getElementById('modelsTableBody');
+    tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载中...</td></tr>';
+    
+    const params = new URLSearchParams({
+        page: currentPage,
+        limit: pageSize,
+        ...currentFilters
+    });
+    
+    fetch(`${API_BASE}/models?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderModelsTable(data.data.rows);
+                updatePagination(data.data);
+            } else {
+                showError('加载模型列表失败: ' + data.message);
+                tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载失败</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('加载模型列表失败:', error);
+            tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">加载失败</td></tr>';
+        });
+}
+
+// 获取模型类型显示文本
+function getModelTypeText(type) {
+    const typeMap = {
+        'deepseek': 'DeepSeek',
+        'openai': 'OpenAI',
+        'anthropic': 'Anthropic',
+        'qwen': '通义千问',
+        'other': '其他'
+    };
+    return typeMap[type] || type || '未知';
+}
+
+// 渲染模型表格
+function renderModelsTable(models) {
+    const tableBody = document.getElementById('modelsTableBody');
+    
+    if (models.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">暂无数据</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    models.forEach(model => {
+        const statusClass = model.status === 'connected' ? 'status-connected' : 
+                           model.status === 'error' ? 'status-error' : 'status-unknown';
+        const statusText = model.status === 'connected' ? '✓ 已连接' : 
+                          model.status === 'error' ? '✗ 连接失败' : '? 未检测';
+        const typeText = getModelTypeText(model.type);
+        
+        html += `
+        <tr>
+            <td>${model.id}</td>
+            <td><a href="/llm/models/${encodeURIComponent(model.name)}" class="group-link">${escapeHtml(model.name)}</a></td>
+            <td><span class="model-type-badge">${escapeHtml(typeText)}</span></td>
+            <td class="text-truncate" title="${escapeHtml(model.api_url)}">${escapeHtml(model.api_url)}</td>
+            <td>${escapeHtml(model.version || '-')}</td>
+            <td class="${statusClass}">${statusText}</td>
+            <td>${formatDate(model.created_at)}</td>
+            <td>
+                <button class="action-btn edit-btn" onclick="editModel('${escapeHtml(model.name)}')" title="编辑">✏</button>
+                <button class="action-btn delete-btn" onclick="deleteModel('${escapeHtml(model.name)}')" title="删除">🗑</button>
+            </td>
+        </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+// 更新分页信息
+function updatePagination(data) {
+    totalItems = data.total || 0;
+    totalPages = data.pages || 1;
+    currentPage = data.page || 1;
+    
+    // 使用 PaginationComponent 更新分页
+    if (paginationComponent) {
+        paginationComponent.update({
+            currentPage: currentPage,
+            pageSize: pageSize,
+            totalItems: totalItems
+        });
+    }
+}
+
+// 加载统计数据
+function loadStats() {
+    // 这里可以添加加载统计数据的逻辑
+}
+
+// 搜索模型
+function searchModels() {
+    const keyword = document.getElementById('searchKeyword').value.trim();
+    currentFilters.keyword = keyword || undefined;
+    currentPage = 1;
+    loadModels();
+}
+
+// 重置搜索
+function resetSearch() {
+    document.getElementById('searchKeyword').value = '';
+    document.getElementById('filterType').value = '';
+    document.getElementById('filterStatus').value = '';
+    currentFilters = {};
+    currentPage = 1;
+    loadModels();
+}
+
+// 应用筛选
+function applyFilters() {
+    const type = document.getElementById('filterType').value;
+    const status = document.getElementById('filterStatus').value;
+    
+    currentFilters.type = type || undefined;
+    currentFilters.status = status || undefined;
+    currentPage = 1;
+    loadModels();
+}
+
+// 显示新增模型对话框
+function showCreateModelDialog() {
+    document.getElementById('dialogTitle').textContent = '新增模型';
+    document.getElementById('modelForm').reset();
+    document.getElementById('modelId').value = '';
+    document.getElementById('modelDialog').classList.add('active');
+}
+
+// 编辑模型
+function editModel(modelName) {
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const model = data.data.config;
+                document.getElementById('dialogTitle').textContent = '编辑模型';
+                document.getElementById('modelId').value = model.id;
+                document.getElementById('modelName').value = model.name;
+                document.getElementById('modelType').value = model.type;
+                document.getElementById('apiKey').value = model.api_key;
+                document.getElementById('apiUrl').value = model.api_url;
+                document.getElementById('modelVersion').value = model.model || '';
+                document.getElementById('temperature').value = model.temperature || 0.7;
+                document.getElementById('maxTokens').value = model.max_tokens || 2048;
+                document.getElementById('timeout').value = model.timeout || 30;
+                document.getElementById('version').value = model.version || '';
+                document.getElementById('modelDialog').classList.add('active');
+            } else {
+                showError('获取模型详情失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('获取模型详情失败:', error);
+            showError('获取模型详情失败');
+        });
+}
+
+// 关闭对话框
+function closeModelDialog() {
+    document.getElementById('modelDialog').classList.remove('active');
+}
+
+// 提交模型表单
+function submitModel() {
+    const modelId = document.getElementById('modelId').value;
+    const data = {
+        name: document.getElementById('modelName').value.trim(),
+        type: document.getElementById('modelType').value,
+        api_key: document.getElementById('apiKey').value.trim(),
+        api_url: document.getElementById('apiUrl').value.trim(),
+        model: document.getElementById('modelVersion').value.trim() || null,
+        temperature: parseFloat(document.getElementById('temperature').value),
+        max_tokens: parseInt(document.getElementById('maxTokens').value),
+        timeout: parseInt(document.getElementById('timeout').value),
+        version: document.getElementById('version').value.trim() || null
+    };
+    
+    // 验证必填字段
+    if (!data.name || !data.type || !data.api_key || !data.api_url) {
+        showError('请填写所有必填字段');
+        return;
+    }
+    
+    const url = modelId ? 
+        `${API_BASE}/models/${encodeURIComponent(data.name)}` : 
+        `${API_BASE}/models`;
+    const method = modelId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess(modelId ? '模型更新成功' : '模型创建成功');
+            closeModelDialog();
+            loadModels();
+        } else {
+            showError(result.message);
+        }
+    })
+    .catch(error => {
+        console.error('保存模型失败:', error);
+        showError('保存模型失败');
+    });
+}
+
+// 删除模型
+function deleteModel(modelName) {
+    // 使用 DialogManager 的确认对话框
+    if (typeof DialogManager !== 'undefined' && DialogManager.confirm) {
+        DialogManager.confirm(
+            '确定要删除模型 "' + modelName + '" 吗？',
+            function() {
+                performDeleteModel(modelName);
+            },
+            function() {
+                // 用户取消
+            }
+        );
+    } else {
+        // 回退到原生确认对话框
+        if (!confirm('确定要删除模型 "' + modelName + '" 吗？')) {
+            return;
+        }
+        performDeleteModel(modelName);
+    }
+}
+
+// 执行删除操作
+function performDeleteModel(modelName) {
+    fetch(`${API_BASE}/models/${encodeURIComponent(modelName)}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('模型删除成功');
+            loadModels();
+        } else {
+            showError(result.message);
+        }
+    })
+    .catch(error => {
+        console.error('删除模型失败:', error);
+        showError('删除模型失败');
+    });
+}
+
+// 返回首页
+function goBack() {
+    window.location.href = '/';
+}
+
+// 工具函数
+function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString();
+}
+
+function showSuccess(message) {
+    // 优先使用 DialogManager 的提示
+    if (typeof DialogManager !== 'undefined' && DialogManager.showSuccess) {
+        DialogManager.showSuccess(message);
+    } else {
+        alert('✅ ' + message);
+    }
+}
+
+function showError(message) {
+    // 优先使用 DialogManager 的提示
+    if (typeof DialogManager !== 'undefined' && DialogManager.showError) {
+        DialogManager.showError(message);
+    } else {
+        alert('❌ ' + message);
+    }
+}
+</script>
+</body>
+</html>
