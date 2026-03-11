@@ -19,6 +19,7 @@ from src.sql_funs.ai_qa_data_crud import AIQADataManager
 
 from src.sql_funs.llm_model_crud import LLMModelManager
 from src.sql_funs.llm_evaluation_report_crud import LLMEvaluationReportManager
+from src.sql_funs.llm_evaluation_question_details_crud import LLMEvaluationQuestionDetailsManager
 from src.sql_funs.ai_qa_data_group_crud import AIQADataGroupManager
 from src.utils.minio_client import get_llm_evaluation_client
 
@@ -49,11 +50,23 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
         max_workers: 并行工作数
         match_types: 匹配类型配置
     """
+    # 创建评估专用日志记录器
+    eval_logger = logging.getLogger(f'evaluation.{task_id}')
+    
+    def log_progress(step: str, message: str, progress: int):
+        """记录进度日志"""
+        _evaluation_tasks[task_id]['progress'] = progress
+        _evaluation_tasks[task_id]['message'] = message
+        eval_logger.info(f"[TASK {task_id}] Step {step}: {message} ({progress}%)")
+        logger.info(f"[TASK {task_id}] Step {step}: {message} ({progress}%)")
+    
+    eval_logger.info(f"[TASK {task_id}] 开始评估任务: model={model_name}, group={group_name}, qa_count={limit}")
+    logger.info(f"[TASK {task_id}] 开始评估任务: model={model_name}, group={group_name}, qa_count={limit}")
+    
     try:
         # 更新任务状态为运行中
         _evaluation_tasks[task_id]['status'] = 'running'
-        _evaluation_tasks[task_id]['progress'] = 10
-        _evaluation_tasks[task_id]['message'] = '正在初始化评估器...'
+        log_progress('INIT', '正在初始化评估器...', 10)
 
         # 导入评估器
         output_dir = Path('./evaluation_results')
@@ -110,9 +123,9 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
             )
             evaluator.qa_pairs.append(qa_pair)
 
-        _evaluation_tasks[task_id]['progress'] = 30
-        _evaluation_tasks[task_id]['message'] = '正在初始化LLM Agent...'
+        log_progress('AGENT', '正在初始化LLM Agent...', 30)
         _evaluation_tasks[task_id]['total'] = len(evaluator.qa_pairs)
+        eval_logger.info(f"[TASK {task_id}] 加载了 {len(evaluator.qa_pairs)} 个问答对")
 
         # 创建Agent并添加到评估器
         agent_config = {
@@ -126,17 +139,23 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
             'timeout': model_config.get('timeout', 30),
             'version': model_config.get('version')
         }
+        
+        eval_logger.info(f"[TASK {task_id}] Agent配置: type={agent_config['type']}, model={agent_config['model']}, api_url={agent_config['api_url']}")
 
         success, message = evaluator.add_agent(agent_config, test_connection=True)
         if not success:
             _evaluation_tasks[task_id]['status'] = 'failed'
             _evaluation_tasks[task_id]['message'] = f'Agent初始化失败: {message}'
+            eval_logger.error(f"[TASK {task_id}] Agent初始化失败: {message}")
+            logger.error(f"[TASK {task_id}] Agent初始化失败: {message}")
             return
+        
+        eval_logger.info(f"[TASK {task_id}] Agent初始化成功")
 
-        _evaluation_tasks[task_id]['progress'] = 40
-        _evaluation_tasks[task_id]['message'] = '正在执行评估...'
+        log_progress('EVALUATE', '正在执行评估...', 40)
 
         # 执行评估
+        eval_logger.info(f"[TASK {task_id}] 开始执行评估: parallel={parallel}, max_workers={max_workers}")
         result = evaluator.evaluate_agent(
             agent_name=model_name,
             sample_size=None,  # 使用全部加载的数据
@@ -146,9 +165,13 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
             show_progress=False,  # 后台任务不显示进度条
             match_types=match_types
         )
+        
+        # 记录评估结果
+        metrics = result.metrics
+        eval_logger.info(f"[TASK {task_id}] 评估完成: exact_match={metrics.exact_match:.4f}, f1_score={metrics.f1_score:.4f}, semantic_similarity={metrics.semantic_similarity:.4f}")
+        eval_logger.info(f"[TASK {task_id}] 评估统计: total={metrics.total_samples}, success={metrics.successful_predictions}, failed={metrics.failed_predictions}")
 
-        _evaluation_tasks[task_id]['progress'] = 80
-        _evaluation_tasks[task_id]['message'] = '正在保存评估结果...'
+        log_progress('SAVE', '正在保存评估结果...', 80)
 
         # 生成报告文件名
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -235,6 +258,57 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
                 status='completed'
             )
 
+        # 保存问题级别的评估详情
+        if report_id:
+            _evaluation_tasks[task_id]['progress'] = 90
+            _evaluation_tasks[task_id]['message'] = '正在保存问题详情...'
+            
+            try:
+                # 将响应数据转换为字典格式以便保存
+                # 从 question_metrics 获取每个问题的指标
+                question_metrics = getattr(result, 'question_metrics', {}) or {}
+                
+                responses_data = []
+                for resp in result.responses:
+                    qid = str(resp.question_id)
+                    # 从 question_metrics 获取该问题的指标
+                    q_metrics = question_metrics.get(qid, {}) if question_metrics else {}
+                    
+                    resp_dict = {
+                        'question_id': resp.question_id,
+                        'question': resp.question,
+                        'context': resp.context,
+                        'predicted_answer': resp.predicted_answer,
+                        'ground_truth': resp.ground_truth,
+                        'success': resp.success,
+                        'inference_time': resp.inference_time,
+                        'error_message': resp.error_message,
+                        'metadata': resp.metadata if hasattr(resp, 'metadata') else {},
+                        'metrics': {
+                            'exact_match': getattr(q_metrics, 'exact_match', 0.0) if hasattr(q_metrics, 'exact_match') else q_metrics.get('exact_match', 0.0),
+                            'f1_score': getattr(q_metrics, 'f1_score', 0.0) if hasattr(q_metrics, 'f1_score') else q_metrics.get('f1_score', 0.0),
+                            'semantic_similarity': getattr(q_metrics, 'semantic_similarity', 0.0) if hasattr(q_metrics, 'semantic_similarity') else q_metrics.get('semantic_similarity', 0.0),
+                            'answer_coverage': getattr(q_metrics, 'answer_coverage', 0.0) if hasattr(q_metrics, 'answer_coverage') else q_metrics.get('answer_coverage', 0.0),
+                            'answer_relevance': getattr(q_metrics, 'answer_relevance', 0.0) if hasattr(q_metrics, 'answer_relevance') else q_metrics.get('answer_relevance', 0.0),
+                            'context_utilization': getattr(q_metrics, 'context_utilization', 0.0) if hasattr(q_metrics, 'context_utilization') else q_metrics.get('context_utilization', 0.0),
+                            'answer_completeness': getattr(q_metrics, 'answer_completeness', 0.0) if hasattr(q_metrics, 'answer_completeness') else q_metrics.get('answer_completeness', 0.0),
+                            'answer_conciseness': getattr(q_metrics, 'answer_conciseness', 0.0) if hasattr(q_metrics, 'answer_conciseness') else q_metrics.get('answer_conciseness', 0.0),
+                        }
+                    }
+                    responses_data.append(resp_dict)
+                
+                # 批量保存问题详情
+                with LLMEvaluationQuestionDetailsManager() as details_manager:
+                    saved_count = details_manager.batch_create_details(
+                        report_id=report_id,
+                        responses=responses_data
+                    )
+                    logger.info(f"已保存 {saved_count} 条问题详情记录到数据库")
+                    
+            except Exception as e:
+                logger.error(f"保存问题详情失败: {e}")
+                # 问题详情保存失败不影响整体任务状态
+
         # 更新任务状态为完成
         _evaluation_tasks[task_id]['status'] = 'completed'
         _evaluation_tasks[task_id]['progress'] = 100
@@ -251,9 +325,15 @@ def run_evaluation_task(task_id: str, model_name: str, model_config: dict,
         }
 
         logger.info(f"评估任务 {task_id} 完成")
+        eval_logger.info(f"[TASK {task_id}] 评估任务完成，报告ID={report_id}")
 
     except Exception as e:
-        logger.error(f"评估任务 {task_id} 执行失败: {e}")
+        import traceback
+        error_msg = f"评估任务 {task_id} 执行失败: {e}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        eval_logger.error(f"[TASK {task_id}] 执行失败: {e}")
+        eval_logger.error(f"[TASK {task_id}] 错误详情: {traceback.format_exc()}")
         _evaluation_tasks[task_id]['status'] = 'failed'
         _evaluation_tasks[task_id]['message'] = f'评估失败: {str(e)}'
         _evaluation_tasks[task_id]['error'] = str(e)
@@ -789,6 +869,7 @@ def view_llm_evaluation_report(filename):
 @llm_model_bp.route('/api/llm/models/<string:model_name>/reports', methods=['GET'])
 def get_model_reports(model_name):
     """获取模型的评估报告列表"""
+    logger.info(f"[API] 收到请求: GET /api/llm/models/{model_name}/reports, 参数: {request.args.to_dict()}")
     try:
         # Check if simple list mode is requested (no pagination)
         simple_mode = request.args.get('simple', 'false').lower() == 'true'
@@ -802,8 +883,11 @@ def get_model_reports(model_name):
                 for report in reports:
                     mapped_report = {
                         'id': report.get('id'),
+                        'report_name': report.get('report_name'),
                         'filename': report.get('report_name'),
                         'model_name': report.get('model_name'),
+                        'group_name': report.get('group_name'),
+                        'qa_count': report.get('qa_count'),
                         'created_at': report.get('created_at'),
                         'path': report.get('report_path'),
                         'status': report.get('status'),
@@ -916,4 +1000,231 @@ def delete_evaluation_report(report_id: int):
         return jsonify({
             'success': False,
             'message': f'删除评估报告失败: {str(e)}'
+        }), 500
+
+
+@llm_model_bp.route('/api/llm/reports/<int:report_id>/details', methods=['GET'])
+def get_report_question_details(report_id: int):
+    """
+    获取评估报告的问题详情列表
+    
+    Args:
+        report_id: 报告ID
+        
+    Query Parameters:
+        page: 页码，默认1
+        limit: 每页数量，默认50
+        sort_by: 排序字段 (f1_score, exact_match, semantic_similarity, answer_coverage等)
+        sort_order: 排序方向 (asc, desc)，默认desc
+        success_only: 是否只返回成功的 (true/false)
+        min_f1: F1分数最小值筛选
+        max_f1: F1分数最大值筛选
+        
+    Returns:
+        JSON: {success: bool, data: {total, page, limit, pages, rows}}
+    """
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 50))
+        sort_by = request.args.get('sort_by', 'f1_score')
+        sort_order = request.args.get('sort_order', 'desc')
+        success_only = request.args.get('success_only', 'false').lower() == 'true'
+        min_f1 = request.args.get('min_f1', type=float)
+        max_f1 = request.args.get('max_f1', type=float)
+        
+        offset = (page - 1) * limit
+        
+        with LLMEvaluationQuestionDetailsManager() as details_manager:
+            # 获取筛选后的问题详情
+            details = details_manager.filter_questions(
+                report_id=report_id,
+                metric='f1_score' if min_f1 is not None or max_f1 is not None else None,
+                min_value=min_f1,
+                max_value=max_f1,
+                success_only=success_only if success_only else None,
+                limit=10000  # 先获取大量数据用于排序
+            )
+            
+            # 手动排序（因为filter_questions不支持自定义排序）
+            valid_sort_fields = [
+                'exact_match', 'f1_score', 'semantic_similarity',
+                'answer_coverage', 'answer_relevance', 'context_utilization',
+                'answer_completeness', 'answer_conciseness', 'inference_time'
+            ]
+            
+            if sort_by in valid_sort_fields:
+                reverse = sort_order == 'desc'
+                details.sort(key=lambda x: x.get(sort_by, 0), reverse=reverse)
+            
+            # 计算总数
+            total = len(details)
+            
+            # 分页
+            start = offset
+            end = offset + limit
+            page_data = details[start:end]
+            
+            pages = (total + limit - 1) // limit if limit > 0 else 0
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total': total,
+                    'page': page,
+                    'limit': limit,
+                    'pages': pages,
+                    'rows': page_data
+                }
+            })
+            
+    except Exception as e:
+        logger.error(f"获取报告问题详情失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'获取报告问题详情失败: {str(e)}'
+        }), 500
+
+
+@llm_model_bp.route('/api/llm/reports/<int:report_id>/statistics', methods=['GET'])
+def get_report_statistics(report_id: int):
+    """
+    获取评估报告的统计信息
+    
+    Args:
+        report_id: 报告ID
+        
+    Returns:
+        JSON: {success: bool, data: statistics}
+    """
+    try:
+        with LLMEvaluationQuestionDetailsManager() as details_manager:
+            stats = details_manager.get_statistics_by_report_id(report_id)
+            
+            return jsonify({
+                'success': True,
+                'data': stats
+            })
+            
+    except Exception as e:
+        logger.error(f"获取报告统计信息失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'获取报告统计信息失败: {str(e)}'
+        }), 500
+
+
+@llm_model_bp.route('/api/llm/reports/<int:report_id>/best-worst', methods=['GET'])
+def get_report_best_worst(report_id: int):
+    """
+    获取评估报告的最佳和最差表现问题
+    
+    Args:
+        report_id: 报告ID
+        
+    Query Parameters:
+        metric: 排序指标，默认f1_score
+        top_n: 返回数量，默认10
+        
+    Returns:
+        JSON: {success: bool, data: {best: [...], worst: [...]}}
+    """
+    try:
+        metric = request.args.get('metric', 'f1_score')
+        top_n = int(request.args.get('top_n', 10))
+        
+        with LLMEvaluationQuestionDetailsManager() as details_manager:
+            result = details_manager.get_best_worst_questions(
+                report_id=report_id,
+                metric=metric,
+                top_n=top_n
+            )
+            
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+            
+    except Exception as e:
+        logger.error(f"获取最佳/最差问题失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'获取最佳/最差问题失败: {str(e)}'
+        }), 500
+
+
+@llm_model_bp.route('/api/llm/reports/<int:report_id>/view', methods=['GET'])
+def view_evaluation_report(report_id: int):
+    """
+    查看评估报告内容
+    
+    Args:
+        report_id: 报告ID
+        
+    Returns:
+        JSON报告内容或HTML页面
+    """
+    try:
+        # 获取报告信息
+        with LLMEvaluationReportManager() as report_manager:
+            report = report_manager.get_report_by_id(report_id)
+            
+            if not report:
+                return jsonify({
+                    'success': False,
+                    'message': f'报告不存在: ID={report_id}'
+                }), 404
+            
+            report_path = report.get('report_path')
+            
+            # 从MinIO读取报告
+            if report_path:
+                try:
+                    from src.utils.minio_client import get_llm_evaluation_client
+                    client = get_llm_evaluation_client()
+                    
+                    # 使用report_path作为对象名称（如: reports/test1/evaluation_test1_20260311_164246.json）
+                    object_name = report_path.lstrip('/')
+                    
+                    # 获取文件内容
+                    data = client.get_file_content(object_name)
+                    if data:
+                        import json
+                        report_data = json.loads(data.decode('utf-8'))
+                        # 添加报告元数据（如report_name）
+                        report_data['report_info'] = {
+                            'id': report.get('id'),
+                            'report_name': report.get('report_name'),
+                            'model_name': report.get('model_name'),
+                            'created_at': report.get('created_at'),
+                            'status': report.get('status')
+                        }
+                        return jsonify({
+                            'success': True,
+                            'data': report_data
+                        })
+                    else:
+                        return jsonify({
+                            'success': False,
+                            'message': '无法从MinIO读取报告内容'
+                        }), 500
+                        
+                except Exception as e:
+                    logger.error(f"从MinIO读取报告失败: {e}", exc_info=True)
+                    return jsonify({
+                        'success': False,
+                        'message': f'读取报告失败: {str(e)}'
+                    }), 500
+            
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '报告路径不存在'
+                }), 404
+                
+    except Exception as e:
+        logger.error(f"查看报告失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'查看报告失败: {str(e)}'
         }), 500

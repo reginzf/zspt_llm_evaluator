@@ -1,9 +1,10 @@
 import argparse
 import sys
 import os
+import logging
 from datetime import datetime
 
-from flask import Flask, send_from_directory, abort
+from flask import Flask, send_from_directory, abort, request, g
 from flask_cors import CORS
 from src.flask_funcs import environment_bp, report_list_bp, local_knowledge_bp, \
     local_knowledge_detail_bp, label_studio_env_bp, local_knowledge_question_bp
@@ -16,42 +17,49 @@ from src.flask_funcs.llm_model_routes import llm_model_bp
 from src.flask_funcs.annotation_tasks import annotation_tasks_bp
 from src.sql_funs.sql_base import PostgreSQLManager
 
+# ==================== 日志配置 ====================
+
 # 创建日志目录
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # 定义日志文件路径
-STDOUT_LOG = os.path.join(LOG_DIR, 'app_stdout.log')
-STDERR_LOG = os.path.join(LOG_DIR, 'app_stderr.log')
+APP_LOG = os.path.join(LOG_DIR, 'app.log')
+REQUEST_LOG = os.path.join(LOG_DIR, 'request.log')
+ERROR_LOG = os.path.join(LOG_DIR, 'error.log')
 
+# 清除旧日志文件
+for log_file in [APP_LOG, REQUEST_LOG, ERROR_LOG]:
+    with open(log_file, 'w', encoding='utf-8') as f:
+        f.write(f"# Log started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-class DualLogger:
-    """双日志类：同时输出到控制台和文件"""
-    def __init__(self, filepath, stream):
-        self.filepath = filepath
-        self.stream = stream  # 原始流 (sys.stdout 或 sys.stderr)
-        # 清空旧日志文件
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(f"# Log started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+# 配置根日志记录器
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(APP_LOG, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
-    def write(self, message):
-        # 写入原始流（控制台）
-        self.stream.write(message)
-        self.stream.flush()
-        # 写入文件
-        with open(self.filepath, 'a', encoding='utf-8') as f:
-            f.write(message)
+# 创建请求日志记录器
+request_logger = logging.getLogger('request')
+request_logger.setLevel(logging.INFO)
+request_handler = logging.FileHandler(REQUEST_LOG, encoding='utf-8')
+request_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+request_logger.addHandler(request_handler)
 
-    def flush(self):
-        self.stream.flush()
+# 配置 Flask 和 Werkzeug 日志
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.INFO)
+werkzeug_handler = logging.FileHandler(APP_LOG, encoding='utf-8')
+werkzeug_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+werkzeug_logger.handlers = [werkzeug_handler]
 
-    def fileno(self):
-        return self.stream.fileno()
-
-
-# 重定向 stdout 和 stderr
-sys.stdout = DualLogger(STDOUT_LOG, sys.stdout)
-sys.stderr = DualLogger(STDERR_LOG, sys.stderr)
+# Flask 应用日志
+app_logger = logging.getLogger('app')
+app_logger.setLevel(logging.INFO)
 
 # 创建Flask应用
 app = Flask(__name__)
@@ -65,7 +73,9 @@ _base_origins = [
     "http://localhost:5001",
     "http://127.0.0.1:5001", 
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173",
+    # 添加你的前端 IP
+    "http://10.0.112.233:5173"
 ]
 
 # 从环境变量读取额外来源（生产环境配置）
@@ -156,6 +166,75 @@ CORS(app, resources={
     }
 })
 
+# ==================== 请求/响应日志中间件 ====================
+
+@app.before_request
+def log_request_info():
+    """记录请求信息"""
+    g.start_time = datetime.now()
+    
+    # 构建请求信息
+    req_info = {
+        'method': request.method,
+        'path': request.path,
+        'url': request.url,
+        'remote_addr': request.remote_addr,
+        'user_agent': request.user_agent.string if request.user_agent else '-',
+        'content_type': request.content_type or '-',
+        'content_length': request.content_length or 0,
+        'args': dict(request.args) if request.args else {},
+    }
+    
+    # 记录到请求日志
+    request_logger.info(f"[REQUEST] {request.method} {request.path} from {request.remote_addr}")
+    request_logger.info(f"[REQUEST DETAIL] {req_info}")
+    
+    # 同时输出到控制台
+    print(f"[REQUEST] {request.method} {request.path} from {request.remote_addr}", flush=True)
+
+@app.after_request
+def log_response_info(response):
+    """记录响应信息"""
+    duration = 0
+    if hasattr(g, 'start_time'):
+        duration = (datetime.now() - g.start_time).total_seconds() * 1000  # 毫秒
+    
+    # 构建响应信息
+    resp_info = {
+        'method': request.method,
+        'path': request.path,
+        'status_code': response.status_code,
+        'status': response.status,
+        'duration_ms': f"{duration:.2f}",
+        'content_length': response.content_length or 0,
+        'content_type': response.content_type or '-',
+    }
+    
+    # 记录到请求日志
+    request_logger.info(f"[RESPONSE] {request.method} {request.path} - {response.status_code} ({duration:.2f}ms)")
+    request_logger.info(f"[RESPONSE DETAIL] {resp_info}")
+    
+    # 同时输出到控制台
+    print(f"[RESPONSE] {request.method} {request.path} - {response.status_code} ({duration:.2f}ms)", flush=True)
+    
+    return response
+
+@app.errorhandler(Exception)
+def log_exception(error):
+    """记录异常信息"""
+    import traceback
+    
+    error_msg = f"[ERROR] {request.method} {request.path} - {str(error)}"
+    request_logger.error(error_msg)
+    request_logger.error(traceback.format_exc())
+    
+    # 同时输出到控制台
+    print(f"[ERROR] {request.method} {request.path} - {str(error)}", flush=True)
+    print(traceback.format_exc(), flush=True)
+    
+    # 重新抛出异常让 Flask 处理
+    raise error
+
 # 注册蓝图 (API 路由优先)
 # 注意：前后端分离模式下，API 蓝图仍然需要注册，页面路由由 Vue 前端接管
 app.register_blueprint(qa_data_group_bp)
@@ -172,8 +251,9 @@ app.register_blueprint(local_knowledge_detail_task_bp)  # API 路由保留
 app.register_blueprint(environment_bp)  # API 路由保留
 app.register_blueprint(report_list_bp)  # API 路由保留
 
-# Vue 3 前端静态文件目录
-frontend_dist_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+# Vue 3 前端静态文件目录 - 使用绝对路径确保正确找到
+current_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_dist_dir = os.path.join(current_dir, 'frontend', 'dist')
 
 # 从环境变量读取配置，默认为自动检测
 VUE_FRONTEND_MODE = os.environ.get('VUE_FRONTEND_MODE', 'auto').lower()
