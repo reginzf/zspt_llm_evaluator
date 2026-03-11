@@ -54,6 +54,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/llm/reports/:id',
+      name: 'llm-evaluation-report',
+      component: () => import('@/views/llm/EvaluationReport.vue'),
+      meta: {
+        title: '评估报告'
+      }
+    },
+    {
       path: '/local_knowledge',
       alias: ['/local_knowledge/', '/localKnowledge'],
       name: 'local-knowledge',
