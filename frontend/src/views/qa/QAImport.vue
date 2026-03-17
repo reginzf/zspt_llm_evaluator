@@ -33,12 +33,13 @@
       <!-- 步骤1: 选择文件 -->
       <div v-if="currentStep === 1" class="step-content">
         <h3>选择数据文件</h3>
-        <p class="step-desc">请选择 HuggingFace 数据集文件夹或单个数据文件</p>
+        <p class="step-desc">请选择 HuggingFace 数据集文件夹或单个数据文件或xlsx文件</p>
 
         <!-- 上传模式切换 -->
         <el-radio-group v-model="uploadMode" class="upload-mode">
           <el-radio-button label="folder">📁 选择文件夹</el-radio-button>
           <el-radio-button label="file">📄 选择文件</el-radio-button>
+          <el-radio-button label="xlsx">📊 选择xlsx文件</el-radio-button>
         </el-radio-group>
 
         <!-- 文件上传区域 -->
@@ -50,11 +51,15 @@
           @dragleave.prevent="isDragging = false"
           @drop.prevent="handleDrop"
         >
-          <el-icon class="upload-icon"><FolderOpened v-if="uploadMode === 'folder'" /><Document v-else /></el-icon>
+          <el-icon class="upload-icon">
+            <FolderOpened v-if="uploadMode === 'folder'" />
+            <Document v-else-if="uploadMode === 'file'" />
+            <Document v-else />
+          </el-icon>
           <div class="upload-text">
-            {{ uploadMode === 'folder' ? '点击选择文件夹，或拖拽到此处' : '点击选择文件，或拖拽到此处' }}
+            {{ uploadMode === 'folder' ? '点击选择文件夹，或拖拽到此处' : uploadMode === 'xlsx' ? '点击选择xlsx文件，或拖拽到此处' : '点击选择文件，或拖拽到此处' }}
           </div>
-          <div class="upload-hint">支持 JSON, JSONL, CSV, Parquet 格式</div>
+          <div class="upload-hint">{{ uploadMode === 'xlsx' ? '支持 xlsx 格式' : '支持 JSON, JSONL, CSV, Parquet 格式' }}</div>
         </div>
 
         <!-- 隐藏的文件输入 -->
@@ -65,6 +70,7 @@
           :webkitdirectory="uploadMode === 'folder'"
           :directory="uploadMode === 'folder'"
           :multiple="uploadMode === 'file'"
+          :accept="uploadMode === 'xlsx' ? '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : ''"
           @change="handleFileSelect"
         />
 
@@ -296,7 +302,7 @@ const loading = ref(false)
 const groupName = ref('')
 
 // 步骤1: 文件选择
-const uploadMode = ref<'folder' | 'file'>('folder')
+const uploadMode = ref<'folder' | 'file' | 'xlsx'>('folder')
 const selectedFiles = ref<File[]>([])
 const uploadedFilePath = ref('')
 const uploadedFileInfo = ref<{
@@ -424,7 +430,19 @@ function triggerFileSelect() {
 function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
-    selectedFiles.value = Array.from(input.files)
+    const files = Array.from(input.files)
+    
+    // xlsx 模式下校验文件类型
+    if (uploadMode.value === 'xlsx') {
+      const invalidFiles = files.filter(f => !f.name.endsWith('.xlsx'))
+      if (invalidFiles.length > 0) {
+        ElMessage.error('请选择 .xlsx 格式的文件')
+        clearFileSelection()
+        return
+      }
+    }
+    
+    selectedFiles.value = files
     uploadFiles()
   }
 }
@@ -441,6 +459,16 @@ function handleDrop(event: DragEvent) {
         if (file) files.push(file)
       }
     }
+    
+    // xlsx 模式下校验文件类型
+    if (uploadMode.value === 'xlsx') {
+      const invalidFiles = files.filter(f => !f.name.endsWith('.xlsx'))
+      if (invalidFiles.length > 0) {
+        ElMessage.error('请拖拽 .xlsx 格式的文件')
+        return
+      }
+    }
+    
     if (files.length > 0) {
       selectedFiles.value = files
       uploadFiles()

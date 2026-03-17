@@ -118,10 +118,10 @@ class EnhancedAIQADataManager(PostgreSQLManager):
     
     def preview_huggingface_dataset(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
         """
-        预览数据集（支持HuggingFace数据集目录、JSON文件、JSONL文件）
+        预览数据集（支持HuggingFace数据集目录、JSON文件、JSONL文件、XLSX文件）
         
         Args:
-            file_path: 数据集路径（可以是HuggingFace数据集目录、JSON文件或JSONL文件）
+            file_path: 数据集路径（可以是HuggingFace数据集目录、JSON文件或JSONL文件或XLSX文件）
             preview_rows: 预览行数
             
         Returns:
@@ -137,6 +137,10 @@ class EnhancedAIQADataManager(PostgreSQLManager):
             
             # 判断文件类型并相应处理
             if os.path.isfile(file_path):
+                # 检查是否为 xlsx 文件
+                file_ext = os.path.splitext(file_path)[1].lower()
+                if file_ext == '.xlsx':
+                    return self._preview_xlsx_file(file_path, preview_rows)
                 # 单个文件（JSON或JSONL）
                 return self._preview_json_file(file_path, preview_rows)
             elif os.path.isdir(file_path):
@@ -300,7 +304,62 @@ class EnhancedAIQADataManager(PostgreSQLManager):
             logger.error(f"预览JSON文件失败: {e}")
         
         return preview
-    
+
+    def _preview_xlsx_file(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
+        """
+        预览XLSX文件（读取第一个sheet）
+        
+        Args:
+            file_path: XLSX文件路径
+            preview_rows: 预览行数
+            
+        Returns:
+            DatasetPreview: 数据集预览信息
+        """
+        preview = DatasetPreview(file_path=file_path)
+        
+        try:
+            # 尝试导入 pandas
+            try:
+                import pandas as pd
+            except ImportError:
+                preview.error = "未安装pandas库，请运行: pip install pandas openpyxl"
+                return preview
+            
+            # 读取第一个sheet
+            df = pd.read_excel(file_path, sheet_name=0)
+            
+            # 获取列名
+            preview.columns = df.columns.tolist()
+            
+            # 获取总行数
+            preview.total_records = len(df)
+            
+            # 获取前 N 行数据
+            preview_rows_df = df.head(preview_rows)
+            
+            # 转换为字典列表（处理NaN值）
+            for _, row in preview_rows_df.iterrows():
+                record = {}
+                for col in preview.columns:
+                    value = row[col]
+                    # 处理 NaN 和特殊类型
+                    if pd.isna(value):
+                        record[col] = None
+                    elif isinstance(value, (int, float)):
+                        record[col] = value
+                    else:
+                        record[col] = str(value)
+                preview.preview_rows.append(record)
+            
+            logger.info(f"XLSX文件预览成功: {file_path}, 总记录数: {preview.total_records}, 列数: {len(preview.columns)}")
+            
+        except Exception as e:
+            preview.error = f"预览XLSX文件失败: {str(e)}"
+            logger.error(f"预览XLSX文件失败: {e}")
+        
+        return preview
+
     def _preview_hf_dataset(self, file_path: str, preview_rows: int = 5) -> DatasetPreview:
         """
         预览HuggingFace数据集目录
@@ -547,8 +606,13 @@ class EnhancedAIQADataManager(PostgreSQLManager):
             
             # 根据文件类型选择导入方式
             if os.path.isfile(config.file_path):
-                # JSON/JSONL文件
-                return self._import_json_file(config, dataset_name, progress_callback, stats, start_time)
+                file_ext = os.path.splitext(config.file_path)[1].lower()
+                if file_ext == '.xlsx':
+                    # XLSX文件
+                    return self._import_xlsx_file(config, dataset_name, progress_callback, stats, start_time)
+                else:
+                    # JSON/JSONL文件
+                    return self._import_json_file(config, dataset_name, progress_callback, stats, start_time)
             elif os.path.isdir(config.file_path):
                 # 目录：检查内容类型
                 json_files = self._find_json_files_in_dir(config.file_path)
@@ -706,7 +770,93 @@ class EnhancedAIQADataManager(PostgreSQLManager):
         logger.info(f"导入完成: 成功={stats.success}, 失败={stats.failed}, 跳过={stats.skipped}")
         
         return stats
-    
+
+    def _import_xlsx_file(self, config: ImportConfig, dataset_name: str,
+                          progress_callback: Callable, stats: ImportStats,
+                          start_time: datetime) -> ImportStats:
+        """
+        导入XLSX文件
+        """
+        try:
+            file_path = config.file_path
+            batch_size = config.options.get('batch_size', 1000)
+            skip_rows = config.options.get('skip_rows', 0)
+            unmapped_fields = config.options.get('unmapped_fields', 'ignore')
+            
+            # 尝试导入 pandas
+            try:
+                import pandas as pd
+            except ImportError:
+                stats.errors.append("未安装pandas库，请运行: pip install pandas openpyxl")
+                stats.duration = (datetime.now() - start_time).total_seconds()
+                return stats
+            
+            # 读取第一个sheet
+            df = pd.read_excel(file_path, sheet_name=0)
+            
+            # 应用跳过行数
+            if skip_rows > 0:
+                df = df.iloc[skip_rows:]
+            
+            # 转换为字典列表
+            records = []
+            for _, row in df.iterrows():
+                record = {}
+                for col in df.columns:
+                    value = row[col]
+                    # 处理 NaN 和特殊类型
+                    if pd.isna(value):
+                        record[col] = None
+                    elif isinstance(value, (int, float)):
+                        record[col] = value
+                    else:
+                        record[col] = str(value)
+                records.append(record)
+            
+            stats.total = len(records)
+            
+            # 批量导入
+            for i, record in enumerate(records):
+                try:
+                    # 转换数据格式
+                    qa_data = self._convert_with_mapping(
+                        record, config.group_id, dataset_name, config.mapping, unmapped_fields
+                    )
+                    
+                    if qa_data:
+                        # 使用现有的create_qa_data方法
+                        from src.sql_funs.ai_qa_data_crud import AIQADataManager
+                        with AIQADataManager() as manager:
+                            qa_id = manager.create_qa_data(**qa_data)
+                            if qa_id:
+                                stats.success += 1
+                            else:
+                                stats.failed += 1
+                    else:
+                        stats.skipped += 1
+                        
+                except Exception as e:
+                    stats.failed += 1
+                    stats.errors.append(f"记录导入错误: {str(e)[:100]}")
+                
+                # 进度回调
+                if progress_callback and (i + 1) % 100 == 0:
+                    progress_callback(i + 1, stats.total)
+                
+                if (i + 1) % 1000 == 0:
+                    logger.info(f"导入进度: {i + 1}/{stats.total}")
+            
+            # 更新分组统计
+            self._update_group_qa_count(config.group_id)
+            
+        except Exception as e:
+            stats.errors.append(f"导入XLSX文件失败: {str(e)}")
+        
+        stats.duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"导入完成: 成功={stats.success}, 失败={stats.failed}, 跳过={stats.skipped}")
+        
+        return stats
+
     def _import_hf_dataset(self, config: ImportConfig, dataset_name: str,
                            progress_callback: Callable, stats: ImportStats,
                            start_time: datetime) -> ImportStats:
