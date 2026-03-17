@@ -808,7 +808,7 @@ def list_evaluation_tasks():
 
 # ==================== 页面路由 - LLM评估报告查看 ====================
 
-@llm_model_bp.route('/llm/report/<path:filename>')
+@llm_model_bp.route('/api/llm/report/<path:filename>')
 def view_llm_evaluation_report(filename):
     """
     查看LLM评估报告页面

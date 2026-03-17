@@ -177,7 +177,7 @@ export async function getEvaluationReports(modelName: string): Promise<ApiRespon
  * 删除评估报告
  */
 export async function deleteEvaluationReport(reportId: number): Promise<ApiResponse<void>> {
-  return del<ApiResponse<void>>(`/llm/reports/${reportId}`)
+  return del<ApiResponse<void>>(`/api/llm/reports/${reportId}`)
 }
 
 /**
@@ -216,9 +216,9 @@ export async function getReportDetails(
   if (params?.sort_order) queryParams.append('sort_order', params.sort_order)
   if (params?.metric) queryParams.append('metric', params.metric)
   if (params?.min_score !== undefined) queryParams.append('min_score', String(params.min_score))
-  
+
   const query = queryParams.toString()
-  return get<ApiResponse<any>>(`/llm/reports/${reportId}/details${query ? '?' + query : ''}`)
+  return get<ApiResponse<any>>(`/api/llm/reports/${reportId}/details${query ? '?' + query : ''}`)
 }
 
 /**
@@ -231,7 +231,7 @@ export async function getReportStatistics(reportId: number): Promise<ApiResponse
   success_count: number
   error_count: number
 }>> {
-  return get<ApiResponse<any>>(`/llm/reports/${reportId}/statistics`)
+  return get<ApiResponse<any>>(`/api/llm/reports/${reportId}/statistics`)
 }
 
 /**
@@ -262,14 +262,14 @@ export async function getBestWorstQuestions(
   if (params?.limit) queryParams.append('limit', String(params.limit))
   
   const query = queryParams.toString()
-  return get<ApiResponse<any>>(`/llm/reports/${reportId}/best-worst${query ? '?' + query : ''}`)
+  return get<ApiResponse<any>>(`/api/llm/reports/${reportId}/best-worst${query ? '?' + query : ''}`)
 }
 
 /**
  * 获取评估报告完整内容（用于报告查看页面）
  */
 export async function getReportView(reportId: number): Promise<ApiResponse<any>> {
-  return get<ApiResponse<any>>(`/llm/reports/${reportId}/view`)
+  return get<ApiResponse<any>>(`/api/llm/reports/${reportId}/view`)
 }
 
 /**
@@ -313,7 +313,7 @@ export async function getReportQuestions(
   if (params?.limit) queryParams.append('limit', String(params.limit))
   if (params?.sort_by) queryParams.append('sort_by', params.sort_by)
   if (params?.sort_order) queryParams.append('sort_order', params.sort_order)
-  
+
   const query = queryParams.toString()
-  return get<ApiResponse<any>>(`/llm/reports/${reportId}/details${query ? '?' + query : ''}`)
+  return get<ApiResponse<any>>(`/api/llm/reports/${reportId}/details${query ? '?' + query : ''}`)
 }

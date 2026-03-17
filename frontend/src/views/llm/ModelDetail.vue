@@ -678,8 +678,13 @@ async function startEvaluate() {
 }
 
 function viewReport(row: ReportWithMetrics) {
-  const reportId = row.id
-  window.open(`/llm/reports/${reportId}`, '_blank')
+  // 使用后端 /api/llm/report/<path> 路由，直接返回 HTML 报告页面
+  const reportPath = row.path || (row as any).report_path
+  if (reportPath) {
+    window.open(`/api/llm/report/${reportPath}`, '_blank')
+  } else {
+    ElMessage.error('报告路径不存在')
+  }
 }
 
 function deleteReport(row: ReportWithMetrics) {
