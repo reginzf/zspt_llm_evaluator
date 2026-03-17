@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM 评估报告 - {{ model_results[0].model_name if model_results else 'Unknown' }}</title>
+    {% for css_file in css_files %}
+    <link rel="stylesheet" href="{{ css_file }}">
+    {% endfor %}
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #52c41a;
+            --warning-color: #faad14;
+            --error-color: #f5222d;
+            --border-color: #e8e8e8;
+            --bg-light: #f5f5f5;
+            --text-primary: #262626;
+            --text-secondary: #595959;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .page-header h1 {
+            margin: 0 0 12px 0;
+            color: var(--text-primary);
+            font-size: 28px;
+        }
+        
+        .page-header .meta {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-light);
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .card-body {
+            padding: 24px;
+        }
+        
+        /* 指标卡片网格 */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-card.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .metric-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .metric-card.info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* 表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .data-table th {
+            background: var(--bg-light);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .data-table th:hover {
+            background: #e0e0e0;
+        }
+        
+        .data-table th.sortable::after {
+            content: ' ↕';
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .data-table th.sort-asc::after {
+            content: ' ↑';
+            color: var(--primary-color);
+        }
+        
+        .data-table th.sort-desc::after {
+            content: ' ↓';
+            color: var(--primary-color);
+        }
+        
+        .data-table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .data-table .success {
+            color: var(--success-color);
+        }
+        
+        .data-table .error {
+            color: var(--error-color);
+        }
+        
+        /* 问题详情样式 */
+        .question-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .answer-cell {
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .answer-cell:hover,
+        .question-cell:hover {
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        
+        /* 标签样式 */
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .tag-success {
+            background: #f6ffed;
+            color: var(--success-color);
+            border: 1px solid #b7eb8f;
+        }
+        
+        .tag-error {
+            background: #fff1f0;
+            color: var(--error-color);
+            border: 1px solid #ffa39e;
+        }
+        
+        /* 配置信息 */
+        .config-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+        }
+        
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        
+        .config-label {
+            color: var(--text-secondary);
+        }
+        
+        .config-value {
+            font-weight: 500;
+        }
+        
+        /* 筛选控件 */
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-bar input,
+        .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .filter-bar input:focus,
+        .filter-bar select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .pagination button {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .pagination button:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .pagination button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 最佳/最差问题 */
+        .best-worst-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        
+        @media (max-width: 768px) {
+            .best-worst-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        .question-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .question-list li {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .question-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .question-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        
+        .question-score {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        /* 隐藏详情 */
+        .details-hidden {
+            display: none;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+        }
+        
+        .toggle-btn:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面头部 -->
+        <div class="page-header">
+            <h1>🤖 LLM 评估报告</h1>
+            <div class="meta">
+                <div>文件名: {{ filename }}</div>
+                <div>生成时间: {{ timestamp }}</div>
+                <div>模型数量: {{ total_agents }} | 问答对数量: {{ total_qa_pairs }}</div>
+            </div>
+        </div>
+
+        {% for model in model_results %}
+        <!-- 模型结果卡片 -->
+        <div class="card">
+            <div class="card-header">
+                📊 {{ model.model_name }} {% if model.model_version %}v{{ model.model_version }}{% endif %}
+            </div>
+            <div class="card-body">
+                <!-- 汇总指标 -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">{{ model.metrics.success_rate }}</div>
+                        <div class="metric-label">成功率</div>
+                    </div>
+                    <div class="metric-card success">
+                        <div class="metric-value">{{ model.metrics.exact_match }}</div>
+                        <div class="metric-label">精确匹配</div>
+                    </div>
+                    <div class="metric-card info">
+                        <div class="metric-value">{{ model.metrics.f1_score }}</div>
+                        <div class="metric-label">F1 分数</div>
+                    </div>
+                    <div class="metric-card warning">
+                        <div class="metric-value">{{ model.metrics.semantic_similarity }}</div>
+                        <div class="metric-label">语义相似度</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">{{ model.metrics.avg_inference_time }}</div>
+                        <div class="metric-label">平均推理时间</div>
+                    </div>
+                    <div class="metric-card success">
+                        <div class="metric-value">{{ model.metrics.answer_coverage }}</div>
+                        <div class="metric-label">答案覆盖率</div>
+                    </div>
+                </div>
+
+                <!-- 详细指标 -->
+                <div style="margin-top: 24px;">
+                    <h4>📈 详细指标</h4>
+                    <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 12px;">
+                        <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                            <div style="font-size: 20px; font-weight: 600; color: var(--primary-color);">{{ model.metrics.answer_relevance }}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">答案相关性</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                            <div style="font-size: 20px; font-weight: 600; color: var(--primary-color);">{{ model.metrics.context_utilization }}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">上下文利用率</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                            <div style="font-size: 20px; font-weight: 600; color: var(--primary-color);">{{ model.metrics.answer_completeness }}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">答案完整性</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                            <div style="font-size: 20px; font-weight: 600; color: var(--primary-color);">{{ model.metrics.answer_conciseness }}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">答案简洁性</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模型配置 -->
+        <div class="card">
+            <div class="card-header">⚙️ 模型配置</div>
+            <div class="card-body">
+                <div class="config-list">
+                    <div class="config-item">
+                        <span class="config-label">模型类型</span>
+                        <span class="config-value">{{ model.model_config.type }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">模型名称</span>
+                        <span class="config-value">{{ model.model_config.model }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Temperature</span>
+                        <span class="config-value">{{ model.model_config.temperature }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Max Tokens</span>
+                        <span class="config-value">{{ model.model_config.max_tokens }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Timeout</span>
+                        <span class="config-value">{{ model.model_config.timeout }}s</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">API URL</span>
+                        <span class="config-value" style="font-size: 12px;">{{ model.model_config.api_url }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最佳/最差问题 -->
+        {% if model.best_worst %}
+        <div class="card">
+            <div class="card-header">🏆 最佳/最差表现问题 (按 F1 分数)</div>
+            <div class="card-body">
+                <div class="best-worst-grid">
+                    <div>
+                        <h4 style="color: var(--success-color); margin-bottom: 12px;">✅ 最佳表现</h4>
+                        <ul class="question-list">
+                            {% for qa in model.best_worst.best_f1[:5] %}
+                            <li>
+                                <div class="question-text">{{ qa.question[:80] }}...</div>
+                                <div class="question-score">
+                                    F1: {{ qa.metrics.f1_score }} | 
+                                    精确匹配: {{ qa.metrics.exact_match }} | 
+                                    语义相似度: {{ qa.metrics.semantic_similarity }}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--error-color); margin-bottom: 12px;">⚠️ 需改进</h4>
+                        <ul class="question-list">
+                            {% for qa in model.best_worst.worst_f1[:5] %}
+                            <li>
+                                <div class="question-text">{{ qa.question[:80] }}...</div>
+                                <div class="question-score">
+                                    F1: {{ qa.metrics.f1_score }} | 
+                                    精确匹配: {{ qa.metrics.exact_match }} | 
+                                    语义相似度: {{ qa.metrics.semantic_similarity }}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 问答对详情 -->
+        <div class="card">
+            <div class="card-header">
+                📋 问答对详情 ({{ model.qa_details|length }} 条)
+                <button class="toggle-btn" onclick="toggleDetails('qa-details-{{ loop.index }}')" style="float: right;">
+                    展开/收起
+                </button>
+            </div>
+            <div id="qa-details-{{ loop.index }}" class="details-hidden">
+                <div class="card-body">
+                    <!-- 筛选栏 -->
+                    <div class="filter-bar">
+                        <input type="text" id="search-input-{{ loop.index }}" placeholder="搜索问题..." onkeyup="filterTable({{ loop.index }})">
+                        <select id="success-filter-{{ loop.index }}" onchange="filterTable({{ loop.index }})">
+                            <option value="">全部状态</option>
+                            <option value="success">成功</option>
+                            <option value="failed">失败</option>
+                        </select>
+                        <select id="metric-sort-{{ loop.index }}" onchange="sortTable({{ loop.index }})">
+                            <option value="">默认排序</option>
+                            <option value="f1_score_value">按 F1 分数</option>
+                            <option value="exact_match_value">按精确匹配</option>
+                            <option value="semantic_similarity_value">按语义相似度</option>
+                        </select>
+                    </div>
+
+                    <!-- 数据表格 -->
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="qa-table-{{ loop.index }}">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'question_id')">ID</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'question')">问题</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'success')">状态</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'metrics.f1_score_value')">F1 分数</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'metrics.exact_match_value')">精确匹配</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'metrics.semantic_similarity_value')">语义相似度</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'metrics.answer_coverage_value')">覆盖率</th>
+                                    <th class="sortable" onclick="sortByColumn({{ loop.index }}, 'inference_time')">推理时间</th>
+                                    <th>预测答案</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for qa in model.qa_details %}
+                                <tr data-question-id="{{ qa.question_id }}" data-success="{{ 'success' if qa.success else 'failed' }}">
+                                    <td>{{ qa.question_id }}</td>
+                                    <td class="question-cell" title="{{ qa.question }}">{{ qa.question[:50] }}{% if qa.question|length > 50 %}...{% endif %}</td>
+                                    <td>
+                                        {% if qa.success %}
+                                        <span class="tag tag-success">成功</span>
+                                        {% else %}
+                                        <span class="tag tag-error">失败</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ qa.metrics.f1_score }}</td>
+                                    <td>{{ qa.metrics.exact_match }}</td>
+                                    <td>{{ qa.metrics.semantic_similarity }}</td>
+                                    <td>{{ qa.metrics.answer_coverage }}</td>
+                                    <td>{{ qa.inference_time }}</td>
+                                    <td class="answer-cell" title="{{ qa.predicted_answer }}">{{ qa.predicted_answer[:30] }}{% if qa.predicted_answer|length > 30 %}...{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div class="pagination" id="pagination-{{ loop.index }}">
+                        <!-- 分页按钮由 JS 生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // 每页显示数量
+        const PAGE_SIZE = 20;
+        
+        // 存储各模型的数据
+        const modelData = {};
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for model in model_results %}
+            modelData[{{ loop.index }}] = {
+                qaDetails: {{ model.qa_details_json | safe }},
+                currentPage: 1,
+                currentSort: { field: null, order: 'desc' },
+                filteredData: null
+            };
+            renderTable({{ loop.index }});
+            {% endfor %}
+        });
+        
+        // 切换详情显示
+        function toggleDetails(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('details-hidden')) {
+                el.classList.remove('details-hidden');
+            } else {
+                el.classList.add('details-hidden');
+            }
+        }
+        
+        // 渲染表格
+        function renderTable(modelIndex) {
+            const data = modelData[modelIndex];
+            const displayData = data.filteredData || data.qaDetails;
+            
+            const tbody = document.querySelector(`#qa-table-${modelIndex} tbody`);
+            tbody.innerHTML = '';
+            
+            // 分页
+            const start = (data.currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            const pageData = displayData.slice(start, end);
+            
+            pageData.forEach(qa => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-question-id', qa.question_id);
+                row.setAttribute('data-success', qa.success ? 'success' : 'failed');
+                
+                row.innerHTML = `
+                    <td>${qa.question_id}</td>
+                    <td class="question-cell" title="${escapeHtml(qa.question)}">${truncate(qa.question, 50)}</td>
+                    <td>${qa.success ? '<span class="tag tag-success">成功</span>' : '<span class="tag tag-error">失败</span>'}</td>
+                    <td>${qa.metrics.f1_score || '-'}</td>
+                    <td>${qa.metrics.exact_match || '-'}</td>
+                    <td>${qa.metrics.semantic_similarity || '-'}</td>
+                    <td>${qa.metrics.answer_coverage || '-'}</td>
+                    <td>${qa.inference_time || '-'}</td>
+                    <td class="answer-cell" title="${escapeHtml(qa.predicted_answer)}">${truncate(qa.predicted_answer, 30)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // 更新分页
+            updatePagination(modelIndex, displayData.length);
+        }
+        
+        // 更新分页控件
+        function updatePagination(modelIndex, totalItems) {
+            const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+            const pagination = document.getElementById(`pagination-${modelIndex}`);
+            pagination.innerHTML = '';
+            
+            if (totalPages <= 1) return;
+            
+            // 上一页
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '上一页';
+            prevBtn.disabled = modelData[modelIndex].currentPage === 1;
+            prevBtn.onclick = () => goToPage(modelIndex, modelData[modelIndex].currentPage - 1);
+            pagination.appendChild(prevBtn);
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= modelData[modelIndex].currentPage - 2 && i <= modelData[modelIndex].currentPage + 2)) {
+                    const btn = document.createElement('button');
+                    btn.textContent = i;
+                    btn.className = i === modelData[modelIndex].currentPage ? 'active' : '';
+                    btn.onclick = () => goToPage(modelIndex, i);
+                    pagination.appendChild(btn);
+                } else if (i === modelData[modelIndex].currentPage - 3 || i === modelData[modelIndex].currentPage + 3) {
+                    const span = document.createElement('span');
+                    span.textContent = '...';
+                    span.style.padding = '6px';
+                    pagination.appendChild(span);
+                }
+            }
+            
+            // 下一页
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = '下一页';
+            nextBtn.disabled = modelData[modelIndex].currentPage === totalPages;
+            nextBtn.onclick = () => goToPage(modelIndex, modelData[modelIndex].currentPage + 1);
+            pagination.appendChild(nextBtn);
+        }
+        
+        // 跳转到指定页
+        function goToPage(modelIndex, page) {
+            const data = modelData[modelIndex];
+            const totalItems = data.filteredData ? data.filteredData.length : data.qaDetails.length;
+            const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+            
+            if (page < 1 || page > totalPages) return;
+            
+            data.currentPage = page;
+            renderTable(modelIndex);
+        }
+        
+        // 筛选表格
+        function filterTable(modelIndex) {
+            const searchInput = document.getElementById(`search-input-${modelIndex}`);
+            const successFilter = document.getElementById(`success-filter-${modelIndex}`);
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const successValue = successFilter.value;
+            
+            const data = modelData[modelIndex];
+            data.filteredData = data.qaDetails.filter(qa => {
+                // 搜索文本筛选
+                const matchSearch = !searchTerm || 
+                    qa.question.toLowerCase().includes(searchTerm) ||
+                    qa.predicted_answer.toLowerCase().includes(searchTerm) ||
+                    String(qa.question_id).includes(searchTerm);
+                
+                // 状态筛选
+                const matchSuccess = !successValue || 
+                    (successValue === 'success' && qa.success) ||
+                    (successValue === 'failed' && !qa.success);
+                
+                return matchSearch && matchSuccess;
+            });
+            
+            data.currentPage = 1;
+            renderTable(modelIndex);
+        }
+        
+        // 排序表格
+        function sortTable(modelIndex) {
+            const sortSelect = document.getElementById(`metric-sort-${modelIndex}`);
+            const field = sortSelect.value;
+            
+            if (!field) return;
+            
+            const data = modelData[modelIndex];
+            const arrayToSort = data.filteredData || data.qaDetails;
+            
+            arrayToSort.sort((a, b) => {
+                const valueA = getNestedValue(a, field) || 0;
+                const valueB = getNestedValue(b, field) || 0;
+                return valueB - valueA; // 降序
+            });
+            
+            data.currentPage = 1;
+            renderTable(modelIndex);
+        }
+        
+        // 按列排序
+        function sortByColumn(modelIndex, field) {
+            const data = modelData[modelIndex];
+            const arrayToSort = data.filteredData || data.qaDetails;
+            
+            // 切换排序方向
+            if (data.currentSort.field === field) {
+                data.currentSort.order = data.currentSort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                data.currentSort.field = field;
+                data.currentSort.order = 'desc';
+            }
+            
+            arrayToSort.sort((a, b) => {
+                let valueA = getNestedValue(a, field);
+                let valueB = getNestedValue(b, field);
+                
+                // 字符串比较
+                if (typeof valueA === 'string') {
+                    valueA = valueA.toLowerCase();
+                    valueB = valueB.toLowerCase();
+                }
+                
+                // 数值比较（处理百分比字符串）
+                if (typeof valueA === 'string' && valueA.includes('%')) {
+                    valueA = parseFloat(valueA);
+                    valueB = parseFloat(valueB);
+                }
+                
+                if (data.currentSort.order === 'asc') {
+                    return valueA > valueB ? 1 : -1;
+                } else {
+                    return valueA < valueB ? 1 : -1;
+                }
+            });
+            
+            // 更新表头样式
+            document.querySelectorAll(`#qa-table-${modelIndex} th`).forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            const thIndex = getFieldIndex(field);
+            const th = document.querySelectorAll(`#qa-table-${modelIndex} th`)[thIndex];
+            if (th) {
+                th.classList.add(data.currentSort.order === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+            
+            renderTable(modelIndex);
+        }
+        
+        // 获取嵌套字段值
+        function getNestedValue(obj, path) {
+            return path.split('.').reduce((o, p) => o && o[p], obj);
+        }
+        
+        // 获取字段索引
+        function getFieldIndex(field) {
+            const fieldMap = {
+                'question_id': 0,
+                'question': 1,
+                'success': 2,
+                'metrics.f1_score_value': 3,
+                'metrics.exact_match_value': 4,
+                'metrics.semantic_similarity_value': 5,
+                'metrics.answer_coverage_value': 6,
+                'inference_time': 7
+            };
+            return fieldMap[field] || 0;
+        }
+        
+        // 转义 HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 截断文本
+        function truncate(text, length) {
+            if (!text) return '';
+            return text.length > length ? text.substring(0, length) + '...' : text;
+        }
+    </script>
+</body>
+</html>

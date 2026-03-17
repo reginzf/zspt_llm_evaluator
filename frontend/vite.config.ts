@@ -137,12 +137,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        // 报告相关 API（注意：排除 /report_list 前端路由）
-        '^/report/': {
-          target: backendUrl,
-          changeOrigin: true,
-          secure: false,
-        },
         // 报告列表数据 API
         '^/report_list/data': {
           target: backendUrl,

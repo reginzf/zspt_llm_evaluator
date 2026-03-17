@@ -108,11 +108,11 @@ function viewReport(directory: string, file: string) {
   const report = reportsData.value.find(r => r.directory === directory && r.name === file)
   if (report && report.object_name) {
     // 使用完整的 MinIO 对象名称
-    window.open('/report/' + encodeURIComponent(report.object_name), '_blank')
+    window.open('/api/report/' + encodeURIComponent(report.object_name), '_blank')
   } else {
     // 回退到相对路径
     const path = directory === '根目录' ? file : `${directory}/${file}`
-    window.open('/report/' + encodeURIComponent(path), '_blank')
+    window.open('/api/report/' + encodeURIComponent(path), '_blank')
   }
 }
 
