@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pgsql": {
+      "command": "pgsql-mcp-server",
+      "args": ["--dsn", "postgresql://labelstudio:Labelstudio123@10.210.2.223:5432/label_studio"]
+    }
+  }
+}

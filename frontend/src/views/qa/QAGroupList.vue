@@ -102,7 +102,7 @@
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form ref="dialog.formRef" :model="dialog.form" :rules="formRules" label-width="100px">
+      <el-form ref="formRef" :model="dialog.form" :rules="formRules" label-width="100px">
         <el-form-item label="分组名称" prop="name">
           <el-input v-model="dialog.form.name" placeholder="请输入分组名称" />
         </el-form-item>
@@ -172,7 +172,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormRules, type FormInstance } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -194,6 +194,9 @@ const qaStore = useQAStore()
 
 // 使用 composables
 const { loading, submitting, withLoading, withSubmitting } = useLoading()
+
+// 表单 ref（需要单独定义，不能放在 reactive 对象中）
+const formRef = ref<FormInstance>()
 
 // 数据
 const groups = ref<QAGroup[]>([])
@@ -360,7 +363,59 @@ function handleEdit(row: QAGroup) {
 
 // 提交表单
 async function handleSubmit() {
-  await withSubmitting(() => dialog.submit())
+  if (!formRef.value) return
+
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  await withSubmitting(async () => {
+    try {
+      // 手动调用 dialog 的 onSubmit 逻辑
+      const form = dialog.form
+      const isEditMode = dialog.isEdit
+
+      // 解析标签
+      const tags = form.tagsInput
+        .split(',')
+        .map((t: string) => t.trim())
+        .filter(Boolean)
+
+      // 解析元数据
+      let metadata: Record<string, any> | undefined
+      if (form.metadataInput.trim()) {
+        try {
+          metadata = JSON.parse(form.metadataInput)
+        } catch {
+          ElMessage.error('元数据格式不正确，请检查JSON格式')
+          return
+        }
+      }
+
+      const data: CreateQAGroupParams = {
+        name: form.name,
+        purpose: form.purpose || undefined,
+        test_type: form.test_type,
+        language: form.language,
+        difficulty_range: form.difficulty_range || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        metadata
+      }
+
+      const response = isEditMode && dialog.editId
+        ? await qaStore.updateGroup(Number(dialog.editId), data)
+        : await qaStore.addGroup(data)
+
+      if (response?.success) {
+        ElMessage.success(isEditMode ? '更新成功' : '创建成功')
+        dialog.close()
+        loadData()
+      } else {
+        ElMessage.error(response?.message || '操作失败')
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+    }
+  })
 }
 
 // 切换状态

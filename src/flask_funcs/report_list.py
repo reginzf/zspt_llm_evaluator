@@ -1,16 +1,12 @@
 from flask import Blueprint, jsonify, render_template_string
 import os
 import logging
-import tempfile
-import json
 from datetime import datetime
 
-from env_config_init import REPORT_PATH
 from src.utils.pub_funs import load_metric_data
 from src.flask_funcs.reports.metrics_analyzer import analyze_metrics
 from src.flask_funcs.reports.flask_metrics_dashboard_renderer import MetricsDashboardRenderer
-
-from src.flask_funcs.common_utils import get_directory_structure
+from src.flask_funcs.common_utils import download_minio_file_to_temp
 from src.utils.minio_client import get_knowledge_files_client
 
 # 创建logger
@@ -207,6 +203,7 @@ def view_report(object_name):
 
     从 MinIO 加载知识库报告 JSON 文件并使用 MetricsDashboardRenderer 渲染为 HTML 页面
     """
+    tmp_report_path = None
     try:
         # URL 解码对象名称
         from urllib.parse import unquote
@@ -217,55 +214,42 @@ def view_report(object_name):
 
         logger.info(f"尝试从 MinIO 加载知识库报告: {object_name}")
 
-        # 从 MinIO 下载报告到临时文件
-        minio_client = get_knowledge_files_client()
+        # 从 MinIO 下载报告到临时文件（复用通用工具函数）
+        tmp_report_path = download_minio_file_to_temp(object_name)
 
-        # 创建临时文件
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
-            tmp_report_path = tmp_file.name
+        if not tmp_report_path:
+            logger.warning(f"MinIO 中不存在报告: {object_name}")
+            return render_template_string(
+                REPORT_VIEW_TEMPLATE,
+                filename=os.path.basename(object_name),
+                object_name=object_name,
+                error=f"报告文件不存在: {object_name}",
+                json_content=None
+            ), 404
 
-        try:
-            # 下载报告文件
-            download_success = minio_client.download_file(object_name, tmp_report_path)
+        # 从临时文件加载 metric 数据
+        metric_data = load_metric_data(tmp_report_path)
 
-            if not download_success:
-                logger.warning(f"MinIO 中不存在报告: {object_name}")
-                return render_template_string(
-                    REPORT_VIEW_TEMPLATE,
-                    filename=os.path.basename(object_name),
-                    object_name=object_name,
-                    error=f"报告文件不存在: {object_name}",
-                    json_content=None
-                ), 404
+        if not metric_data:
+            logger.warning(f"无法加载报告数据: {object_name}")
+            return render_template_string(
+                REPORT_VIEW_TEMPLATE,
+                filename=os.path.basename(object_name),
+                object_name=object_name,
+                error=f"无法加载报告数据: {object_name}",
+                json_content=None
+            ), 404
 
-            # 从临时文件加载 metric 数据
-            metric_data = load_metric_data(tmp_report_path)
+        # 分析数据
+        analysis_results = analyze_metrics(metric_data)
 
-            if not metric_data:
-                logger.warning(f"无法加载报告数据: {object_name}")
-                return render_template_string(
-                    REPORT_VIEW_TEMPLATE,
-                    filename=os.path.basename(object_name),
-                    object_name=object_name,
-                    error=f"无法加载报告数据: {object_name}",
-                    json_content=None
-                ), 404
+        # 创建 HTML 渲染器
+        renderer = MetricsDashboardRenderer()
 
-            # 分析数据
-            analysis_results = analyze_metrics(metric_data)
+        # 渲染模板
+        html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)
 
-            # 创建 HTML 渲染器
-            renderer = MetricsDashboardRenderer()
-
-            # 渲染模板
-            html_content = renderer.render_metrics_dashboard(analysis_results, metric_data)
-
-            logger.info(f"成功渲染知识库报告: {object_name}")
-
-        finally:
-            # 清理临时文件
-            if os.path.exists(tmp_report_path):
-                os.unlink(tmp_report_path)
+        logger.info(f"成功渲染知识库报告: {object_name}")
 
     except Exception as e:
         logger.error(f"处理知识库报告 {object_name} 时发生错误: {str(e)}", exc_info=True)
@@ -276,6 +260,13 @@ def view_report(object_name):
             error=f"处理报告时发生错误: {str(e)}",
             json_content=None
         ), 500
+    finally:
+        # 清理临时文件 - 使用 try-except 避免 TOCTOU 问题
+        if tmp_report_path:
+            try:
+                os.unlink(tmp_report_path)
+            except FileNotFoundError:
+                pass  # 文件已被删除，无需处理
 
     return html_content
 

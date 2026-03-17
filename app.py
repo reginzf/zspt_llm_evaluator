@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import posixpath
 import logging
 from datetime import datetime
 
@@ -15,6 +16,7 @@ from src.flask_funcs.qa_data_group import qa_data_group_bp
 from src.flask_funcs.qa_data import qa_data_bp
 from src.flask_funcs.llm_model_routes import llm_model_bp
 from src.flask_funcs.annotation_tasks import annotation_tasks_bp
+from src.flask_funcs.static_routes import static_bp
 from src.sql_funs.sql_base import PostgreSQLManager
 
 # ==================== 日志配置 ====================
@@ -75,7 +77,7 @@ _base_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     # 添加你的前端 IP
-    "http://10.0.112.233:5173"
+    "http://10.0.112.72:5173"
 ]
 
 # 从环境变量读取额外来源（生产环境配置）
@@ -250,6 +252,7 @@ app.register_blueprint(local_knowledge_label_studio_bp)  # API 路由保留
 app.register_blueprint(local_knowledge_detail_task_bp)  # API 路由保留
 app.register_blueprint(environment_bp)  # API 路由保留
 app.register_blueprint(report_list_bp)  # API 路由保留
+app.register_blueprint(static_bp)  # 静态文件路由（用于报告渲染器）
 
 # Vue 3 前端静态文件目录 - 使用绝对路径确保正确找到
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -299,11 +302,13 @@ def serve_vue_app(path):
     )
     if any(path.startswith(prefix) for prefix in api_prefixes):
         abort(404)
-    
-    # 检查是否是静态资源请求 (JS/CSS/assets 等)
-    static_file = os.path.join(frontend_dist_dir, path)
+
+    # 检查是否是静态资源请求 (assets/ JS/CSS 等)
+    # 使用 posixpath 保持正斜杠（Flask safe_join 要求）
+    normalized_path = posixpath.normpath(path)
+    static_file = os.path.join(frontend_dist_dir, normalized_path.replace('/', os.sep))
     if path and os.path.exists(static_file) and os.path.isfile(static_file):
-        return send_from_directory(frontend_dist_dir, path)
+        return send_from_directory(frontend_dist_dir, normalized_path)
     
     # 所有其他路由返回 Vue 的 index.html (SPA 回退)
     # 这支持 Vue Router 的 history 模式

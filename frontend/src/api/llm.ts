@@ -1,5 +1,5 @@
 import { get, post, put, del } from './index'
-import type { ApiResponse, PaginationData, PaginationParams } from '@/types'
+import type { ApiResponse } from '@/types'
 
 // LLM 模型 - 与后端字段保持一致
 export interface LLMModel {

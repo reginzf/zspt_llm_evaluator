@@ -1,0 +1,10 @@
+@echo off
+set ANTHROPIC_BASE_URL=https://api.kimi.com/coding/
+set ANTHROPIC_API_KEY=sk-kimi-gx1Q1g0cvq8dspxGS2ax9NVorIXET6gkpmIY01zp9kTAkxU3UmCmeBTxwteK6qaX
+
+set CLAUDE_CODE_TEMPERATURE=1.0
+set CLAUDE_CODE_MIN_P=0.01
+set CLAUDE_CODE_REPEAT_PENALTY=1.0
+set CLAUDE_CODE_MAX_TOOL_CALLS=50
+
+claude %*

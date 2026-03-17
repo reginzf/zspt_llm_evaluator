@@ -170,7 +170,7 @@
             placeholder="请输入问题"
           />
         </el-form-item>
-        <el-form-item label="答案" prop="answers">
+        <el-form-item label="答案" prop="answersInput">
           <el-input
             v-model="qaItemForm.answersInput"
             type="textarea"
@@ -286,7 +286,7 @@ const qaItemForm = reactive({
 })
 const qaItemRules: FormRules = {
   question: [{ required: true, message: '请输入问题', trigger: 'blur' }],
-  answers: [{ required: true, message: '请输入答案', trigger: 'blur' }]
+  answersInput: [{ required: true, message: '请输入答案', trigger: 'blur' }]
 }
 
 // 映射函数

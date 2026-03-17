@@ -126,17 +126,6 @@ onMounted(() => loadData())
   min-height: 100vh;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  h2 {
-    margin: 0;
-    color: #303133;
-  }
-}
-
 .directory-tree {
   .directory-item {
     margin-bottom: 12px;
