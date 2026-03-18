@@ -292,14 +292,18 @@ class AlignmentBasedChecker:
         result = [0.0] * len(texts1)
         details = [] if detailed else None
         unmatched_indices = []
-        
+
+        # 用于记录哪些 chunk_list2（标注）已经被匹配
+        matched_chunk2_indices = set()
+
         for i, text1 in enumerate(texts1):
             best_overlap = 0.0
             best_match_idx = -1
             best_overlap_type = 'none'
 
             for j, text2 in enumerate(texts2):
-                if j in matched_indices:
+                # 修改：跳过已经匹配过的标注切片
+                if j in matched_indices or j in matched_chunk2_indices:
                     continue
 
                 overlap_ratio, overlap_type = self.calculate_overlap_ratio(text1, text2)
@@ -321,7 +325,8 @@ class AlignmentBasedChecker:
             if best_match_idx >= 0:
                 result[i] = 1.0
                 matched_indices.add(best_match_idx)
-                
+                matched_chunk2_indices.add(best_match_idx)  # 标记标注切片已匹配
+
                 if detailed and details is not None:
                     details.append({
                         'index': i,
