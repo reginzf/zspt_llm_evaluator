@@ -111,7 +111,8 @@ def local_knowledge_create():
         return jsonify({'success': False, 'message': f'创建知识库时发生错误: {str(e)}'}), 500
 
 
-@local_knowledge_bp.route('/local_knowledge/edit', methods=['POST'])  # 改为POST方法
+@local_knowledge_bp.route('/local_knowledge/edit', methods=['POST'])
+@local_knowledge_bp.route('/api/local_knowledge/edit', methods=['POST'])
 def edit_local_knowledge():
     """更新本地知识库信息"""
     try:

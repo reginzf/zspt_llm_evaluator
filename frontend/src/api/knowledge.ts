@@ -198,7 +198,13 @@ export async function createQuestionSet(data: {
   question_set_type: string
   knowledge_id: string
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question_set/create', data)
+  // 转换字段名以适配后端 API
+  const payload = {
+    set_name: data.question_name,
+    set_type: data.question_set_type,
+    knowledge_id: data.knowledge_id
+  }
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question_set/create', payload)
 }
 
 /**
@@ -228,6 +234,7 @@ export async function createQuestion(data: {
   question_content: string
   chunk_ids?: string
   set_id?: string
+  question_set_type?: string
 }): Promise<ApiResponse<void>> {
   return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question/create', data)
 }
@@ -535,4 +542,75 @@ export async function deleteMetricTaskApi(metricTaskId: string): Promise<ApiResp
   return legacyDel<ApiResponse<void>>('/local_knowledge_detail/task/metric/delete_task', {
     data: { metric_task_id: metricTaskId }
   })
+}
+
+// ============ 问题导入 API ============
+
+/**
+ * 问题导入预览数据项
+ */
+export interface QuestionImportPreviewItem {
+  row_index: number
+  question_type: string
+  question_content: string
+  chunk_ids: string[]
+  is_valid: boolean
+  error_msg: string | null
+}
+
+/**
+ * 上传问题导入文件并获取预览
+ */
+export async function uploadQuestionImport(
+  file: File,
+  setId: string,
+  setType: string
+): Promise<ApiResponse<{
+  import_token: string
+  preview: QuestionImportPreviewItem[]
+  total_count: number
+  valid_count: number
+  invalid_count: number
+}>> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('set_id', setId)
+  formData.append('set_type', setType)
+
+  return legacyPost('/api/local_knowledge_detail/question/import/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 确认导入问题
+ */
+export async function confirmQuestionImport(
+  importToken: string,
+  setId: string,
+  setType: string
+): Promise<ApiResponse<{
+  inserted_count: number
+  failed_count: number
+}>> {
+  return legacyPost('/api/local_knowledge_detail/question/import/confirm', {
+    import_token: importToken,
+    set_id: setId,
+    set_type: setType
+  })
+}
+
+/**
+ * 下载问题导入模板
+ */
+export function downloadQuestionTemplate(): void {
+  // 创建一个临时链接来下载文件
+  const link = document.createElement('a')
+  link.href = '/api/local_knowledge_detail/question/import/template'
+  link.download = 'question_import_template.xlsx'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }

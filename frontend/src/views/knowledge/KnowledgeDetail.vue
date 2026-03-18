@@ -81,6 +81,9 @@
         <el-tab-pane label="问题集" name="questions" lazy>
           <div class="tab-actions">
             <el-button type="primary" @click="showCreateQuestionSetDialog = true">创建问题集</el-button>
+            <el-button type="success" @click="openImportDialog">
+              <el-icon><Upload /></el-icon>导入问题
+            </el-button>
           </div>
           <el-empty v-if="questionSets.length === 0" description="暂没问题集" />
           <div v-else class="question-set-list">
@@ -551,14 +554,106 @@
       </div>
       <el-empty v-else description="暂无报告数据" />
     </el-dialog>
+
+    <!-- 导入问题对话框 -->
+    <el-dialog v-model="showImportDialog" title="导入问题" width="700px" @closed="resetImportForm">
+      <el-form label-width="100px">
+        <el-form-item label="目标问题集" required>
+          <el-select v-model="importForm.setId" style="width: 100%" placeholder="请选择问题集">
+            <el-option
+              v-for="set in questionSets"
+              :key="set.question_id"
+              :label="`${set.question_name} (${set.question_set_type})`"
+              :value="set.question_id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="问题集类型" v-if="importForm.setId">
+          <el-tag>{{ getQuestionSetType(importForm.setId) }}</el-tag>
+        </el-form-item>
+        <el-form-item label="模板下载">
+          <el-button link type="primary" @click="downloadTemplate">
+            <el-icon><Download /></el-icon>下载导入模板
+          </el-button>
+        </el-form-item>
+        <el-form-item label="上传文件" required>
+          <el-upload
+            ref="importUploadRef"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleImportFileChange"
+            :on-remove="handleImportFileRemove"
+            accept=".xlsx"
+          >
+            <el-button type="primary">
+              <el-icon><Upload /></el-icon>选择文件
+            </el-button>
+            <template #tip>
+              <div class="el-upload__tip">请上传 .xlsx 格式文件，文件大小不超过 10MB</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+
+      <!-- 预览表格 -->
+      <div v-if="importPreview.length > 0" class="import-preview">
+        <el-divider />
+        <div class="preview-header">
+          <h4>数据预览 (前5行)</h4>
+          <div class="preview-stats">
+            <el-tag type="success">有效: {{ importStats.valid }}</el-tag>
+            <el-tag type="danger" style="margin-left: 8px">无效: {{ importStats.invalid }}</el-tag>
+            <el-tag type="info" style="margin-left: 8px">总计: {{ importStats.total }}</el-tag>
+          </div>
+        </div>
+        <el-table :data="importPreview" size="small" stripe border style="margin-top: 10px">
+          <el-table-column prop="row_index" label="行号" width="60" />
+          <el-table-column prop="question_type" label="类型" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.is_valid ? '' : 'danger'">{{ row.question_type }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="question_content" label="问题内容" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="chunk_ids" label="切片ID" min-width="120">
+            <template #default="{ row }">
+              {{ row.chunk_ids?.join(', ') || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.is_valid ? 'success' : 'danger'" size="small">
+                {{ row.is_valid ? '有效' : '无效' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-if="importErrors.length > 0" class="import-errors">
+          <el-alert
+            v-for="(error, idx) in importErrors"
+            :key="idx"
+            :title="`第 ${error.row} 行: ${error.msg}`"
+            type="error"
+            :closable="false"
+            style="margin-top: 8px"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="showImportDialog = false">取消</el-button>
+        <el-button type="primary" @click="submitImport" :loading="importing" :disabled="!canSubmitImport">
+          确认导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Back, Upload, UploadFilled, Search, Refresh, ArrowDown, ArrowRight } from '@element-plus/icons-vue'
+import { Back, Upload, UploadFilled, Search, Refresh, ArrowDown, ArrowRight, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import {
   getKnowledgeFiles,
@@ -590,7 +685,10 @@ import {
   startCalculation,
   getMetricReports,
   deleteMetricReport,
-  deleteMetricTaskApi
+  deleteMetricTaskApi,
+  uploadQuestionImport,
+  confirmQuestionImport,
+  downloadQuestionTemplate
 } from '@/api/knowledge'
 import {
   getEnvironmentList,
@@ -712,6 +810,23 @@ const matchTypeMap: Record<string, string> = {
   'chunkTextMatch': '切片语义匹配',
   'chunkIdMatch': '切片ID匹配'
 }
+
+// 问题导入相关
+const showImportDialog = ref(false)
+const importUploadRef = ref()
+const importing = ref(false)
+const importForm = reactive({
+  setId: '',
+  file: null as File | null
+})
+const importPreview = ref<any[]>([])
+const importToken = ref('')
+const importStats = reactive({
+  total: 0,
+  valid: 0,
+  invalid: 0
+})
+const importErrors = ref<{ row: number; msg: string }[]>([])
 
 // 状态映射
 function getStatusType(status: number) {
@@ -1126,6 +1241,154 @@ async function deleteFile(row: any) {
   }
 }
 
+// 问题导入相关方法
+function openImportDialog() {
+  if (questionSets.value.length === 0) {
+    ElMessage.warning('请先创建问题集')
+    return
+  }
+  showImportDialog.value = true
+  importForm.setId = ''
+  importForm.file = null
+  importPreview.value = []
+  importToken.value = ''
+  importStats.total = 0
+  importStats.valid = 0
+  importStats.invalid = 0
+  importErrors.value = []
+}
+
+function getQuestionSetType(setId: string): string {
+  const set = questionSets.value.find(s => s.question_id === setId)
+  return set?.question_set_type || ''
+}
+
+function downloadTemplate() {
+  downloadQuestionTemplate()
+  ElMessage.success('模板下载中...')
+}
+
+function handleImportFileChange(uploadFile: UploadFile) {
+  if (uploadFile.raw) {
+    importForm.file = uploadFile.raw
+    uploadImportFile()
+  }
+}
+
+function handleImportFileRemove() {
+  importForm.file = null
+  importPreview.value = []
+  importToken.value = ''
+  importStats.total = 0
+  importStats.valid = 0
+  importStats.invalid = 0
+  importErrors.value = []
+}
+
+async function uploadImportFile() {
+  if (!importForm.file || !importForm.setId) {
+    return
+  }
+
+  const setType = getQuestionSetType(importForm.setId)
+  if (!setType) {
+    ElMessage.error('无法获取问题集类型')
+    return
+  }
+
+  importing.value = true
+  try {
+    const res = await uploadQuestionImport(importForm.file, importForm.setId, setType)
+    if (res.success && res.data) {
+      importToken.value = res.data.import_token
+      importPreview.value = res.data.preview || []
+      importStats.total = res.data.total_count
+      importStats.valid = res.data.valid_count
+      importStats.invalid = res.data.invalid_count
+
+      // 收集错误信息
+      const errors: { row: number; msg: string }[] = []
+      if (res.data.preview) {
+        res.data.preview.forEach((item: any) => {
+          if (!item.is_valid && item.error_msg) {
+            errors.push({ row: item.row_index, msg: item.error_msg })
+          }
+        })
+      }
+      importErrors.value = errors
+
+      if (res.data.invalid_count > 0) {
+        ElMessage.warning(`发现 ${res.data.invalid_count} 行无效数据，请检查`)
+      } else {
+        ElMessage.success('文件解析成功，请确认导入')
+      }
+    } else {
+      ElMessage.error(res.message || '文件解析失败')
+      importPreview.value = []
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '文件解析失败')
+    importPreview.value = []
+  } finally {
+    importing.value = false
+  }
+}
+
+async function submitImport() {
+  if (!importToken.value || !importForm.setId) {
+    ElMessage.warning('请先上传文件')
+    return
+  }
+
+  const setType = getQuestionSetType(importForm.setId)
+  if (!setType) {
+    ElMessage.error('无法获取问题集类型')
+    return
+  }
+
+  if (importStats.valid === 0) {
+    ElMessage.warning('没有有效数据可以导入')
+    return
+  }
+
+  importing.value = true
+  try {
+    const res = await confirmQuestionImport(importToken.value, importForm.setId, setType)
+    if (res.success && res.data) {
+      ElMessage.success(`成功导入 ${res.data.inserted_count} 个问题`)
+      showImportDialog.value = false
+
+      // 刷新对应问题集的问题列表
+      const set = questionSets.value.find(s => s.question_id === importForm.setId)
+      if (set) {
+        await refreshQuestionSet(set, false)
+      }
+    } else {
+      ElMessage.error(res.message || '导入失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '导入失败')
+  } finally {
+    importing.value = false
+  }
+}
+
+function resetImportForm() {
+  importForm.setId = ''
+  importForm.file = null
+  importPreview.value = []
+  importToken.value = ''
+  importStats.total = 0
+  importStats.valid = 0
+  importStats.invalid = 0
+  importErrors.value = []
+}
+
+// 计算属性：是否可以提交导入
+const canSubmitImport = computed(() => {
+  return importToken.value && importForm.setId && importStats.valid > 0 && !importing.value
+})
+
 // 绑定操作
 async function bindKnowledge() {
   if (!bindForm.envId || !bindForm.kbId) {
@@ -1263,7 +1526,8 @@ async function saveQuestion() {
       question_type: questionForm.question_type,
       question_content: questionForm.question_content,
       chunk_ids: chunkIdsStr,
-      set_id: currentQuestionSet.value?.question_id
+      set_id: currentQuestionSet.value?.question_id,
+      question_set_type: currentQuestionSet.value?.question_set_type
     })
     if (res.success) {
       ElMessage.success('创建成功')
@@ -1959,6 +2223,32 @@ onMounted(() => {
       padding: 16px;
       background-color: #fff;
     }
+  }
+}
+
+// 问题导入样式
+.import-preview {
+  margin-top: 16px;
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    h4 {
+      margin: 0;
+      color: #303133;
+    }
+
+    .preview-stats {
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  .import-errors {
+    margin-top: 12px;
   }
 }
 </style>
