@@ -340,10 +340,28 @@ def cal_metric_by_chunk_id_fullmatch(ls_user, project_id, kno_id: str, search_ty
             os.unlink(tmp_file_path)
 
 
-def cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, kno_id: str, search_type: str,
-                                                    questions: List[Dict[str, Any]], file_name: str, retrieve_client
-                                                    ):
-    ali_checker = AlignmentBasedChecker()
+def cal_metric_by_chunk_text_overlay_and_similarity(
+    ls_user, project_id, kno_id: str, search_type: str,
+    questions: List[Dict[str, Any]], file_name: str,
+    retrieve_client, calc_params: dict = None
+):
+    """
+    基于文本重叠和语义相似度计算指标
+
+    Args:
+        calc_params: 计算参数，包含 overlap_threshold, similarity_threshold, semantic_weight
+    """
+    # 使用传入参数或默认值
+    overlap_threshold = calc_params.get('overlap_threshold', 0.8) if calc_params else 0.8
+    similarity_threshold = calc_params.get('similarity_threshold', 0.7) if calc_params else 0.7
+    semantic_weight = calc_params.get('semantic_weight', 0.9) if calc_params else 0.9
+
+    # 创建 checker 时传入参数
+    ali_checker = AlignmentBasedChecker(
+        overlap_threshold=overlap_threshold,
+        similarity_threshold=similarity_threshold,
+        semantic_weight=semantic_weight
+    )
     project = _get_project(ls_user, project_id)
     metric_all = {}
     logger.info(f"开始获取项目[{project.title}]的切片数据，知识ID:[{kno_id}]，搜索类型:[{search_type}]")
