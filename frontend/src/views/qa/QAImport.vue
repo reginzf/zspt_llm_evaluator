@@ -136,7 +136,7 @@
                   {{ formatAnswers(row[col]) }}
                 </template>
                 <template v-else-if="typeof row[col] === 'object' && row[col] !== null">
-                  {{ JSON.stringify(row[col]).slice(0, 100) + (JSON.stringify(row[col]).length > 100 ? '...' : '') }}
+                  {{ formatObject(row[col]) }}
                 </template>
                 <template v-else>
                   {{ row[col] }}
@@ -628,9 +628,15 @@ function formatAnswers(answers: any): string {
     if (Array.isArray(answers)) {
       return answers.join(', ')
     }
-    return JSON.stringify(answers).slice(0, 100)
+    return formatObject(answers)
   }
   return String(answers)
+}
+
+// 通用对象格式化（缓存 JSON.stringify 结果避免重复序列化）
+function formatObject(obj: any, maxLength: number = 100): string {
+  const str = JSON.stringify(obj)
+  return str.length > maxLength ? str.slice(0, maxLength) + '...' : str
 }
 
 function validateMapping() {

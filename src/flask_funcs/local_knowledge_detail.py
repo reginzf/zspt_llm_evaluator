@@ -1,9 +1,12 @@
 import jsonpath
 import tempfile
+import time
+import functools
 
 import os
 import logging
 from flask import Blueprint, request, jsonify
+from typing import Callable, Any, Tuple
 
 from src.sql_funs import LocalKnowledgeCrud, Environment_Crud, KnowledgePathCrud, KnowledgeCrud
 from src.flask_funcs.common_utils import validate_required_fields, get_knowledge_base_binding_info, handle_file_upload, \
@@ -16,6 +19,56 @@ logger = logging.getLogger(__name__)
 
 # 创建蓝图
 local_knowledge_detail_bp = Blueprint('local_knowledge_detail', __name__)
+
+
+def retry_with_backoff(max_retries: int = 3, base_delay: float = 0.5,
+                       retry_on_result: Callable[[Any], bool] = None):
+    """
+    带递增延迟的重试装饰器
+
+    Args:
+        max_retries: 最大重试次数
+        base_delay: 基础延迟时间（秒），每次重试递增
+        retry_on_result: 可选的结果检查函数，返回True时触发重试
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    result = func(*args, **kwargs)
+                    # 检查结果是否需要重试
+                    if retry_on_result and retry_on_result(result):
+                        if attempt < max_retries - 1:
+                            wait_time = base_delay * (attempt + 1)
+                            logger.warning(f"{func.__name__} 返回需要重试的结果，{wait_time}秒后重试...")
+                            time.sleep(wait_time)
+                            continue
+                    return result
+                except Exception as e:
+                    logger.error(f"{func.__name__} 发生异常: {e}")
+                    if attempt < max_retries - 1:
+                        wait_time = base_delay * (attempt + 1)
+                        logger.info(f"等待 {wait_time} 秒后重试...")
+                        time.sleep(wait_time)
+                    else:
+                        raise
+            return None
+        return wrapper
+    return decorator
+
+
+def is_failed_result(result: Any) -> bool:
+    """检查结果是否为失败状态（用于重试装饰器）"""
+    if result is None:
+        return True
+    if isinstance(result, tuple) and len(result) == 2:
+        success, _ = result
+        return not success
+    if isinstance(result, dict):
+        code = result.get('code')
+        return code != 200
+    return False
 
 UPLOAD_DIR = 'knowledge-files'
 
@@ -325,7 +378,8 @@ def local_knowledge_sync():
             _cleanup_temp_files(temp_files)
 
 
-def _create_directory_with_retry(know_client, knowledge_id, content_name, parent_content_code=None, max_retries=3):
+@retry_with_backoff(max_retries=3, base_delay=0.5)
+def _create_directory_with_retry(know_client, knowledge_id, content_name, parent_content_code=None):
     """
     创建目录（带重试机制）
 
@@ -334,49 +388,33 @@ def _create_directory_with_retry(know_client, knowledge_id, content_name, parent
         knowledge_id: 知识库ID
         content_name: 目录名称
         parent_content_code: 父目录编码
-        max_retries: 最大重试次数
 
     Returns:
         tuple: (success: bool, result: dict)
     """
-    import time
+    logger.info(f"创建目录 '{content_name}'")
+    result = know_client.knowledge_content_add_or_update(
+        knowledgeId=knowledge_id,
+        contentName=content_name,
+        parentContentCode=parent_content_code
+    )
 
-    for attempt in range(max_retries):
-        try:
-            logger.info(f"创建目录 '{content_name}'，尝试 {attempt + 1}/{max_retries}")
-            result = know_client.knowledge_content_add_or_update(
-                knowledgeId=knowledge_id,
-                contentName=content_name,
-                parentContentCode=parent_content_code
-            )
+    if result and result.get('code') == 200:
+        logger.info(f"目录 '{content_name}' 创建成功")
+        return True, result
 
-            if result and result.get('code') == 200:
-                logger.info(f"目录 '{content_name}' 创建成功")
-                return True, result
+    # 检查是否是并发冲突错误
+    error_msg = str(result.get('message', ''))
+    if '已存在' in error_msg or 'duplicate' in error_msg.lower():
+        logger.info(f"目录 '{content_name}' 已存在，视为成功")
+        return True, result
 
-            # 检查是否是并发冲突错误
-            error_msg = str(result.get('message', ''))
-            if '已存在' in error_msg or 'duplicate' in error_msg.lower():
-                logger.info(f"目录 '{content_name}' 已存在，视为成功")
-                return True, result
-
-            logger.warning(f"创建目录失败: {result}")
-
-            # 如果不是最后一次尝试，等待后重试
-            if attempt < max_retries - 1:
-                wait_time = 0.5 * (attempt + 1)  # 递增等待时间
-                logger.info(f"等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
-
-        except Exception as e:
-            logger.error(f"创建目录时发生异常: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (attempt + 1))
-
-    return False, None
+    logger.warning(f"创建目录失败: {result}")
+    return False, result
 
 
-def _get_content_code_with_retry(know_client, knowledge_id, content_name, max_retries=3):
+@retry_with_backoff(max_retries=3, base_delay=0.5)
+def _get_content_code_with_retry(know_client, knowledge_id, content_name):
     """
     获取目录的content_code（带重试机制）
 
@@ -384,44 +422,27 @@ def _get_content_code_with_retry(know_client, knowledge_id, content_name, max_re
         know_client: KnowledgeBase客户端
         knowledge_id: 知识库ID
         content_name: 目录名称
-        max_retries: 最大重试次数
 
     Returns:
         str: content_code 或 None
     """
-    import time
+    logger.info(f"获取目录 '{content_name}' 的content_code")
+    res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
 
-    for attempt in range(max_retries):
-        try:
-            logger.info(f"获取目录 '{content_name}' 的content_code，尝试 {attempt + 1}/{max_retries}")
-            res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
+    if not res or res.get('code') != 200:
+        logger.warning(f"获取目录树失败: {res}")
+        return None
 
-            if not res or res.get('code') != 200:
-                logger.warning(f"获取目录树失败: {res}")
-                if attempt < max_retries - 1:
-                    time.sleep(0.5 * (attempt + 1))
-                    continue
-                return None
+    content_code_result = jsonpath.jsonpath(
+        res, f"$.data[?(@.contentName=='{content_name}')]")
 
-            content_code_result = jsonpath.jsonpath(
-                res, f"$.data[?(@.contentName=='{content_name}')]")
+    if content_code_result and len(content_code_result) > 0:
+        content_code = content_code_result[0].get('contentCode')
+        if content_code:
+            logger.info(f"成功获取content_code: {content_code}")
+            return content_code
 
-            if content_code_result and len(content_code_result) > 0:
-                content_code = content_code_result[0].get('contentCode')
-                if content_code:
-                    logger.info(f"成功获取content_code: {content_code}")
-                    return content_code
-
-            logger.warning(f"在目录树中未找到 '{content_name}'")
-
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (attempt + 1))
-
-        except Exception as e:
-            logger.error(f"获取content_code时发生异常: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (attempt + 1))
-
+    logger.warning(f"在目录树中未找到 '{content_name}'")
     return None
 
 

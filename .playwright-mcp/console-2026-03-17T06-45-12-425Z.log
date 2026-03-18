@@ -1,1 +1,0 @@
-[      37ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://10.0.112.72:5001/api/llm/report/reports/test1/evaluation_test1_20260311_164246.json:0

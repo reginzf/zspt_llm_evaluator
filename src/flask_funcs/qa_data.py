@@ -31,6 +31,29 @@ _import_tasks: Dict[str, Dict[str, Any]] = {}
 _temp_directory_cache: Dict[str, Dict[str, Any]] = {}
 
 
+def _get_import_path_from_downloaded_files(downloaded_files: list, temp_dir: str, logger=None) -> str:
+    """
+    根据下载的文件列表确定导入/预览路径
+    如果只有一个xlsx文件，直接使用该文件路径；否则使用临时目录
+
+    Args:
+        downloaded_files: 下载的文件路径列表
+        temp_dir: 临时目录路径
+        logger: 可选的日志记录器
+
+    Returns:
+        str: 导入或预览使用的路径
+    """
+    if len(downloaded_files) == 1 and downloaded_files[0].endswith('.xlsx'):
+        if logger:
+            logger.info(f"单个xlsx文件，使用文件路径: {downloaded_files[0]}")
+        return downloaded_files[0]
+    else:
+        if logger:
+            logger.info(f"使用目录路径: {temp_dir} (共 {len(downloaded_files)} 个文件)")
+        return temp_dir
+
+
 @qa_data_bp.route('/api/qa/groups/<int:group_id>/items', methods=['GET'])
 def get_qa_data_list(group_id: int):
     """
@@ -907,13 +930,9 @@ def preview_huggingface_dataset(group_id: int):
             
             # 使用临时目录作为预览路径
             if temp_downloaded_files:
-                # 如果只有一个文件且是xlsx格式，直接使用文件路径
-                if len(temp_downloaded_files) == 1 and temp_downloaded_files[0].endswith('.xlsx'):
-                    preview_path = temp_downloaded_files[0]
-                    logger.info(f"单个xlsx文件，使用文件路径: {preview_path}")
-                else:
-                    preview_path = temp_dir
-                    logger.info(f"MinIO 文件下载完成，共 {len(temp_downloaded_files)} 个文件")
+                preview_path = _get_import_path_from_downloaded_files(
+                    temp_downloaded_files, temp_dir, logger
+                )
             else:
                 return jsonify({
                     'success': False,
@@ -1181,13 +1200,9 @@ def execute_import_with_mapping(group_id: int):
                         'message': '从 MinIO 下载文件失败，没有文件可下载'
                     }), 500
 
-                # 如果只有一个文件且是xlsx格式，直接使用文件路径
-                if len(temp_downloaded_files) == 1 and temp_downloaded_files[0].endswith('.xlsx'):
-                    import_path = temp_downloaded_files[0]
-                    logger.info(f"单个xlsx文件，使用文件路径: {import_path}")
-                else:
-                    import_path = temp_dir
-                    logger.info(f"设置导入路径：{import_path}")
+                import_path = _get_import_path_from_downloaded_files(
+                    temp_downloaded_files, temp_dir, logger
+                )
         else:
             # 使用本地路径
             import_path = file_path
