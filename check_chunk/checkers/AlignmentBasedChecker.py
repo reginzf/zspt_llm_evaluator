@@ -14,21 +14,28 @@ class AlignmentBasedChecker:
 
     def __init__(self,
                  english_model_path: str = None,
-                 chinese_model_path: str = None):
+                 chinese_model_path: str = None,
+                 overlap_threshold: float = None,
+                 similarity_threshold: float = None,
+                 semantic_weight: float = None):
         """
         初始化AlignmentBasedChecker
-        
+
         Args:
             english_model_path: 英文语义模型路径
             chinese_model_path: 中文/多语言语义模型路径
+            overlap_threshold: 重叠阈值，默认从 settings.toml 读取
+            similarity_threshold: 相似度阈值，默认从 settings.toml 读取
+            semantic_weight: 语义权重，默认从 settings.toml 读取
         """
         self.english_model_path = english_model_path or self.DEFAULT_ENGLISH_MODEL
         self.chinese_model_path = chinese_model_path or self.DEFAULT_CHINESE_MODEL
         self._english_model = None
         self._chinese_model = None
-        self.overlap_threshold = settings.OVERLAP_THRESHOLD
-        self.similarity_threshold = settings.SIMILARITY_THRESHOLD
-        self.semantic_weight = settings.SEMANTIC_WEIGHT
+        # 参数优先级：传入值 > settings.toml 默认值
+        self.overlap_threshold = overlap_threshold if overlap_threshold is not None else settings.OVERLAP_THRESHOLD
+        self.similarity_threshold = similarity_threshold if similarity_threshold is not None else settings.SIMILARITY_THRESHOLD
+        self.semantic_weight = semantic_weight if semantic_weight is not None else settings.SEMANTIC_WEIGHT
 
     # ==================== 基础工具方法 ====================
     
