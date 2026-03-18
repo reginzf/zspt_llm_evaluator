@@ -477,6 +477,45 @@
             <el-option v-for="kb in bindings" :key="kb.knowledge_id" :label="kb.knowledge_name || kb.knowledge_id" :value="kb.knowledge_id" />
           </el-select>
         </el-form-item>
+
+        <!-- 计算参数配置 -->
+        <template v-if="metricTaskForm.match_type === 'chunkTextMatch'">
+          <el-divider content-position="left">计算参数配置</el-divider>
+
+          <el-form-item label="重叠阈值" prop="calc_params.overlap_threshold">
+            <el-slider
+              v-model="metricTaskForm.calc_params.overlap_threshold"
+              :min="0.5"
+              :max="1"
+              :step="0.05"
+              show-input
+            />
+            <div class="param-desc">文本重叠判定为匹配的最低比例</div>
+          </el-form-item>
+
+          <el-form-item label="语义阈值" prop="calc_params.similarity_threshold">
+            <el-slider
+              v-model="metricTaskForm.calc_params.similarity_threshold"
+              :min="0.5"
+              :max="1"
+              :step="0.05"
+              show-input
+            />
+            <div class="param-desc">语义相似度判定为匹配的最低分数</div>
+          </el-form-item>
+
+          <el-form-item label="语义权重" prop="calc_params.semantic_weight">
+            <el-slider
+              v-model="metricTaskForm.calc_params.semantic_weight"
+              :min="0.5"
+              :max="1"
+              :step="0.05"
+              show-input
+            />
+            <div class="param-desc">语义匹配分数的权重系数</div>
+          </el-form-item>
+        </template>
+
         <el-form-item label="标注任务" prop="task_id">
           <el-select v-model="metricTaskForm.task_id" style="width: 100%">
             <el-option v-for="task in completedAnnotationTasks" :key="task.task_id" :label="`${task.task_name} (${task.task_id})`" :value="task.task_id" />
@@ -781,7 +820,16 @@ const taskRules: FormRules = {
 // 指标任务
 const showCreateMetricTaskDialog = ref(false)
 const metricTaskFormRef = ref<FormInstance>()
-const metricTaskForm = reactive({ match_type: '', task_id: '', knowledge_base_id: '' })
+const metricTaskForm = reactive({
+  match_type: '',
+  task_id: '',
+  knowledge_base_id: '',
+  calc_params: {
+    overlap_threshold: 0.8,
+    similarity_threshold: 0.7,
+    semantic_weight: 0.9
+  }
+})
 const metricTaskRules: FormRules = {
   match_type: [{ required: true, message: '请选择匹配方式', trigger: 'change' }],
   task_id: [{ required: true, message: '请选择标注任务', trigger: 'change' }],
@@ -1764,9 +1812,10 @@ async function saveMetricTask() {
       match_type: metricTaskForm.match_type
     }
     
-    // 如果是切片语义匹配，添加知识库ID
+    // 如果是切片语义匹配，添加知识库ID和计算参数
     if (metricTaskForm.match_type === 'chunkTextMatch') {
       requestData.knowledge_base_id = metricTaskForm.knowledge_base_id
+      requestData.calc_params = metricTaskForm.calc_params
     }
     
     const res = await createMetricTask(requestData)
@@ -2076,6 +2125,13 @@ onMounted(() => {
 
 .knowledge-info {
   margin-bottom: 20px;
+}
+
+.param-desc {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .detail-tabs {

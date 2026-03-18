@@ -496,8 +496,13 @@ export async function createMetricTask(data: {
   task_id: string
   match_type: string
   knowledge_base_id?: string
+  calc_params?: {
+    overlap_threshold?: number
+    similarity_threshold?: number
+    semantic_weight?: number
+  }
 }): Promise<ApiResponse<void>> {
-  return legacyPost<ApiResponse<void>>('/local_knowledge_detail/task/metric/create', data)
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/task/metric/create', data)
 }
 
 /**
