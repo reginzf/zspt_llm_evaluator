@@ -19,7 +19,13 @@ local_knowledge_detail_task_bp = Blueprint('task_bp', __name__)
 
 
 def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, search_type, match_type, questions_list,
-               file_name, metric_task_id):
+               file_name, metric_task_id, calc_params=None):
+    """
+    执行指标计算
+
+    Args:
+        calc_params: 计算参数字典
+    """
     try:
         with MetricTasksCRUD() as mt_crud:
             retrieve_client = Retrieve(zlpt_user)
@@ -33,9 +39,12 @@ def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, searc
             cal_metric_by_chunk_id_fullmatch(ls_user, project_id, knowledge_base_id, search_type, questions_list,
                                              file_name, retrieve_client=retrieve_client)
         elif match_type == 'chunkTextMatch':
-            cal_metric_by_chunk_text_overlay_and_similarity(ls_user, project_id, knowledge_base_id, search_type,
-                                                            questions_list,
-                                                            file_name, retrieve_client=retrieve_client)
+            # 传递计算参数
+            cal_metric_by_chunk_text_overlay_and_similarity(
+                ls_user, project_id, knowledge_base_id, search_type,
+                questions_list, file_name, retrieve_client=retrieve_client,
+                calc_params=calc_params
+            )
         else:
             raise ValueError(f"不支持的匹配类型: {match_type}")
         with MetricTasksCRUD() as mt_crud:
@@ -59,10 +68,17 @@ def create_metric_task():
         data = request.get_json()
         task_id = data.get('task_id')
         match_type = data.get('match_type')
-        
+
+        # 新增：接收计算参数
+        calc_params = data.get('calc_params', {})
+        # 参数验证和默认值
+        calc_params.setdefault('overlap_threshold', 0.8)
+        calc_params.setdefault('similarity_threshold', 0.7)
+        calc_params.setdefault('semantic_weight', 0.9)
+
         if not task_id or not match_type:
             return jsonify({"success": False, "message": "缺少必要参数"}), 400
-            
+
         # 验证匹配方式
         valid_match_types = ['chunkIdMatch', 'chunkTextMatch']
         if match_type not in valid_match_types:
@@ -74,15 +90,16 @@ def create_metric_task():
             knowledge_base_id = data.get('knowledge_base_id')
             if not knowledge_base_id:
                 return jsonify({"success": False, "message": "切片语义匹配需要指定知识库ID"}), 400
-        
+
         with MetricTasksCRUD() as m_crud:
-            # 创建指标任务，传递匹配方式
+            # 创建指标任务，传递匹配方式和计算参数
             success = m_crud.metric_task_create(
                 metric_task_id=metric_task_id,
-                task_id=task_id, 
+                task_id=task_id,
                 status='未开始',
                 knowledge_base_id=knowledge_base_id,# 如果有的话
-                match_type=match_type
+                match_type=match_type,
+                calc_params=calc_params
             )
             if success:
                 return jsonify({"success": True, "message": "创建任务成功"})
@@ -165,6 +182,14 @@ def start_calculation():
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f'metric_{task_id}_{search_type}_{timestamp}.json'
 
+        # 从数据库获取计算参数
+        calc_params = None
+        if match_type == 'chunkTextMatch':
+            with MetricTasksCRUD() as mt_crud:
+                metric_task_info = mt_crud.metric_task_list(metric_task_id=metric_task_id)
+                if metric_task_info and len(metric_task_info) > 0:
+                    calc_params = metric_task_info[0][6] if len(metric_task_info[0]) > 6 else None
+
         # 启动异步计算任务
         success = True
         if success:
@@ -172,7 +197,7 @@ def start_calculation():
             ls_user = ls_login(None, None, annotation_task_info['label_studio_env_id'])
             zlpt_user = zlpt_login(None, None, knowledge_base_id)
             executor.submit(cal_metric, zlpt_user, task_id, ls_user, project_id, knowledge_base_id, search_type,
-                            match_type, questions_list, file_name, metric_task_id)
+                            match_type, questions_list, file_name, metric_task_id, calc_params)
 
         return jsonify({'success': True, 'message': '计算任务已启动'})
     except Exception as e:
