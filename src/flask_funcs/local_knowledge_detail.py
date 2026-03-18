@@ -227,9 +227,11 @@ def get_local_knowledge_bindings():
 
 
 @local_knowledge_detail_bp.route('/local_knowledge_detail/sync', methods=['POST'])
+@local_knowledge_detail_bp.route('/api/local_knowledge_detail/sync', methods=['POST'])
 def local_knowledge_sync():
     """同步本地知识库到知识库（支持MinIO和本地文件）"""
     temp_files = []  # 记录临时文件用于清理
+    sync_data = None
 
     try:
         data = request.get_json()
@@ -241,7 +243,13 @@ def local_knowledge_sync():
 
         local_kno_id = data['local_kno_id']
         knowledge_id = data['knowledge_id']
+
+        # 可选参数
+        skip_uploaded = data.get('skip_uploaded', True)  # 默认跳过已上传文件
+        force_reupload = data.get('force_reupload', False)  # 强制重新上传
+
         logger.info(f"开始同步本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
+        logger.info(f"选项: skip_uploaded={skip_uploaded}, force_reupload={force_reupload}")
 
         # 获取本地知识库信息和相关数据
         sync_data = _prepare_sync_data(local_kno_id, knowledge_id)
@@ -251,24 +259,61 @@ def local_knowledge_sync():
         # 记录需要清理的临时文件
         temp_files = sync_data.get('temp_files', [])
 
+        # 检查是否需要上传
+        if sync_data.get('no_upload_needed'):
+            logger.info("所有文件已是最新，无需上传")
+            return jsonify({
+                'success': True,
+                'message': '所有文件已是最新状态，无需同步',
+                'synced_files': 0,
+                'skipped_files': len(sync_data['local_files'])
+            })
+
+        # 重新登录获取有效的客户端（_prepare_sync_data可能已经登录过，但为了确保token有效）
         zlpt_user = zlpt_login(None, None, knowledge_id)
+        if not zlpt_user:
+            return jsonify({'success': False, 'message': '登录紫鸾平台失败'}), 500
+
         know_client = KnowledgeBase(zlpt_user)
+
+        # 获取需要上传的文件列表
+        file_path_all = sync_data['file_path_all']
+        files_to_upload = sync_data.get('files_to_upload', [])
+
+        if not file_path_all:
+            logger.info("没有需要上传的文件")
+            return jsonify({
+                'success': True,
+                'message': '没有需要上传的文件',
+                'synced_files': 0,
+                'total_files': len(sync_data['local_files'])
+            })
+
         # 上传文件到知识库
+        logger.info(f"开始上传 {len(file_path_all)} 个文件到知识库")
         upload_result = _upload_files_to_knowledge_base(sync_data, know_client)
+
         if not upload_result:
             logger.error("文件上传失败")
             return jsonify({'success': False, 'message': '文件上传失败'}), 500
 
         # 更新本地文件状态
-        _update_local_file_status(sync_data['local_files'], sync_data['uploaded_files'], knowledge_id)
+        uploaded_count = _update_local_file_status(
+            sync_data['local_files'],
+            sync_data['uploaded_files'],
+            knowledge_id,
+            files_to_upload
+        )
 
         # 更新数据库记录
         _update_database_records(sync_data, know_client)
 
-        logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}")
+        logger.info(f"同步完成: 本地知识库 {local_kno_id} 到知识库 {knowledge_id}, 上传 {uploaded_count} 个文件")
         return jsonify({
             'success': True,
-            'message': f'知识库 {local_kno_id} 与 {knowledge_id} 同步成功'
+            'message': f'知识库 {local_kno_id} 与 {knowledge_id} 同步成功',
+            'synced_files': uploaded_count,
+            'total_files': len(sync_data['local_files'])
         })
 
     except Exception as e:
@@ -280,8 +325,110 @@ def local_knowledge_sync():
             _cleanup_temp_files(temp_files)
 
 
+def _create_directory_with_retry(know_client, knowledge_id, content_name, parent_content_code=None, max_retries=3):
+    """
+    创建目录（带重试机制）
+
+    Args:
+        know_client: KnowledgeBase客户端
+        knowledge_id: 知识库ID
+        content_name: 目录名称
+        parent_content_code: 父目录编码
+        max_retries: 最大重试次数
+
+    Returns:
+        tuple: (success: bool, result: dict)
+    """
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"创建目录 '{content_name}'，尝试 {attempt + 1}/{max_retries}")
+            result = know_client.knowledge_content_add_or_update(
+                knowledgeId=knowledge_id,
+                contentName=content_name,
+                parentContentCode=parent_content_code
+            )
+
+            if result and result.get('code') == 200:
+                logger.info(f"目录 '{content_name}' 创建成功")
+                return True, result
+
+            # 检查是否是并发冲突错误
+            error_msg = str(result.get('message', ''))
+            if '已存在' in error_msg or 'duplicate' in error_msg.lower():
+                logger.info(f"目录 '{content_name}' 已存在，视为成功")
+                return True, result
+
+            logger.warning(f"创建目录失败: {result}")
+
+            # 如果不是最后一次尝试，等待后重试
+            if attempt < max_retries - 1:
+                wait_time = 0.5 * (attempt + 1)  # 递增等待时间
+                logger.info(f"等待 {wait_time} 秒后重试...")
+                time.sleep(wait_time)
+
+        except Exception as e:
+            logger.error(f"创建目录时发生异常: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+
+    return False, None
+
+
+def _get_content_code_with_retry(know_client, knowledge_id, content_name, max_retries=3):
+    """
+    获取目录的content_code（带重试机制）
+
+    Args:
+        know_client: KnowledgeBase客户端
+        knowledge_id: 知识库ID
+        content_name: 目录名称
+        max_retries: 最大重试次数
+
+    Returns:
+        str: content_code 或 None
+    """
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"获取目录 '{content_name}' 的content_code，尝试 {attempt + 1}/{max_retries}")
+            res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
+
+            if not res or res.get('code') != 200:
+                logger.warning(f"获取目录树失败: {res}")
+                if attempt < max_retries - 1:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                return None
+
+            content_code_result = jsonpath.jsonpath(
+                res, f"$.data[?(@.contentName=='{content_name}')]")
+
+            if content_code_result and len(content_code_result) > 0:
+                content_code = content_code_result[0].get('contentCode')
+                if content_code:
+                    logger.info(f"成功获取content_code: {content_code}")
+                    return content_code
+
+            logger.warning(f"在目录树中未找到 '{content_name}'")
+
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+
+        except Exception as e:
+            logger.error(f"获取content_code时发生异常: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+
+    return None
+
+
 def _prepare_sync_data(local_kno_id, knowledge_id):
     """准备同步数据，包括本地知识库信息、文件列表、目标知识库配置等"""
+    know_client = None
+
     try:
         with LocalKnowledgeCrud() as lk_crud, KnowledgePathCrud() as kp_crud, Environment_Crud() as e_crud:
             # 获取本地知识库信息
@@ -304,26 +451,51 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             logger.info(f"获取本地知识库 {local_kno_id} 的文件列表")
             local_files = lk_crud.get_local_knowledge_file_list(kno_id=local_kno_id)
             logger.info(f"获取到 {len(local_files)} 个本地文件")
-            # 获取已经上传的文件列表
-            uploaded_files = lk_crud.get_local_knowledge_file_upload(knowledge_base_id=knowledge_id)
-            uploaded_files = [file[1] for file in uploaded_files]
+
+            # 过滤出需要上传的文件（未上传或已修改的）
+            uploaded_files_records = lk_crud.get_local_knowledge_file_upload(knowledge_base_id=knowledge_id)
+            uploaded_files = [file[1] for file in uploaded_files_records]
 
             # 构建文件路径列表
             file_path_all = []
             temp_files_created = []  # 记录创建的临时文件
+            files_to_upload = []  # 记录需要上传的文件信息
 
             for file in local_files:
-                if file[2] not in uploaded_files:
+                file_id = file[1]  # knol_id
+                file_name = file[2]  # knol_name
+                file_status = file[5] if len(file) > 5 else 1  # ls_status
+
+                # 如果文件未上传(状态1)或不在已上传列表中
+                if file_status == 1 or file_name not in uploaded_files:
                     # MinIO文件：需要先下载到临时目录
                     file_storage_path = file[4]  # knol_path字段
                     temp_path = _download_minio_file_to_temp(file_storage_path)
                     if temp_path:
                         file_path_all.append(temp_path)
                         temp_files_created.append(temp_path)
+                        files_to_upload.append(file)
+                        logger.info(f"准备上传文件: {file_name} -> {temp_path}")
                     else:
                         logger.warning(f"无法下载MinIO文件: {file_storage_path}")
 
-            logger.info(f"构建文件路径列表: {file_path_all}")
+            if not file_path_all:
+                logger.info("所有文件已是最新，无需上传")
+                return {
+                    'local_knowledge_info': local_knowledge_info,
+                    'local_files': local_files,
+                    'uploaded_files': uploaded_files,
+                    'file_path_all': [],
+                    'temp_files': [],
+                    'files_to_upload': [],
+                    'knowledge_base_info': None,
+                    'content_code': None,
+                    'knowledge_id': knowledge_id,
+                    'no_upload_needed': True  # 标记无需上传
+                }
+
+            logger.info(f"需要上传的文件数量: {len(file_path_all)}")
+
             # 获取知识库配置信息
             logger.info(f"获取知识库 {knowledge_id} 的配置信息")
             knowledge_base_list = e_crud.get_knowledge_base(knowledge_id=knowledge_id)
@@ -335,6 +507,24 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
                 f"获取到知识库配置信息: chunk_size={knowledge_base_info['chunk_size']}, "
                 f"chunk_overlap={knowledge_base_info['chunk_overlap']}")
 
+            # 登录ZLPT平台
+            logger.info(f"正在登录ZLPT平台: base_id={knowledge_base_info['zlpt_base_id']}")
+            zlpt_user = zlpt_login(
+                zlpt_base_id=knowledge_base_info['zlpt_base_id'],
+                crud=e_crud,
+                auto_switch_project=True
+            )
+
+            if not zlpt_user:
+                return jsonify({'success': False, 'message': '登录紫鸾平台失败，请检查环境配置'}), 500
+
+            know_client = KnowledgeBase(zlpt_user)
+
+            # 验证当前项目
+            project_info = zlpt_user.verify_current_project()
+            if project_info["is_default"]:
+                logger.warning("当前为default项目，部分功能可能受限")
+
             # 获取知识库目录树
             logger.info(f"获取知识库目录树: {knowledge_id}")
             knowledge_path_tree = kp_crud.generate_knowledge_path_tree(knowledge_id)
@@ -343,48 +533,44 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             # 检查并创建目录（如果根目录中不存在对应目录）
             existing_names = [ele['kno_path_name'] for ele in knowledge_path_tree]
             logger.info(f"现有目录名称: {existing_names}")
-            zlpt_user = zlpt_login(knowledge_base_info['zlpt_base_id'], e_crud)
-            know_client = KnowledgeBase(zlpt_user)
+
             if local_knowledge_info['kno_path'] not in existing_names:
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 不存在，创建中...")
-                create_dir_result = know_client.knowledge_content_add_or_update(
-                    knowledgeId=knowledge_id,
-                    contentName=local_knowledge_info['kno_path'],
-                    parentContentCode=None  # 创建在根目录
+                success, create_dir_result = _create_directory_with_retry(
+                    know_client,
+                    knowledge_id,
+                    local_knowledge_info['kno_path'],
+                    parent_content_code=None
                 )
-                if not create_dir_result or create_dir_result.get('code') != 200:
+                if not success:
                     logger.error(f"创建目录失败: {create_dir_result}")
                     return jsonify({'success': False, 'message': '创建知识库目录失败'}), 500
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 创建成功")
             else:
                 logger.info(f"目录 {local_knowledge_info['kno_path']} 已存在")
 
-            # 获取目录的content_code
-            logger.info(f"获取目录 {local_knowledge_info['kno_path']} 的content_code")
-            res = know_client.knowledge_content_tree(knowledgeId=knowledge_id)
-            if not res or res.get('code') != 200:
-                logger.error(f"获取知识库目录树失败: {res}")
-                return jsonify({'success': False, 'message': '获取知识库目录树失败'}), 500
+            # 获取目录的content_code（带重试）
+            content_code = _get_content_code_with_retry(
+                know_client,
+                knowledge_id,
+                local_knowledge_info['kno_path']
+            )
 
-            content_code_result = jsonpath.jsonpath(
-                res, f'''$.data[?(@.contentName=="{local_knowledge_info['kno_path']}")]''')
-
-            if not content_code_result:
+            if not content_code:
                 logger.error(f"未找到目录 {local_knowledge_info['kno_path']} 的content_code")
                 return jsonify({'success': False, 'message': '未找到目录的content_code'}), 500
-
-            content_code = content_code_result[0]['contentCode']
-            logger.info(f"获取到content_code: {content_code}")
 
             return {
                 'local_knowledge_info': local_knowledge_info,
                 'local_files': local_files,
                 'uploaded_files': uploaded_files,
                 'file_path_all': file_path_all,
-                'temp_files': temp_files_created,  # 返回临时文件列表用于清理
+                'temp_files': temp_files_created,
+                'files_to_upload': files_to_upload,
                 'knowledge_base_info': knowledge_base_info,
                 'content_code': content_code,
-                'knowledge_id': knowledge_id
+                'knowledge_id': knowledge_id,
+                'no_upload_needed': False
             }
 
     except Exception as e:
@@ -392,44 +578,114 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
         raise
 
 
-def _upload_files_to_knowledge_base(sync_data, know_client):
-    """上传文件到知识库"""
-    logger.info(f"开始上传文件到知识库，文件数量: {len(sync_data['file_path_all'])}")
-    upload_result = zlpt_upload_files(
-        know_client,
-        sync_data['file_path_all'],
-        sync_data['knowledge_id'],
-        sync_data['content_code'],
-        sync_data['knowledge_base_info']['chunk_size'],
-        sync_data['knowledge_base_info']['chunk_overlap']
-    )
-    logger.info("文件上传完成")
-    return upload_result
+def _upload_files_to_knowledge_base(sync_data, know_client, max_retries=2):
+    """
+    上传文件到知识库（带重试机制）
+
+    Args:
+        sync_data: 同步数据
+        know_client: KnowledgeBase客户端
+        max_retries: 最大重试次数
+
+    Returns:
+        bool: 上传是否成功
+    """
+    import time
+
+    file_path_all = sync_data['file_path_all']
+    logger.info(f"开始上传文件到知识库，文件数量: {len(file_path_all)}")
+
+    for attempt in range(max_retries):
+        try:
+            upload_result = zlpt_upload_files(
+                know_client,
+                file_path_all,
+                sync_data['knowledge_id'],
+                sync_data['content_code'],
+                sync_data['knowledge_base_info']['chunk_size'],
+                sync_data['knowledge_base_info']['chunk_overlap']
+            )
+
+            # 检查结果
+            if isinstance(upload_result, dict):
+                if upload_result.get('code') == 200:
+                    logger.info("文件上传成功完成")
+                    return True
+                else:
+                    error_msg = upload_result.get('message', '未知错误')
+                    logger.error(f"文件上传失败: {error_msg}")
+
+                    # 检查是否需要重试
+                    if attempt < max_retries - 1:
+                        wait_time = 1 * (attempt + 1)
+                        logger.info(f"等待 {wait_time} 秒后重试...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        return False
+            else:
+                # 如果返回非字典类型，假设成功（保持兼容性）
+                logger.info("文件上传完成")
+                return True
+
+        except Exception as e:
+            logger.error(f"文件上传过程中发生异常: {e}")
+            if attempt < max_retries - 1:
+                wait_time = 1 * (attempt + 1)
+                logger.info(f"等待 {wait_time} 秒后重试...")
+                time.sleep(wait_time)
+            else:
+                logger.error("文件上传最终失败，已达到最大重试次数")
+                return False
+
+    return False
 
 
-def _update_local_file_status(local_files, uploaded_files, knowledge_id):
-    """更新本地文件状态为已同步"""
+def _update_local_file_status(local_files, uploaded_files, knowledge_id, files_to_upload=None):
+    """
+    更新本地文件状态为已同步
+
+    Args:
+        local_files: 所有本地文件列表
+        uploaded_files: 已上传文件列表
+        knowledge_id: 知识库ID
+        files_to_upload: 本次上传的文件列表（可选）
+
+    Returns:
+        int: 更新的文件数量
+    """
     logger.info("开始更新本地文件状态")
+    updated_count = 0
+
     with LocalKnowledgeCrud() as l_crud:
-        for file in local_files:
-            if file[2] not in uploaded_files:
-                # 更新本地文件列表状态
-                update_result = l_crud.local_knowledge_list_update(file[1], ls_status=0)  # 状态0表示已同步
-                if not update_result:
-                    logger.warning(f"更新文件 {file[1]} 状态失败")
-                else:
-                    logger.info(f"成功更新文件 {file[1]} 状态为 0")
-                
-                # 检查是否已存在上传记录，存在则更新，不存在则插入
-                existing = l_crud.get_local_knowledge_file_upload(knol_id=file[1], knowledge_base_id=knowledge_id)
-                if existing:
-                    # 已存在，更新状态
-                    l_crud.local_knowledge_file_upload_update(file[1], knowledge_id, upload_status=0)
-                    logger.info(f"更新文件上传记录 {file[1]} 状态为 0")
-                else:
-                    # 不存在，插入新记录
-                    l_crud.local_knowledge_file_upload_insert(file[1], knowledge_id, 0)
-                    logger.info(f"插入文件上传记录 {file[1]}")
+        # 如果只更新了特定文件，只处理这些文件
+        target_files = files_to_upload if files_to_upload else local_files
+
+        for file in target_files:
+            file_id = file[1]  # knol_id
+            file_name = file[2]  # knol_name
+
+            # 更新本地文件列表状态
+            update_result = l_crud.local_knowledge_list_update(file_id, ls_status=0)  # 状态0表示已同步
+            if not update_result:
+                logger.warning(f"更新文件 {file_id} 状态失败")
+            else:
+                logger.info(f"成功更新文件 {file_name} 状态为已同步")
+                updated_count += 1
+
+            # 检查是否已存在上传记录，存在则更新，不存在则插入
+            existing = l_crud.get_local_knowledge_file_upload(knol_id=file_id, knowledge_base_id=knowledge_id)
+            if existing:
+                # 已存在，更新状态
+                l_crud.local_knowledge_file_upload_update(file_id, knowledge_id, upload_status=0)
+                logger.info(f"更新文件上传记录 {file_name}")
+            else:
+                # 不存在，插入新记录
+                l_crud.local_knowledge_file_upload_insert(file_id, knowledge_id, 0)
+                logger.info(f"插入文件上传记录 {file_name}")
+
+    logger.info(f"共更新 {updated_count} 个文件的状态")
+    return updated_count
 
 
 def _download_minio_file_to_temp(minio_path):

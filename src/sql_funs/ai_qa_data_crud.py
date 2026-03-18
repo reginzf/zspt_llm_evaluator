@@ -117,9 +117,12 @@ class AIQADataManager(PostgreSQLManager):
                 "created_month": datetime.now().strftime('%Y-%m-%d'),  # 分区键
                 **kwargs
             }
-            
+
             # 移除None值
             data = {k: v for k, v in data.items() if v is not None}
+
+            # 移除 id 字段（避免与自增主键冲突）
+            data.pop('id', None)
             
             # 使用PostgreSQLManager的insert方法
             success = self.insert(self.TABLE_NAME, data)

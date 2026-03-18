@@ -34,7 +34,8 @@
       "Bash(python -m json.tool)",
       "Bash(pkill -f \"python app.py\")",
       "Bash(pkill -f \"flask\")",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "Bash(python:*)"
     ]
   }
 }

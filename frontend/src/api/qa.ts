@@ -314,31 +314,31 @@ export async function uploadQAFile(groupId: number, files: FileList): Promise<Ap
 /**
  * 预览数据集
  */
-export async function previewDataset(groupId: number, filePath: string, previewRows: number = 5, minioPrefix?: string, savedFiles?: any[]): Promise<ApiResponse<{
-  preview: {
+export async function previewDataset(groupId: number, filePath: string, previewRows: number = 5, minioPrefix?: string, savedFiles?: any[]): Promise<ApiResponse<any> & {
+  preview?: {
     file_path: string
     total_records: number
-    preview_rows: number
+    preview_rows: any[]
     columns: string[]
     suggestions: Record<string, string>
   }
-  temp_path: string | null
-}>> {
-  return post<ApiResponse<{
-    preview: {
-      file_path: string
-      total_records: number
-      preview_rows: number
-      columns: string[]
-      suggestions: Record<string, string>
-    }
-    temp_path: string | null
-  }>>(`/qa/groups/${groupId}/items/import/preview`, {
+  temp_path?: string | null
+}> {
+  return post(`/qa/groups/${groupId}/items/import/preview`, {
     file_path: filePath,
     preview_rows: previewRows,
     minio_prefix: minioPrefix,
     saved_files: savedFiles
-  })
+  }) as Promise<ApiResponse<any> & {
+    preview?: {
+      file_path: string
+      total_records: number
+      preview_rows: any[]
+      columns: string[]
+      suggestions: Record<string, string>
+    }
+    temp_path?: string | null
+  }>
 }
 
 /**
@@ -417,4 +417,16 @@ export async function cleanupImportFiles(groupId: number, filePath: string): Pro
   return post<ApiResponse<void>>(`/qa/groups/${groupId}/items/import/cleanup`, {
     file_path: filePath
   })
+}
+
+/**
+ * 下载问答对导入模板
+ */
+export function downloadQAImportTemplate(groupId: number): void {
+  const link = document.createElement('a')
+  link.href = `/api/qa/groups/${groupId}/items/import/template`
+  link.download = 'qa_import_template.xlsx'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }

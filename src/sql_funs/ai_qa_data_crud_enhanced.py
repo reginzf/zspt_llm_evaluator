@@ -1009,11 +1009,24 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                 # 跳过特殊值
                 if not hf_field or hf_field == '不导入' or hf_field == '自动生成':
                     continue
-                
+
+                # 跳过数据库自增主键 id 字段，避免类型错误
+                if ai_field == 'id':
+                    # 如果数据中有 id 字段，将其存储到 hf_dataset_id 或 dynamic_metadata
+                    if hf_field in record_dict:
+                        value = record_dict[hf_field]
+                        # 如果 hf_dataset_id 未被映射，将数据源 id 存储到这里
+                        if 'hf_dataset_id' not in qa_data and value:
+                            qa_data['hf_dataset_id'] = str(value)
+                        else:
+                            # 否则存储到 dynamic_metadata
+                            qa_data['dynamic_metadata']['source_id'] = value
+                    continue
+
                 # 检查字段是否存在于记录中
                 if hf_field in record_dict:
                     value = record_dict[hf_field]
-                    
+
                     # 特殊字段处理
                     if ai_field == 'answers':
                         value = self._process_answers(value)
@@ -1022,12 +1035,19 @@ class EnhancedAIQADataManager(PostgreSQLManager):
                     elif ai_field == 'question_type' and (not value or value == '自动生成'):
                         # 自动生成问题类型
                         value = self._auto_detect_question_type(record_dict.get('question', ''))
+                    elif ai_field == 'difficulty_level':
+                        # 确保难度等级是整数
+                        try:
+                            value = int(value) if value else None
+                        except (ValueError, TypeError):
+                            logger.warning(f"难度等级转换失败: {value}，将使用默认值")
+                            value = None
                     elif ai_field in ['fixed_metadata', 'dynamic_metadata'] and isinstance(value, str):
                         try:
                             value = json.loads(value)
                         except:
                             value = {'raw': value}
-                    
+
                     qa_data[ai_field] = value
             
             # 处理未映射的字段

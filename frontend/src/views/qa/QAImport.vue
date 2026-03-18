@@ -74,6 +74,15 @@
           @change="handleFileSelect"
         />
 
+        <!-- 下载模板按钮（仅在 xlsx 模式下显示） -->
+        <div v-if="uploadMode === 'xlsx'" class="template-download">
+          <el-button type="primary" link @click="downloadTemplate">
+            <el-icon><Download /></el-icon>
+            <span class="template-btn-text">下载导入模板</span>
+          </el-button>
+          <span class="template-hint">获取标准格式的 Excel 模板文件，包含字段说明和示例数据</span>
+        </div>
+
         <!-- 已选文件信息 -->
         <div v-if="selectedFiles.length > 0" class="file-selected">
           <div class="file-info">
@@ -121,7 +130,19 @@
               :prop="col"
               :label="col"
               show-overflow-tooltip
-            />
+            >
+              <template #default="{ row }">
+                <template v-if="col === 'answers'">
+                  {{ formatAnswers(row[col]) }}
+                </template>
+                <template v-else-if="typeof row[col] === 'object' && row[col] !== null">
+                  {{ JSON.stringify(row[col]).slice(0, 100) + (JSON.stringify(row[col]).length > 100 ? '...' : '') }}
+                </template>
+                <template v-else>
+                  {{ row[col] }}
+                </template>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="preview-info">
@@ -274,14 +295,15 @@
 import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Back, FolderOpened, Document } from '@element-plus/icons-vue'
-import { 
-  uploadQAFile, 
-  previewDataset, 
-  executeImport, 
+import { Back, FolderOpened, Document, Download } from '@element-plus/icons-vue'
+import {
+  uploadQAFile,
+  previewDataset,
+  executeImport,
   getImportTaskStatus,
   cleanupImportFiles,
-  getQAGroupDetail 
+  getQAGroupDetail,
+  downloadQAImportTemplate
 } from '@/api/qa'
 
 const route = useRoute()
@@ -337,7 +359,7 @@ interface FieldMapping {
 }
 
 const fieldMappings = ref<FieldMapping[]>([
-  { name: 'id', required: false, description: '主键，唯一标识', mapping: '' },
+  { name: 'id', required: false, description: '【勿映射】数据库自增主键，建议映射到hf_dataset_id', mapping: '' },
   { name: 'question', required: true, description: '问题内容', mapping: '' },
   { name: 'answers', required: true, description: '答案内容', mapping: '' },
   { name: 'context', required: false, description: '上下文信息', mapping: '' },
@@ -534,6 +556,11 @@ function clearFileSelection() {
   }
 }
 
+function downloadTemplate() {
+  downloadQAImportTemplate(groupId)
+  ElMessage.success('模板下载已开始')
+}
+
 async function loadPreview() {
   if (!uploadedFilePath.value) return
   
@@ -550,7 +577,8 @@ async function loadPreview() {
     )
     
     if (response.success) {
-      const preview = response.data?.preview
+      // 后端直接返回 preview 和 temp_path，不在 data 字段中
+      const preview = (response as any).preview
       if (preview) {
         previewData.value = {
           file_path: preview.file_path,
@@ -562,7 +590,7 @@ async function loadPreview() {
       } else {
         previewData.value = null
       }
-      tempPath.value = response.data?.temp_path || null
+      tempPath.value = (response as any).temp_path || null
       
       // 应用智能映射建议
       if (previewData.value?.suggestions) {
@@ -587,6 +615,22 @@ function applyMappingSuggestions(suggestions?: Record<string, string>) {
       field.mapping = suggestion
     }
   })
+}
+
+// 格式化 answers 列显示
+function formatAnswers(answers: any): string {
+  if (!answers) return ''
+  // SQuAD 格式: { text: string[], answer_start: number[] }
+  if (typeof answers === 'object') {
+    if (Array.isArray(answers.text)) {
+      return answers.text.join(', ')
+    }
+    if (Array.isArray(answers)) {
+      return answers.join(', ')
+    }
+    return JSON.stringify(answers).slice(0, 100)
+  }
+  return String(answers)
 }
 
 function validateMapping() {
@@ -960,6 +1004,27 @@ loadGroupInfo()
 
 .file-warning {
   margin-bottom: 20px;
+}
+
+// 模板下载区域
+.template-download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  background-color: #f0f9ff;
+  border: 1px dashed #409eff;
+  border-radius: 4px;
+
+  .template-btn-text {
+    margin-left: 4px;
+  }
+
+  .template-hint {
+    color: #606266;
+    font-size: 13px;
+  }
 }
 
 // 预览区域

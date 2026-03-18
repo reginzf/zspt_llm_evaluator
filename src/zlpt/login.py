@@ -7,6 +7,7 @@ from src.utils.logger import logger
 import threading
 import time
 from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Tuple
 
 urllib3.disable_warnings()
 __all__ = ["LoginManager"]
@@ -127,50 +128,36 @@ class LoginManager:
             logger.error(f"Auth key retrieval error: {e}")
 
     def project_switch(self, project_id: str = None) -> bool:
-        """切换项目，如果已经认证则直接使用现有 token"""
+        """
+        切换项目，支持自动检测和切换到非default项目
+
+        Args:
+            project_id: 指定要切换到的项目ID，None则自动选择
+
+        Returns:
+            bool: 切换是否成功
+        """
         try:
-            # 如果已经有 auth_token，说明已经认证成功，直接使用
-            if self.auth_token:
-                logger.info(f"使用已认证的 token，当前项目: {self.current_project_id or 'default'}")
-                return True
-            
-            # 尝试获取用户信息
-            user_id, current_project_id = self.login_unsafe(self.username, self.password)
-            
-            # 如果是 default 项目，不需要切换，直接使用当前 token
-            if user_id is None and current_project_id is None:
-                logger.info('使用 default 项目，无需切换')
-                self.current_project_id = 'default-project'
-                return True
-                
-            if not user_id:
-                logger.error("Failed to retrieve user info")
-                return False
-
-            # 需要切换到指定项目
-            switch_data = {"user": {"userId": user_id, "projectId": current_project_id}}
-            switch_url = f"{self.base_url}/api/sys/oapi/v1/project/login"
-
-            response = self.session.post(switch_url, json=switch_data, verify=False, timeout=30)
-            if response.status_code == 200:
-                res_data = response.json()
-                if res_data.get('data') and res_data['data'].get('token'):
-                    res_json_token = res_data['data']['token']
-                    self.current_project_id = current_project_id
-                    self.auth_token = res_json_token
-                    self.session.headers.update({'X-Auth-Token': res_json_token})
-                    self.session.cookies.update({"token": res_json_token, "f.token": res_json_token})
-                    logger.info(f"Successfully switched to project: {current_project_id}")
+            # 如果已经有 auth_token 并且不需要切换项目，验证当前项目状态
+            if self.auth_token and not project_id:
+                project_info = self.verify_current_project()
+                if not project_info["is_default"]:
+                    logger.info(f"使用已认证的 token，当前项目: {project_info['current_project_name']}")
+                    self.current_project_id = project_info["current_project_id"]
                     return True
-                else:
-                    logger.error(f"Project switch response missing token: {res_data}")
-                    return False
-            else:
-                logger.error(f"Project switch failed with status code: {response.status_code}")
-                logger.error(f"Response content: {response.text}")
-                return False
+                # 是default项目，需要切换
+                logger.info("当前为default项目，准备切换到非default项目")
+                return self.auto_switch_project()
+
+            # 如果指定了项目ID，直接切换
+            if project_id:
+                return self.switch_to_project(project_id)
+
+            # 否则尝试自动切换
+            return self.auto_switch_project()
+
         except Exception as e:
-            logger.error(f"Error during project switch: {e}")
+            logger.error(f"项目切换过程中发生错误: {e}")
             return False
 
     def get_current_project(self) -> str:
@@ -195,10 +182,208 @@ class LoginManager:
             logger.error(f"Unsafe login error: {e}")
             return None, None
 
+    def \
+            get_project_list(self) -> List[Dict]:
+        """
+        获取用户可选的项目列表
+
+        Returns:
+            List[Dict]: 项目列表，每个项目包含 projectId, projectName 等信息
+        """
+        try:
+            # 使用 /api/sys/oapi/v1/user/projects 获取当前用户可访问的项目列表
+            url = f"{self.base_url}/api/sys/oapi/v1/user/projects"
+            response = self.session.get(url, verify=False, timeout=30)
+
+            if response.status_code == 200:
+                res_data = response.json()
+                if res_data.get('code') == 200 and res_data.get('data'):
+                    projects = res_data['data']
+                    logger.info(f"获取到 {len(projects)} 个可选项目")
+                    return projects
+                else:
+                    logger.warning(f"获取项目列表返回异常: {res_data}")
+                    return []
+            else:
+                logger.error(f"获取项目列表失败: HTTP {response.status_code}")
+                return []
+        except Exception as e:
+            logger.error(f"获取项目列表时发生错误: {e}")
+            return []
+
+    def verify_current_project(self) -> Dict:
+        """
+        验证当前项目信息
+
+        Returns:
+            Dict: 包含当前项目信息的字典
+            {
+                "is_default": bool,  # 是否为default项目
+                "current_project_id": str,
+                "current_project_name": str,
+                "available_projects": List[Dict]  # 可选项目列表
+            }
+        """
+        try:
+            # 使用 /api/sys/auth/v1/tokens 获取当前登录信息和项目
+            url = f"{self.base_url}/api/sys/auth/v1/tokens"
+            response = self.session.get(url, verify=False, timeout=30)
+
+            result = {
+                "is_default": True,
+                "current_project_id": None,
+                "current_project_name": None,
+                "available_projects": []
+            }
+
+            if response.status_code == 200:
+                res_data = response.json()
+                if res_data.get('token') and res_data['token'].get('project'):
+                    project_info = res_data['token']['project']
+                    project_id = project_info.get('id')
+                    project_name = project_info.get('name')
+                    domain_name = res_data['token'].get('user', {}).get('domain', 'default')
+
+                    result["current_project_id"] = project_id
+                    result["current_project_name"] = project_name
+                    result["is_default"] = (domain_name == 'default' and project_name == 'default-project')
+
+                    logger.info(f"当前项目: {project_name} (ID: {project_id}), 是否为default: {result['is_default']}")
+
+            # 获取可选项目列表
+            available_projects = self.get_project_list()
+            result["available_projects"] = available_projects
+
+            return result
+
+        except Exception as e:
+            logger.error(f"验证当前项目时发生错误: {e}")
+            return {
+                "is_default": True,
+                "current_project_id": None,
+                "current_project_name": None,
+                "available_projects": []
+            }
+
+    def switch_to_project(self, project_id: str) -> bool:
+        """
+        切换到指定项目
+
+        Args:
+            project_id: 目标项目ID
+
+        Returns:
+            bool: 切换是否成功
+        """
+        try:
+            if not project_id:
+                logger.error("项目ID不能为空")
+                return False
+
+            # 获取当前用户信息（user_id 和 current_project_id）
+            user_id, current_project_id = self.login_unsafe(self.username, self.password)
+
+            if not user_id:
+                logger.error("无法获取用户信息，无法切换项目")
+                return False
+
+            # 调用项目切换API
+            switch_data = {"user": {"userId": user_id, "projectId": project_id}}
+            switch_url = f"{self.base_url}/api/sys/oapi/v1/project/login"
+
+            logger.info(f"正在切换到项目: {project_id}")
+            response = self.session.post(switch_url, json=switch_data, verify=False, timeout=30)
+
+            if response.status_code == 200:
+                res_data = response.json()
+                if res_data.get('data') and res_data['data'].get('token'):
+                    new_token = res_data['data']['token']
+                    self.current_project_id = project_id
+                    self.auth_token = new_token
+                    self.session.headers.update({'X-Auth-Token': new_token})
+                    self.session.cookies.update({"token": new_token, "f.token": new_token})
+                    logger.info(f"成功切换到项目: {project_id}")
+                    return True
+                else:
+                    logger.error(f"项目切换响应缺少token: {res_data}")
+                    return False
+            else:
+                logger.error(f"项目切换失败: HTTP {response.status_code}, {response.text}")
+                return False
+
+        except Exception as e:
+            logger.error(f"切换项目时发生错误: {e}")
+            return False
+
+    def auto_switch_project(self, target_project_id: str = None) -> bool:
+        """
+        自动检测并切换到非default项目
+
+        Args:
+            target_project_id: 目标项目ID，如果不提供则自动选择第一个非default项目
+
+        Returns:
+            bool: 切换是否成功
+        """
+        try:
+            # 1. 验证当前项目
+            project_info = self.verify_current_project()
+
+            # 如果当前不是default项目，无需切换
+            if not project_info["is_default"]:
+                logger.info(f"当前项目 {project_info['current_project_name']} 不是default项目，无需切换")
+                self.current_project_id = project_info["current_project_id"]
+                return True
+
+            # 2. 如果没有指定目标项目，从可选项目中选择第一个非default项目
+            if not target_project_id:
+                available_projects = project_info.get("available_projects", [])
+                for project in available_projects:
+                    proj_name = project.get("projectName", "")
+                    proj_id = project.get("projectId", "")
+                    # 跳过default项目
+                    if proj_name != "default-project" and proj_id:
+                        target_project_id = proj_id
+                        logger.info(f"自动选择非default项目: {proj_name} (ID: {proj_id})")
+                        break
+
+            if not target_project_id:
+                logger.warning("没有找到可切换的非default项目")
+                return False
+
+            # 3. 执行项目切换
+            return self.switch_to_project(target_project_id)
+
+        except Exception as e:
+            logger.error(f"自动切换项目时发生错误: {e}")
+            return False
+
+    def refresh_auth_token(self) -> bool:
+        """
+        刷新认证token
+
+        Returns:
+            bool: 刷新是否成功
+        """
+        try:
+            logger.info("开始刷新认证token")
+            if not self.password:
+                logger.warning("密码未提供，无法刷新认证")
+                return False
+
+            # 重新执行完整的登录流程
+            self._perform_login(self.username, self.password, self.domain)
+            logger.info("认证token刷新成功")
+            return True
+
+        except Exception as e:
+            logger.error(f"刷新认证token时发生错误: {e}")
+            return False
+
 if __name__ == "__main__":
-    base_url = 'https://10.220.49.200'
-    username = "nrgautotest"
-    password = "Admin@123"
+    base_url = 'https://10.220.49.203'
+    username = "beibei-xm"
+    password = "!QAZ2wsx"
     domain = "default"
 
     login_manager = LoginManager(base_url, username, password, domain,
@@ -208,7 +393,7 @@ if __name__ == "__main__":
 
     response = login_manager.login_unsafe(username, password)
     print(response)
-
+    login_manager.get_project_list()
     try:
         while True:
             time.sleep(10)

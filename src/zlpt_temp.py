@@ -5,7 +5,6 @@ from pathlib import Path
 
 from jsonpath import jsonpath
 
-from env_config_init import REPORT_PATH
 
 from typing import Callable, List, Dict, Any
 
@@ -427,19 +426,22 @@ def label_by_prediction(ls_user, project, question_json):
     return predictions
 
 
-def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
+def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None, project_id=None, auto_switch_project=True):
     """
     初始化 ZLPT 登录管理器
-    
+
     Args:
         zlpt_base_id: ZLPT 基础 ID
         crud: 数据库操作实例
         knowledge_base_id: 知识库 ID
-    
+        project_id: 目标项目ID，如果不提供则自动选择第一个非default项目
+        auto_switch_project: 是否自动切换到非default项目（默认True）
+
     Returns:
         LoginManager 实例或 False（表示失败）
     """
     should_disconnect = False
+    login_manager = None
 
     # 如果没有提供crud实例，则创建一个新的连接
     if crud is None:
@@ -450,6 +452,7 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
     try:
         # 如果提供了知识库ID，则从中获取zlpt_base_id
         if knowledge_base_id:
+            logger.info(f"正在通过知识库ID {knowledge_base_id} 获取ZLPT配置信息")
             kb_result = crud.get_knowledge_base(knowledge_id=knowledge_base_id)
             if not kb_result:
                 logger.error(f"未找到知识库 {knowledge_base_id} 的信息")
@@ -468,6 +471,7 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
             return False
 
         # 获取环境列表信息
+        logger.info(f"正在获取ZLPT环境配置: base_id={zlpt_base_id}")
         env_result = crud.environment_list(zlpt_base_id=zlpt_base_id)
         if not env_result:
             logger.error(f"未找到zlpt_base_id {zlpt_base_id} 的环境信息")
@@ -478,17 +482,18 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
         if not env_data:
             logger.error("环境数据转换失败")
             return False
-        
+
         # 检查必要的字段
         required_fields = ['zlpt_base_url', 'username', 'password', 'domain', 'key1', 'key2_add', 'pk']
-        for field in required_fields:
-            if field not in env_data or env_data[field] is None:
-                logger.error(f"环境数据缺少必要字段: {field}")
-                return False
-        
-        # 创建并返回登录管理器实例
+        missing_fields = [field for field in required_fields if field not in env_data or env_data[field] is None]
+        if missing_fields:
+            logger.error(f"环境数据缺少必要字段: {', '.join(missing_fields)}")
+            return False
+
+        # 创建登录管理器实例
+        logger.info(f"正在初始化LoginManager: url={env_data['zlpt_base_url']}, user={env_data['username']}")
         try:
-            zlpt_user = LoginManager(
+            login_manager = LoginManager(
                 env_data['zlpt_base_url'],
                 env_data['username'],
                 env_data['password'],
@@ -497,10 +502,40 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
                 env_data['key2_add'],
                 env_data['pk']
             )
-            return zlpt_user
         except Exception as e:
             logger.error(f"LoginManager初始化失败: {str(e)}", exc_info=True)
             return False
+
+        # 验证登录是否成功
+        if not login_manager.auth_token:
+            logger.error("登录失败：未能获取到认证token")
+            return False
+
+        logger.info(f"登录成功，当前项目: {login_manager.get_current_project() or 'default'}")
+
+        # 如果需要，执行项目切换
+        if auto_switch_project:
+            logger.info("正在检查和切换项目...")
+            project_switch_success = login_manager.project_switch(project_id)
+            if not project_switch_success:
+                logger.warning("项目切换失败，将继续使用当前项目")
+            else:
+                logger.info(f"项目切换完成，当前项目: {login_manager.get_current_project()}")
+        elif project_id:
+            # 指定了项目ID但不需要自动切换，直接切换
+            logger.info(f"正在切换到指定项目: {project_id}")
+            switch_result = login_manager.switch_to_project(project_id)
+            if not switch_result:
+                logger.error(f"切换到项目 {project_id} 失败")
+                return False
+
+        # 最终验证token有效性
+        project_info = login_manager.verify_current_project()
+        if project_info["is_default"] and auto_switch_project:
+            logger.warning("当前仍为default项目，部分功能可能受限")
+
+        logger.info("ZLPT登录流程完成")
+        return login_manager
 
     except Exception as e:
         logger.error(f"zlpt_login执行失败: {str(e)}", exc_info=True)
@@ -509,7 +544,11 @@ def zlpt_login(zlpt_base_id=None, crud=None, knowledge_base_id=None):
     finally:
         # 如果函数内部创建了数据库连接，则在此关闭
         if should_disconnect:
-            crud.disconnect()
+            try:
+                crud.disconnect()
+                logger.debug("数据库连接已关闭")
+            except Exception as e:
+                logger.warning(f"关闭数据库连接时发生错误: {e}")
 
 
 def ls_login(url, api, label_studio_id, crud=None):

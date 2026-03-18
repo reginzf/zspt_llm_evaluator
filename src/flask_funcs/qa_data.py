@@ -5,7 +5,7 @@
 此模块提供问答对数据的完整CRUD API接口，
 包括问答对的创建、查询、更新、删除等功能。
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 import logging
 import os
 import tempfile
@@ -907,8 +907,13 @@ def preview_huggingface_dataset(group_id: int):
             
             # 使用临时目录作为预览路径
             if temp_downloaded_files:
-                preview_path = temp_dir
-                logger.info(f"MinIO 文件下载完成，共 {len(temp_downloaded_files)} 个文件")
+                # 如果只有一个文件且是xlsx格式，直接使用文件路径
+                if len(temp_downloaded_files) == 1 and temp_downloaded_files[0].endswith('.xlsx'):
+                    preview_path = temp_downloaded_files[0]
+                    logger.info(f"单个xlsx文件，使用文件路径: {preview_path}")
+                else:
+                    preview_path = temp_dir
+                    logger.info(f"MinIO 文件下载完成，共 {len(temp_downloaded_files)} 个文件")
             else:
                 return jsonify({
                     'success': False,
@@ -1175,9 +1180,14 @@ def execute_import_with_mapping(group_id: int):
                         'success': False,
                         'message': '从 MinIO 下载文件失败，没有文件可下载'
                     }), 500
-                
-                import_path = temp_dir
-                logger.info(f"设置导入路径：{import_path}")
+
+                # 如果只有一个文件且是xlsx格式，直接使用文件路径
+                if len(temp_downloaded_files) == 1 and temp_downloaded_files[0].endswith('.xlsx'):
+                    import_path = temp_downloaded_files[0]
+                    logger.info(f"单个xlsx文件，使用文件路径: {import_path}")
+                else:
+                    import_path = temp_dir
+                    logger.info(f"设置导入路径：{import_path}")
         else:
             # 使用本地路径
             import_path = file_path
@@ -1358,3 +1368,120 @@ def cleanup_import_files(group_id: int):
             'success': False,
             'message': f'清理文件失败: {str(e)}'
         }), 500
+
+
+@qa_data_bp.route('/api/qa/groups/<int:group_id>/items/import/template', methods=['GET'])
+def download_qa_import_template(group_id: int):
+    """
+    下载问答对导入模板
+
+    生成带格式验证的 Excel 模板文件，包含下拉选项和示例数据。
+
+    Args:
+        group_id: 分组ID
+
+    Returns:
+        xlsx文件流 (attachment_filename="qa_import_template.xlsx")
+    """
+    try:
+        # 检查分组是否存在
+        with AIQADataGroupManager() as group_manager:
+            if not group_manager.group_exists(group_id):
+                return jsonify({
+                    'success': False,
+                    'message': f'分组不存在: ID={group_id}'
+                }), 404
+
+        # 使用 openpyxl 生成模板
+        from openpyxl import Workbook
+        from openpyxl.worksheet.datavalidation import DataValidation
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "问答对导入模板"
+
+        # 表头
+        headers = ['question', 'answers', 'context', 'question_type', 'difficulty_level', 'tags']
+        ws.append(headers)
+
+        # 表头样式
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # 添加示例行
+        example_row = ['示例问题？', '示例答案', '上下文信息（可选）', 'factual', 5, '标签1,标签2']
+        ws.append(example_row)
+
+        # 示例行样式
+        example_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col)
+            cell.fill = example_fill
+
+        # 设置列宽
+        ws.column_dimensions['A'].width = 40  # question
+        ws.column_dimensions['B'].width = 40  # answers
+        ws.column_dimensions['C'].width = 50  # context
+        ws.column_dimensions['D'].width = 15  # question_type
+        ws.column_dimensions['E'].width = 16  # difficulty_level
+        ws.column_dimensions['F'].width = 30  # tags
+
+        # question_type 下拉验证
+        dv = DataValidation(
+            type="list",
+            formula1='"factual,contextual,conceptual,reasoning,application,multi_choice"',
+            allow_blank=True
+        )
+        dv.error = '请从下拉列表中选择有效的问题类型'
+        dv.errorTitle = '无效的问题类型'
+        dv.prompt = '请选择问题类型：factual(事实型), contextual(上下文型), conceptual(概念型), reasoning(推理型), application(应用型), multi_choice(选择题)'
+        dv.promptTitle = '问题类型'
+        dv.add('D3:D1000')
+        ws.add_data_validation(dv)
+
+        # difficulty_level 数据验证 (1-10)
+        dv_difficulty = DataValidation(
+            type="whole",
+            operator="between",
+            formula1=1,
+            formula2=10,
+            allow_blank=True
+        )
+        dv_difficulty.error = '难度等级必须是 1-10 之间的整数'
+        dv_difficulty.errorTitle = '无效的难度等级'
+        dv_difficulty.add('E3:E1000')
+        ws.add_data_validation(dv_difficulty)
+
+        # 添加字段说明注释（表头行）
+        comments = {
+            'A': '问题内容（必填）',
+            'B': '答案内容（必填），纯文本即可',
+            'C': '上下文/背景信息（可选）',
+            'D': '问题类型（可选）：factual/contextual/conceptual/reasoning/application/multi_choice',
+            'E': '难度等级（可选）：1-10 的整数',
+            'F': '标签列表（可选）：逗号分隔，如"标签1,标签2"'
+        }
+        for col, comment in comments.items():
+            ws[col + '1'].comment = None  # 先清除可能存在的注释
+
+        # 保存到内存
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            attachment_filename='qa_import_template.xlsx'
+        )
+    except Exception as e:
+        logger.error(f"生成导入模板失败: {e}")
+        return jsonify({'success': False, 'message': f'生成模板失败: {str(e)}'}), 500
