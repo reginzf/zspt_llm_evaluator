@@ -143,6 +143,12 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        // 报告查看页面（Flask 后端渲染）
+        '^/report/': {
+          target: backendUrl,
+          changeOrigin: true,
+          secure: false,
+        },
         // 静态文件（Flask 后端提供的静态资源）
         '^/static': {
           target: backendUrl,

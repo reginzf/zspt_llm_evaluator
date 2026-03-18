@@ -202,6 +202,8 @@ class MetricsAnalyzer:
     def get_performance_ranking(self, top_n: int = 20) -> List[Dict[str, Any]]:
         """获取性能排名"""
         ranked_df = self.df.copy()
+        # 处理 f1_score 为 None 或 NaN 的情况，先填充为 -1 避免排名出错
+        ranked_df['f1_score'] = ranked_df['f1_score'].fillna(-1)
         ranked_df['rank'] = ranked_df['f1_score'].rank(ascending=False, method='min').astype(int)
         ranked_df = ranked_df.sort_values('rank')
 
