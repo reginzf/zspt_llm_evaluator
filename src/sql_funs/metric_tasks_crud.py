@@ -21,12 +21,13 @@ class MetricTasksCRUD(PostgreSQLManager):
     """
 
     def metric_task_create(self, metric_task_id: str, task_id: str, status: str = '初始化',
-                           search_type: str = None, knowledge_base_id: str = None, match_type: str = None):
+                           search_type: str = None, knowledge_base_id: str = None, match_type: str = None,
+                           calc_params: dict = None):
         """
         创建指标任务
-        
+
         在ai_metric_tasks表中插入新的指标任务记录。
-        
+
         Args:
             metric_task_id: 计算任务ID
             match_type: 匹配方式
@@ -34,17 +35,21 @@ class MetricTasksCRUD(PostgreSQLManager):
             status (str, optional): 任务状态，默认为'初始化'
             search_type (str, optional): 搜索类型
             knowledge_base_id (str, optional): 知识库ID
+            calc_params (dict, optional): 计算参数字典，包含 overlap_threshold, similarity_threshold, semantic_weight 等
 
         Returns:
             bool: 创建成功返回True，失败返回False
         """
+        import json
+
         data = {
             "metric_task_id": metric_task_id,
             "task_id": task_id,
             "status": status,
             "search_type": search_type,
             "knowledge_base_id": knowledge_base_id,
-            "match_type": match_type
+            "match_type": match_type,
+            "calc_params": json.dumps(calc_params) if calc_params else None
         }
         # 只插入非空值
         data = {k: v for k, v in data.items() if v is not None}
@@ -105,10 +110,10 @@ class MetricTasksCRUD(PostgreSQLManager):
         List[Tuple]]:
         """
         获取指标任务列表
-        
+
         从ai_metric_tasks表中查询指标任务列表，支持多种查询条件、
-        排序和结果数量限制。
-        
+        排序和结果数量限制。自动解析 calc_params JSON 字段。
+
         Args:
             metric_task_id (str, optional): 按计算任务ID精确查询
             match_type (str, optional): 按匹配类型精确查询
@@ -118,10 +123,12 @@ class MetricTasksCRUD(PostgreSQLManager):
             order_by (str, optional): 排序字段
             limit (int, optional): 限制返回结果数量
             **kwargs: 其他查询条件参数
-        
+
         Returns:
             Optional[List[Tuple]]: 查询结果列表，每个元素为元组形式的记录
         """
+        import json
+
         exact_match_fields = ['task_id', 'status', 'search_type', 'metric_task_id']
         partial_match_fields = []  # 没有需要模糊匹配的字段
         allowed_fileds = exact_match_fields + partial_match_fields + ['order_by', 'limit']
@@ -138,7 +145,18 @@ class MetricTasksCRUD(PostgreSQLManager):
                                               partial_match_fields=partial_match_fields,
                                               allowed_fileds=allowed_fileds,
                                               **query_params)
-        return self.execute_query(query, params)
+        result = self.execute_query(query, params)
+
+        # 解析 calc_params JSON
+        if result:
+            for row in result:
+                if len(row) > 6 and row[6]:  # calc_params 字段
+                    try:
+                        row[6] = json.loads(row[6])
+                    except:
+                        row[6] = {}
+
+        return result
 
     def _metric_task_to_json(self, row):
         """
