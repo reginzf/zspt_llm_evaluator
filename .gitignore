@@ -45,3 +45,4 @@ Thumbs.db
 # 其他
 .agents/
 .kimiignore.worktrees/
+.worktrees/
