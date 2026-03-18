@@ -150,12 +150,12 @@ class ChunkRecallEvaluator:
 
         # 计算基础统计
         total_retrieved = len(matched_list)
-        total_relevant = len(relevant_indices)
-        true_positives = total_relevant  # 所有超过阈值的都被视为真正例
-        false_positives = total_retrieved - total_relevant  # 低于阈值的为假正例
+        # 修复：使用分数和作为加权真正例，并限制不超过相关文档总数
+        true_positives = sum(min(score, 1.0) for score in matched_list if score >= threshold)
+        true_positives = min(true_positives, len_relevant_chunks)  # 关键修复：确保不超过相关文档总数
 
-        # 计算假反例：使用len_relevant_chunks作为总相关文档数
-        false_negatives = max(0, len_relevant_chunks - total_relevant)
+        false_positives = total_retrieved - len(relevant_indices)
+        false_negatives = max(0, len_relevant_chunks - true_positives)
 
         # 计算基础指标
         precision = self._calculate_precision(true_positives, total_retrieved)
