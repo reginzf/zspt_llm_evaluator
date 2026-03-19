@@ -209,7 +209,6 @@
                   </el-button>
                   <span class="env-id">环境ID: {{ env.label_studio_id }}</span>
                   <span class="env-url">{{ env.label_studio_url }}</span>
-                  <el-tag size="small" type="info">任务数: {{ env.task_count || 0 }}</el-tag>
                 </div>
                 <div class="environment-actions">
                   <el-button type="primary" size="small" @click="openCreateTaskDialog(env)">创建任务</el-button>

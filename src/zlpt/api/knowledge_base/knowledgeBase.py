@@ -375,6 +375,58 @@ class KnowledgeBase(BaseClient):
         return doc_name, data
 
 
+    def knowledge_get_web_complete_flag(self, knowledgeId):
+        """
+        查询知识库网页采集完成状态
+        :param knowledgeId: 知识库ID
+        :return: {"code": 200, "msg": null, "data": ..., "ok": true}
+        """
+        api = 'api/zspt/zsgl/knowledgeBase/getWebCompleteFlag'
+        method = 'GET'
+        data = {}
+        res = self.send_request(api, method, data, knowledgeId=knowledgeId)
+        return res
+
+    def knowledge_repeat_count(self, knowledgeId):
+        """
+        查询知识库重复文档数量
+        :param knowledgeId: 知识库ID
+        :return: {"code": 200, "msg": null, "data": <count>, "ok": true}
+        """
+        api = 'api/zspt/zsgl/knowledgeBaseDocumentRepeat/repeatCount'
+        method = 'GET'
+        data = {}
+        res = self.send_request(api, method, data, knowledgeId=knowledgeId)
+        return res
+
+    def knowledge_ques_ans_list(self, knowledgeId, current=1, size=10, total=0):
+        """
+        查询知识库标准问答列表（"标准问答" Tab 数据）
+        :param knowledgeId: 知识库ID
+        :param current: 当前页
+        :param size: 每页数量
+        :param total: 总数（首次传0）
+        :return: {"code": 200, "msg": null, "data": {"records": [...], "total": ..., ...}, "ok": true}
+        """
+        api = 'api/zspt/zsgl/knowledgeQuesAnsRecord/knowledgeQuesAnsList'
+        method = 'GET'
+        data = {}
+        res = self.send_request(api, method, data, knowledgeId=knowledgeId, current=current, size=size, total=total)
+        return res
+
+    def tenant_connector_config_page(self, connectorStatus=1):
+        """
+        查询租户连接器配置列表
+        :param connectorStatus: 连接器状态，1=启用
+        :return: {"code": 200, "msg": null, "data": {"records": [...], ...}, "ok": true}
+        """
+        api = 'api/zspt/zsgl/tenantConnectorConfig/page'
+        method = 'GET'
+        data = {}
+        res = self.send_request(api, method, data, connectorStatus=connectorStatus)
+        return res
+
+
 if __name__ == '__main__':
     from env_config_init import settings
     from zlpt.login import LoginManager

@@ -35,7 +35,35 @@
       "Bash(pkill -f \"python app.py\")",
       "Bash(pkill -f \"flask\")",
       "mcp__plugin_context7_context7__resolve-library-id",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git commit:*)",
+      "Bash(git worktree:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(git hash-object:*)",
+      "Bash(git config:*)",
+      "Bash(dos2unix frontend/src/api/knowledge.ts)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(pip show:*)",
+      "Bash(pip list:*)",
+      "Bash(/D/pyworkplace/git_place/ai-ken/.venv/Scripts/python.exe -m pytest tests/test_sync_annotation.py::TestLsCreateTasksIncremental -v)",
+      "Bash(cd /d D:pyworkplacegit_placeai-ken)",
+      "Bash(.venvScriptspython.exe -m pytest tests/test_sync_annotation.py -v)",
+      "Bash(.venv/Scripts/python.exe -m playwright --version)",
+      "Bash(py -m playwright --version)",
+      "Bash(python3 -m playwright --version)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_type"
     ]
-  }
+  },
+  "enabledPlugins": {},
+  "sshConfigs": [
+    {
+      "id": "server-223",
+      "name": "Server 10.210.2.223",
+      "sshHost": "root@10.210.2.223",
+      "sshPort": 22
+    }
+  ]
 }
