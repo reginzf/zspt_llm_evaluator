@@ -6,6 +6,7 @@ from src.sql_funs import LabelStudioCrud, Environment_Crud, LocalKnowledgeCrud, 
     KnowledgePathCrud, MetricTasksCRUD
 from src.zlpt_temp import ls_create_project, ls_create_tasks, label_by_prediction, zlpt_login, \
     KnowledgeBase, ls_login
+from src.label_studio_api import LabelStudioXMLGenerator
 from concurrent.futures import ThreadPoolExecutor
 
 # 导入LLM标注功能
@@ -365,7 +366,16 @@ def sync_annotation_project():
                 ls_crud.annotation_task_update(task_id, label_studio_project_id=label_studio_project_id)
             else:
                 project = ls_user.get_project(label_studio_project_id)
-            
+
+                # 每次同步都更新问题集配置到 Label Studio 项目
+                try:
+                    question_json = q_crud.generate_question_json_by_qs_set_id(question_set_id)
+                    label_config = LabelStudioXMLGenerator().generate_from_json(question_json)
+                    project.set_params(label_config=label_config)
+                    logger.info(f"已更新 Label Studio 项目 {label_studio_project_id} 的标注配置")
+                except Exception as e:
+                    logger.error(f"更新标注配置失败，继续同步切片: {e}")
+
             logger.info(f"Label Studio项目ID: {label_studio_project_id}")
             
             # 获取紫鸾平台知识库中的切片

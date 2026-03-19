@@ -119,5 +119,87 @@ class TestLsCreateTasksIncremental(unittest.TestCase):
         project.import_tasks.assert_called()
 
 
+import json
+
+
+class TestSyncAnnotationProjectLabelConfig(unittest.TestCase):
+    """测试 sync_annotation_project 在项目已存在时更新 label_config"""
+
+    def _make_app_and_client(self):
+        """创建 Flask 测试客户端"""
+        import app as flask_app
+        flask_app.app.config['TESTING'] = True
+        return flask_app.app.test_client()
+
+    def test_existing_project_updates_label_config(self):
+        """项目已存在时，应调用 project.set_params 更新 label_config"""
+        with patch('src.flask_funcs.local_knowledge_detail_label_studio.LabelStudioCrud') as MockLsCrud, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.QuestionsCRUD') as MockQCrud, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.KnowledgeCrud') as MockKCrud, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.KnowledgePathCrud') as MockKpCrud, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.ls_login') as mock_ls_login, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.zlpt_login') as mock_zlpt_login, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.KnowledgeBase') as MockKnowledgeBase, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.ls_create_tasks') as mock_create_tasks, \
+             patch('src.flask_funcs.local_knowledge_detail_label_studio.LabelStudioXMLGenerator') as MockXml:
+
+            # 构造 task 数据（label_studio_project_id 已存在）
+            mock_task = {
+                'task_id': 'task-001',
+                'task_name': 'test_task',
+                'local_knowledge_id': 'lk-001',
+                'question_set_id': 'qs-001',
+                'label_studio_env_id': 'ls-env-001',
+                'label_studio_project_id': 'ls-proj-001',
+                'knowledge_base_id': 'kb-001',
+            }
+            ls_crud_instance = MockLsCrud.return_value.__enter__.return_value
+            ls_crud_instance.annotation_task_list.return_value = [None]
+            ls_crud_instance._annotation_task_to_json.return_value = mock_task
+            ls_crud_instance.annotation_task_update.return_value = True
+
+            # 构造问题集数据
+            q_crud_instance = MockQCrud.return_value.__enter__.return_value
+            question_json = {'doc_name': 'qs', 'datas': []}
+            q_crud_instance.generate_question_json_by_qs_set_id.return_value = question_json
+
+            # 构造知识路径
+            kp_crud_instance = MockKpCrud.return_value.__enter__.return_value
+            kp_crud_instance.get_knowledge_path_list.return_value = [('path-001',)]
+
+            # 构造文档列表
+            k_crud_instance = MockKCrud.return_value.__enter__.return_value
+            k_crud_instance.knowledge_list.return_value = [('doc-001',)]
+
+            # 构造 LS project
+            mock_project = MagicMock()
+            mock_ls_user = mock_ls_login.return_value
+            mock_ls_user.get_project.return_value = mock_project
+
+            # 构造 XML generator
+            mock_xml_instance = MockXml.return_value
+            mock_xml_instance.generate_from_json.return_value = '<View></View>'
+
+            # mock 网络相关
+            mock_zlpt_login.return_value = MagicMock()
+            MockKnowledgeBase.return_value = MagicMock()
+
+            # ls_create_tasks 返回（new_chunks=2, existing_chunks=0）
+            mock_create_tasks.return_value = (['t1'], 2, 0)
+
+            client = self._make_app_and_client()
+            resp = client.post(
+                '/local_knowledge_detail/label_studio/sync_project',
+                json={'task_id': 'task-001'},
+                content_type='application/json'
+            )
+
+            data = json.loads(resp.data)
+            self.assertTrue(data['success'], msg=f"响应: {data}")
+
+            # 核心断言：应该调用了 set_params 更新 label_config
+            mock_project.set_params.assert_called_once_with(label_config='<View></View>')
+
+
 if __name__ == '__main__':
     unittest.main()
