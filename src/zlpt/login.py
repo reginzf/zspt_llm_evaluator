@@ -182,22 +182,33 @@ class LoginManager:
             logger.error(f"Unsafe login error: {e}")
             return None, None
 
-    def \
-            get_project_list(self) -> List[Dict]:
+    def get_project_list(self, user_id: str = None) -> List[Dict]:
         """
         获取用户可选的项目列表
 
+        Args:
+            user_id: 用户ID，不提供则尝试通过 login_unsafe 获取
+
         Returns:
-            List[Dict]: 项目列表，每个项目包含 projectId, projectName 等信息
+            List[Dict]: 项目列表，每个项目包含 id, name, parent_id, children 等信息
         """
         try:
-            # 使用 /api/sys/oapi/v1/user/projects 获取当前用户可访问的项目列表
-            url = f"{self.base_url}/api/sys/oapi/v1/user/projects"
+            # 如果没有提供 user_id，尝试获取
+            if not user_id:
+                user_id, _ = self.login_unsafe(self.username, self.password)
+                if not user_id:
+                    logger.error("无法获取 user_id，无法获取项目列表")
+                    return []
+
+            # 使用 /api/sys/oapi/v1/users/{user_id}/projects 获取当前用户可访问的项目列表
+            timestamp = int(time.time() * 1000)
+            url = f"{self.base_url}/api/sys/oapi/v1/users/{user_id}/projects?t={timestamp}"
             response = self.session.get(url, verify=False, timeout=30)
 
             if response.status_code == 200:
                 res_data = response.json()
-                if res_data.get('code') == 200 and res_data.get('data'):
+                # 新接口返回格式: {"status": "", "code": "", "data": [...], "msg": ""}
+                if res_data.get('data') is not None:
                     projects = res_data['data']
                     logger.info(f"获取到 {len(projects)} 个可选项目")
                     return projects
@@ -236,6 +247,7 @@ class LoginManager:
                 "available_projects": []
             }
 
+            user_id = None
             if response.status_code == 200:
                 res_data = response.json()
                 if res_data.get('token') and res_data['token'].get('project'):
@@ -243,6 +255,7 @@ class LoginManager:
                     project_id = project_info.get('id')
                     project_name = project_info.get('name')
                     domain_name = res_data['token'].get('user', {}).get('domain', 'default')
+                    user_id = res_data['token'].get('user', {}).get('id')
 
                     result["current_project_id"] = project_id
                     result["current_project_name"] = project_name
@@ -250,8 +263,8 @@ class LoginManager:
 
                     logger.info(f"当前项目: {project_name} (ID: {project_id}), 是否为default: {result['is_default']}")
 
-            # 获取可选项目列表
-            available_projects = self.get_project_list()
+            # 获取可选项目列表（传入 user_id）
+            available_projects = self.get_project_list(user_id)
             result["available_projects"] = available_projects
 
             return result
@@ -339,8 +352,9 @@ class LoginManager:
             if not target_project_id:
                 available_projects = project_info.get("available_projects", [])
                 for project in available_projects:
-                    proj_name = project.get("projectName", "")
-                    proj_id = project.get("projectId", "")
+                    # 新接口返回的字段名: name (原projectName), id (原projectId)
+                    proj_name = project.get("name", "")
+                    proj_id = project.get("id", "")
                     # 跳过default项目
                     if proj_name != "default-project" and proj_id:
                         target_project_id = proj_id

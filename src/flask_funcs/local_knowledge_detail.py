@@ -711,10 +711,10 @@ def _update_local_file_status(local_files, uploaded_files, knowledge_id, files_t
 
 def _download_minio_file_to_temp(minio_path):
     """从MinIO下载文件到临时目录
-    
+
     Args:
         minio_path: MinIO中的文件路径
-        
+
     Returns:
         str: 临时文件路径，失败返回None
     """
@@ -723,21 +723,22 @@ def _download_minio_file_to_temp(minio_path):
         # 获取MinIO客户端
         minio_client = MinIOClient(bucket_name=UPLOAD_DIR)
 
-        # 从路径中提取对象名称
+        # 从路径中提取对象名称（原始文件名）
         object_name = minio_path.lstrip('/')
+        original_filename = os.path.basename(object_name)
 
-        # 创建临时文件
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.basename(object_name))
-        temp_file.close()
+        # 创建临时目录，使用原始文件名保持文件
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, original_filename)
 
         # 下载文件
-        if minio_client.download_file(object_name, temp_file.name):
-            logger.info(f"成功下载MinIO文件: {object_name} -> {temp_file.name}")
-            return temp_file.name
+        if minio_client.download_file(object_name, temp_file_path):
+            logger.info(f"成功下载MinIO文件: {object_name} -> {temp_file_path}")
+            return temp_file_path
         else:
-            # 下载失败，清理临时文件
+            # 下载失败，清理临时目录
             try:
-                os.unlink(temp_file.name)
+                os.rmdir(temp_dir)
             except:
                 pass
             return None
@@ -748,18 +749,34 @@ def _download_minio_file_to_temp(minio_path):
 
 
 def _cleanup_temp_files(file_paths):
-    """清理临时文件
-    
+    """清理临时文件和临时目录
+
     Args:
         file_paths: 临时文件路径列表
     """
-    import os
+    import shutil
+
+    cleaned_dirs = set()
 
     for file_path in file_paths:
         try:
-            if os.path.exists(file_path) and 'tmp' in file_path.lower():
+            if os.path.exists(file_path):
+                # 获取文件所在的目录
+                temp_dir = os.path.dirname(file_path)
+
+                # 删除文件
                 os.unlink(file_path)
                 logger.info(f"清理临时文件: {file_path}")
+
+                # 如果目录是临时目录且未清理过，则删除目录
+                if temp_dir and 'tmp' in temp_dir.lower() and temp_dir not in cleaned_dirs:
+                    try:
+                        os.rmdir(temp_dir)
+                        logger.info(f"清理临时目录: {temp_dir}")
+                        cleaned_dirs.add(temp_dir)
+                    except OSError:
+                        # 目录不为空或其他原因无法删除，忽略
+                        pass
         except Exception as e:
             logger.warning(f"清理临时文件失败 {file_path}: {e}")
 
