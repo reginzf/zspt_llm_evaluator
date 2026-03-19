@@ -61,7 +61,6 @@ def doc_slices_format_for_label_studio(records):
     :return:
     """
     res = []
-    print(records)
     for data in records:
         # 去掉title和固定字段，剩余为text
 

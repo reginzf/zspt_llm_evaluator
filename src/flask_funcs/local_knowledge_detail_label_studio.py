@@ -314,6 +314,9 @@ def sync_annotation_project():
         if missing_field:
             return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
         task_id = data['task_id']
+        new_chunks = 0
+        existing_chunks = 0
+        total_chunks = 0
         logger.info(f"开始同步标注任务: task_id={task_id}")
 
         # 从ai_annotation_tasks表查询任务信息

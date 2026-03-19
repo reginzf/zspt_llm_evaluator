@@ -68,15 +68,16 @@ class TestLsCreateTasksIncremental(unittest.TestCase):
         # c1 已存在，只有 c2 是新增
         project = _make_project(existing_chunk_ids=['c1'], import_return=['task2'])
 
-        task_ids, new_count, existing_count = ls_create_tasks(know_client, project, ['doc1'])
+        with patch('src.zlpt_temp.create_tasks', return_value=['task2']) as mock_create:
+            task_ids, new_count, existing_count = ls_create_tasks(know_client, project, ['doc1'])
 
         self.assertEqual(new_count, 1)
         self.assertEqual(existing_count, 1)
-        # import_tasks 只应被调用一次，且只传了 c2 对应的数据
-        # call_args[0][0] 是传给 import_tasks 的第一个位置参数（切片列表）
-        call_args = project.import_tasks.call_args[0][0]
-        self.assertEqual(len(call_args), 1)
-        self.assertEqual(call_args[0]['chunk_id'], 'c2')
+        # 断言传给 create_tasks 的切片数据只包含 c2
+        mock_create.assert_called_once()
+        tasks_arg = mock_create.call_args[0][1]  # create_tasks(project, tasks) 的第二个参数
+        chunk_ids_passed = [t['chunk_id'] for t in tasks_arg]
+        self.assertEqual(chunk_ids_passed, ['c2'])
 
     def test_no_new_chunks_skips_import(self):
         """所有切片已存在时，不调用 import_tasks，返回空列表"""
