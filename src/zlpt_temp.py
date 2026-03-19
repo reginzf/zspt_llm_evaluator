@@ -221,7 +221,17 @@ def ls_create_project(ls_user, title, QUESTION_JSON, description=''):
 
 
 def ls_create_tasks(know_client, project, doc_ids):
-    # 根据doc_ids获取切片
+    """
+    增量创建 Label Studio 任务，已存在的切片（按 chunk_id 判断）不重复导入。
+
+    Args:
+        know_client: 知识库客户端实例
+        project: Label Studio 项目对象
+        doc_ids: 文档ID列表
+
+    Returns:
+        tuple: (新增任务ID列表, 新增切片数, 已存在切片数)
+    """
     chunk_all = []
     failed_docs = []
     try:
@@ -236,16 +246,39 @@ def ls_create_tasks(know_client, project, doc_ids):
             except Exception as doc_e:
                 logger.error(f"获取文档 {doc_id} 切片失败: {doc_e}")
                 failed_docs.append(doc_id)
-        
+
         if not chunk_all:
             raise ValueError(f"没有获取到任何切片数据，失败的文档: {failed_docs}")
-        
-        logger.info(f"开始创建Label Studio任务，共 {len(chunk_all)} 个切片")
-        tasks = doc_slices_format_for_label_studio(chunk_all)
-        res = create_tasks(project, tasks)  # [task_id1,task_id2...]
-        return res, len(chunk_all)
+
+        # 获取 Label Studio 项目中已存在的 chunk_id 集合
+        try:
+            existing_tasks = project.get_tasks()
+            existing_chunk_ids = {
+                task['data']['chunk_id']
+                for task in existing_tasks
+                if 'chunk_id' in task.get('data', {})
+            }
+            logger.info(f"Label Studio 项目中已存在 {len(existing_chunk_ids)} 个切片")
+        except Exception as e:
+            logger.warning(f"获取已存在任务失败，将全量导入: {e}")
+            existing_chunk_ids = set()
+
+        # 过滤出未同步的切片
+        new_chunks = [c for c in chunk_all if c['chunk_id'] not in existing_chunk_ids]
+        existing_count = len(chunk_all) - len(new_chunks)
+
+        if not new_chunks:
+            logger.info("没有新的切片需要同步")
+            return [], 0, existing_count
+
+        logger.info(f"开始创建 Label Studio 任务，共 {len(new_chunks)} 个新切片（已存在 {existing_count} 个）")
+        tasks = doc_slices_format_for_label_studio(new_chunks)
+        res = create_tasks(project, tasks)
+
+        return res, len(new_chunks), existing_count
+
     except Exception as e:
-        logger.error(f"创建Label Studio任务失败: {e}")
+        logger.error(f"创建 Label Studio 任务失败: {e}")
         raise e
 
 

@@ -392,9 +392,9 @@ def sync_annotation_project():
                 return jsonify({'success': False, 'message': f'紫鸾平台登录失败，无法获取知识库 {knowledge_base_id} 的信息'}), 500
             
             know_client = KnowledgeBase(zlpt_user)
-            task_ids, total_chunks = ls_create_tasks(know_client, project, doc_ids)
-            
-            logger.info(f"创建任务成功: 任务数={len(task_ids)}, 切片数={total_chunks}")
+            task_ids, new_chunks, existing_chunks = ls_create_tasks(know_client, project, doc_ids)
+            total_chunks = new_chunks + existing_chunks
+            logger.info(f"同步完成: 新增切片={new_chunks}, 已存在切片={existing_chunks}, 合计={total_chunks}")
             
             # 将对应task_id设置为已同步
             result = ls_crud.annotation_task_update(task_id, task_status='已同步', total_chunks=total_chunks)
@@ -411,7 +411,9 @@ def sync_annotation_project():
                 'question_set_id': question_set_id,
                 'label_studio_env_id': label_studio_env_id,
                 'label_studio_project_id': label_studio_project_id,
-                'total_chunks': total_chunks
+                'total_chunks': total_chunks,
+                'new_chunks': new_chunks,
+                'existing_chunks': existing_chunks
             }
         })
     except Exception as e:
