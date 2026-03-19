@@ -60,6 +60,7 @@ def cal_metric(zlpt_user, task_id, ls_user, project_id, knowledge_base_id, searc
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/create', methods=['POST'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/create', methods=['POST'])
 def create_metric_task():
     """
     创建指标任务
@@ -111,6 +112,7 @@ def create_metric_task():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/list', methods=['GET'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/list', methods=['GET'])
 def get_metric_task_list():
     """
     获取指标任务列表
@@ -142,6 +144,7 @@ def get_metric_task_list():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/start_calculation', methods=['POST'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/start_calculation', methods=['POST'])
 def start_calculation():
     try:
         data = request.get_json()
@@ -205,6 +208,7 @@ def start_calculation():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/get_report', methods=['GET'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/get_report', methods=['GET'])
 def get_report():
     """
     获取报告内容
@@ -237,6 +241,7 @@ def get_report():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/delete_report', methods=['DELETE'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/delete_report', methods=['DELETE'])
 def delete_report():
     """
     删除报告
@@ -285,6 +290,7 @@ def delete_report():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/completed_tasks', methods=['POST'])
 def get_completed_annotation_tasks():
     """
     获取已完成的标注任务列表，用于创建指标任务
@@ -307,6 +313,7 @@ def get_completed_annotation_tasks():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/get_task_info', methods=['GET'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/get_task_info', methods=['GET'])
 def get_task_info():
     """
     获取单个任务的详细信息
@@ -339,6 +346,7 @@ def get_task_info():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/update_match_type', methods=['POST'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/update_match_type', methods=['POST'])
 def update_task_match_type():
     """
     更新任务的匹配方式信息
@@ -401,6 +409,7 @@ def update_task_match_type():
 
 
 @local_knowledge_detail_task_bp.route('/local_knowledge_detail/task/metric/delete_task', methods=['DELETE'])
+@local_knowledge_detail_task_bp.route('/api/local_knowledge_detail/task/metric/delete_task', methods=['DELETE'])
 def delete_task():
     """
     删除标注任务及其相关指标任务和报告

@@ -139,13 +139,14 @@ def get_question_set_detail():
 def delete_question_set():
     """删除问题集"""
     try:
-        data = request.get_json()
-        required_fields = ['set_id']
-        missing_field = validate_required_fields(data, required_fields)
-        if missing_field:
-            return jsonify({'success': False, 'message': f'缺少必要字段: {missing_field}'}), 400
+        # 支持从 query 参数或 body 中获取 set_id/question_id
+        set_id = request.args.get('set_id') or request.args.get('question_id')
+        if not set_id:
+            data = request.get_json(silent=True) or {}
+            set_id = data.get('set_id') or data.get('question_id')
 
-        set_id = data['set_id']
+        if not set_id:
+            return jsonify({'success': False, 'message': '缺少必要字段: set_id 或 question_id'}), 400
 
         # 删除问题集（注意：这里应该考虑级联删除相关的问题）
         with QuestionsCRUD() as crud:
@@ -225,6 +226,12 @@ def create_question():
         question_type = data['question_type']
         question_content = data['question_content']
         chunk_ids = data.get('chunk_ids', [])
+
+        # 处理 chunk_ids：如果是字符串（如 '123,456'），按逗号分割为列表
+        if isinstance(chunk_ids, str):
+            chunk_ids = [cid.strip() for cid in chunk_ids.split(',') if cid.strip()]
+        elif not isinstance(chunk_ids, list):
+            chunk_ids = []
 
         # 生成问题ID
         question_id = generate_unique_id('qst', 8)
@@ -390,6 +397,12 @@ def update_question():
         question_type = data['question_type']
         question_content = data.get('question_content')
         chunk_ids = data.get('chunk_ids')
+
+        # 处理 chunk_ids：如果是字符串（如 '123,456'），按逗号分割为列表
+        if isinstance(chunk_ids, str):
+            chunk_ids = [cid.strip() for cid in chunk_ids.split(',') if cid.strip()]
+        elif chunk_ids is not None and not isinstance(chunk_ids, list):
+            chunk_ids = []
 
         # 使用CRUD类的更新方法
         with QuestionsCRUD() as crud:

@@ -575,8 +575,8 @@ def update_annotation():
                         return jsonify({"success": False, "message": "未找到任务扩展信息"}), 400
                     executor.submit(_llm_annotation_process,  project, task, question_json, local_knowledge_id)
             else:
-                # 使用手动方式标注，直接返回
-                pass
+                # 使用手动方式标注，将状态更新为已完成
+                success = ls_crud.annotation_task_update(task_id=task_id, task_status='已完成')
         if success:
             return jsonify({"success": True, "message": "更新标注方式成功"})
         else:
