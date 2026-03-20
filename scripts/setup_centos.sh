@@ -564,3 +564,98 @@ EOF
 
     mark_done "step_nginx"
 }
+
+step_verify() {
+    is_done "step_verify" && log_info "step_verify 已完成，跳过" && return 0
+    log_step "步骤 8/8: 验证服务状态"
+
+    sleep 3
+    local pass=0 fail=0 all_ok=true
+
+    log_info "--- Systemd 服务状态 ---"
+    for svc in ai-ken-backend nginx; do
+        local state
+        state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+        if [ "$state" = "active" ]; then
+            log_ok "$svc: active"
+            pass=$((pass + 1))
+        else
+            log_fail "$svc: $state"
+            fail=$((fail + 1))
+            all_ok=false
+            # 打印后端日志辅助排查
+            if [ "$svc" = "ai-ken-backend" ]; then
+                journalctl -u ai-ken-backend --no-pager -n 20
+            fi
+        fi
+    done
+
+    printf "\n"
+    log_info "--- HTTP 验证 ---"
+
+    local routes=(
+        "Nginx健康检查|http://127.0.0.1:${FRONTEND_PORT}/health"
+        "API-QA数据组|http://127.0.0.1:${FRONTEND_PORT}/api/qa/groups"
+    )
+
+    for route in "${routes[@]}"; do
+        local name="${route%%|*}"
+        local url="${route##*|}"
+        local code
+        code=$(no_proxy=127.0.0.1 curl -s --max-time 8 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo "000")
+        if [[ "$code" =~ ^[23] ]]; then
+            log_ok "$name → $code"
+            pass=$((pass + 1))
+        else
+            log_fail "$name → $code ($url)"
+            fail=$((fail + 1))
+            all_ok=false
+        fi
+    done
+
+    printf "\n"
+    log_info "通过: $pass  失败: $fail"
+
+    if $all_ok; then
+        printf "\n${GREEN}✓ 初始化完成！所有服务正常${NC}\n"
+        printf "${GREEN}  前端访问地址: http://$(hostname -I | awk '{print $1}'):${FRONTEND_PORT}${NC}\n\n"
+    else
+        printf "\n${YELLOW}⚠ 初始化完成，但有部分验证失败，请检查上方日志${NC}\n\n"
+    fi
+
+    mark_done "step_verify"
+}
+
+# ── 入口 ──────────────────────────────────────────────────────────
+main() {
+    # root 检查
+    if [ "$(id -u)" -ne 0 ]; then
+        log_error "请以 root 用户运行本脚本"
+        exit 1
+    fi
+
+    printf "\n${BLUE}============================================${NC}\n"
+    printf "${BLUE}   AI-KEN CentOS 初始化 - %s${NC}\n" "$(date '+%Y-%m-%d %H:%M:%S')"
+    printf "${BLUE}   项目路径: %s${NC}\n" "$PROJECT_ROOT"
+    printf "${BLUE}============================================${NC}\n\n"
+
+    init_state
+    collect_inputs
+    prompt_wheels
+
+    # PIP/PYTHON 提前赋值：step_venv 内部也赋值，但断点续跑时 step_venv 被跳过，
+    # 此处提前赋值是断点续跑场景的兜底，确保后续步骤始终有效
+    PIP="$PROJECT_ROOT/venv/bin/pip"
+    PYTHON="$PROJECT_ROOT/venv/bin/python"
+
+    step_python
+    step_venv
+    step_wheels
+    step_deps
+    step_models
+    step_services
+    step_nginx
+    step_verify
+}
+
+main "$@"
