@@ -115,3 +115,82 @@ prompt_wheels() {
     read -r
     printf "\n"
 }
+
+step_python() {
+    is_done "step_python" && log_info "step_python 已完成，跳过" && return 0
+    log_step "步骤 1/8: Python 环境确认"
+
+    if [ -n "$PYTHON_BIN" ]; then
+        # 用户指定路径：验证版本
+        if ! "$PYTHON_BIN" --version 2>&1 | grep -q '3\.12'; then
+            log_error "指定的 Python 路径版本不是 3.12: $PYTHON_BIN"
+            log_error "请删除 .setup_state 并重新运行，或手动修改其中的 PYTHON_BIN"
+            return 1
+        fi
+        log_ok "Python 验证通过: $($PYTHON_BIN --version 2>&1)"
+    else
+        # 自动下载编译
+        log_info "开始安装编译依赖..."
+        yum install -y gcc make openssl-devel bzip2-devel libffi-devel \
+            zlib-devel wget xz-devel sqlite-devel || {
+            log_error "yum 安装编译依赖失败"
+            return 1
+        }
+
+        local tgz="/tmp/Python-3.12.5.tgz"
+        if [ ! -f "$tgz" ]; then
+            log_info "下载 Python 3.12.5 源码..."
+            wget -q --show-progress \
+                https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tgz \
+                -O "$tgz" || {
+                log_error "下载失败！请手动将 Python-3.12.5.tgz 放置到 /tmp/ 后重新运行"
+                return 1
+            }
+        else
+            log_info "发现已有 $tgz，跳过下载"
+        fi
+
+        log_info "解压源码..."
+        tar -xzf "$tgz" -C /tmp/
+
+        log_info "编译配置（约需 10-20 分钟）..."
+        cd /tmp/Python-3.12.5
+        ./configure --enable-optimizations --prefix=/usr/local || { log_error "configure 失败"; return 1; }
+
+        log_info "编译中（使用 $(nproc) 核心）..."
+        make -j"$(nproc)" || { log_error "make 失败"; return 1; }
+
+        log_info "安装..."
+        make altinstall || { log_error "make altinstall 失败"; return 1; }
+
+        cd "$PROJECT_ROOT"
+        save_var PYTHON_BIN "/usr/local/bin/python3.12"
+        log_ok "Python 安装完成: $($PYTHON_BIN --version 2>&1)"
+    fi
+
+    mark_done "step_python"
+}
+
+step_venv() {
+    is_done "step_venv" && log_info "step_venv 已完成，跳过" && return 0
+    log_step "步骤 2/8: 创建 Python venv"
+
+    local venv_dir="$PROJECT_ROOT/venv"
+
+    if [ -d "$venv_dir" ]; then
+        log_info "venv 已存在，跳过创建"
+    else
+        "$PYTHON_BIN" -m venv "$venv_dir" || {
+            log_error "venv 创建失败"
+            return 1
+        }
+        log_ok "venv 创建成功: $venv_dir"
+    fi
+
+    # 导出 pip/python 路径供后续步骤使用
+    PIP="$venv_dir/bin/pip"
+    PYTHON="$venv_dir/bin/python"
+    log_info "pip: $PIP"
+
+    mark_done "step_venv"
+}
