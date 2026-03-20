@@ -43,25 +43,25 @@ init_state() {
 save_var() {
     local key="$1"
     local val="$2"
-    grep -v "^${key}=" "$STATE_FILE" > "${STATE_FILE}.tmp" && \
-        mv "${STATE_FILE}.tmp" "$STATE_FILE"
+    grep -v "^${key}=" "$STATE_FILE" > "${STATE_FILE}.tmp" || true
+    mv "${STATE_FILE}.tmp" "$STATE_FILE"
     printf '%s="%s"\n' "$key" "$val" >> "$STATE_FILE"
-    # 同步到当前 shell
-    eval "${key}=\"${val}\""
+    # 同步到当前 shell（使用 printf -v 避免 eval 注入风险）
+    printf -v "$key" '%s' "$val"
 }
 
 # 标记步骤完成
 mark_done() {
     local step="$1"
     COMPLETED_STEPS="$COMPLETED_STEPS $step"
-    grep -v '^COMPLETED_STEPS=' "$STATE_FILE" > "${STATE_FILE}.tmp" && \
-        mv "${STATE_FILE}.tmp" "$STATE_FILE"
+    grep -v '^COMPLETED_STEPS=' "$STATE_FILE" > "${STATE_FILE}.tmp" || true
+    mv "${STATE_FILE}.tmp" "$STATE_FILE"
     printf 'COMPLETED_STEPS="%s"\n' "$COMPLETED_STEPS" >> "$STATE_FILE"
 }
 
 # 判断步骤是否已完成
 is_done() {
-    echo "$COMPLETED_STEPS" | grep -qw "$1"
+    echo "${COMPLETED_STEPS:-}" | grep -qw "$1"
 }
 
 # ── 变量收集（启动阶段，所有步骤共用）────────────────────────────
