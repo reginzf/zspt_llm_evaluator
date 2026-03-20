@@ -202,7 +202,7 @@ find_wheel() {
     for dir in "${search_dirs[@]}"; do
         local candidate="$dir/$filename"
         if [ -f "$candidate" ]; then
-            echo "$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
+            echo "$(cd "$dir" && pwd)/$(basename "$filename")"
             return 0
         fi
     done
@@ -245,7 +245,10 @@ step_wheels() {
         if [ -n "$actual_path" ]; then
             log_ok "找到: $whl_basename → $actual_path"
             # 替换 file:///原路径（保留 #sha256= 部分）
-            sed -i "s|file:///[^#]*${whl_basename}|file://${actual_path}|g" "$req_dst"
+            # actual_path is absolute (starts with /), so file:// + /path = file:///path (three slashes)
+            local escaped_basename
+            escaped_basename=$(printf '%s\n' "$whl_basename" | sed 's/[.[\*^$]/\\&/g')
+            sed -i "s|file:///[^#]*${escaped_basename}|file://${actual_path}|g" "$req_dst"
         else
             log_warn "未找到: $whl_basename"
             missing+=("$whl_basename")
@@ -262,7 +265,7 @@ step_wheels() {
         if [[ "$answer" =~ ^[Yy]$ ]]; then
             for m in "${missing[@]}"; do
                 # 从 requirements_fixed.txt 中删除对应行
-                grep -v "$m" "$req_dst" > "${req_dst}.tmp" && mv "${req_dst}.tmp" "$req_dst"
+                grep -vF "$m" "$req_dst" > "${req_dst}.tmp" && mv "${req_dst}.tmp" "$req_dst"
                 log_info "已从安装列表移除: $m"
             done
         else
