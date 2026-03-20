@@ -96,6 +96,9 @@ collect_inputs() {
 
 # ── Wheel 文件提示（每次启动都执行）──────────────────────────────
 prompt_wheels() {
+    # step_wheels 已完成则无需再提示
+    is_done "step_wheels" && return 0
+
     # 动态从 requirements 文件中提取 file:// 条目的文件名
     local req_file="$PROJECT_ROOT/scripts/requirements_centos.txt"
     local wheel_files
@@ -452,86 +455,6 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
-    }
-
-    location /local_knowledge/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /local_knowledge_detail/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /environment/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /label_studio/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /label_studio_env/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /qdrant/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /report/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /report_list/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /llm/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location /knowledge_base/ {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 
     location = /health {
