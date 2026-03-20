@@ -528,6 +528,23 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
                 f"获取到知识库配置信息: chunk_size={knowledge_base_info['chunk_size']}, "
                 f"chunk_overlap={knowledge_base_info['chunk_overlap']}")
 
+            # 获取 zlpt_name
+            zlpt_name = None
+            zlpt_base_id = knowledge_base_info.get('zlpt_base_id')
+            if zlpt_base_id:
+                with Environment_Crud() as env_crud:
+                    env_list = env_crud.environment_list(zlpt_base_id=zlpt_base_id)
+                    if env_list:
+                        zlpt_name = env_list[0][1]  # zlpt_name 是第2个字段
+                        logger.info(f"获取到 zlpt_name: {zlpt_name}")
+
+            # 构建目录名: {zlpt_name}_{kno_id}
+            if zlpt_name:
+                target_dir_name = f"{zlpt_name}_{local_kno_id}"
+            else:
+                target_dir_name = local_kno_id
+                logger.warning(f"无法获取 zlpt_name，使用 kno_id 作为目录名: {target_dir_name}")
+
             # 登录ZLPT平台
             logger.info(f"正在登录ZLPT平台: base_id={knowledge_base_info['zlpt_base_id']}")
             zlpt_user = zlpt_login(
@@ -555,30 +572,33 @@ def _prepare_sync_data(local_kno_id, knowledge_id):
             existing_names = [ele['kno_path_name'] for ele in knowledge_path_tree]
             logger.info(f"现有目录名称: {existing_names}")
 
-            if local_knowledge_info['kno_path'] not in existing_names:
-                logger.info(f"目录 {local_knowledge_info['kno_path']} 不存在，创建中...")
+            if target_dir_name not in existing_names:
+                logger.info(f"目录 {target_dir_name} 不存在，创建中...")
                 success, create_dir_result = _create_directory_with_retry(
                     know_client,
                     knowledge_id,
-                    local_knowledge_info['kno_path'],
-                    parent_content_code=None
+                    target_dir_name,  # 使用新的目录名
+                    parent_content_code=None  # 在根目录创建
                 )
                 if not success:
                     logger.error(f"创建目录失败: {create_dir_result}")
                     return jsonify({'success': False, 'message': '创建知识库目录失败'}), 500
-                logger.info(f"目录 {local_knowledge_info['kno_path']} 创建成功")
+                logger.info(f"目录 {target_dir_name} 创建成功")
             else:
-                logger.info(f"目录 {local_knowledge_info['kno_path']} 已存在")
+                logger.info(f"目录 {target_dir_name} 已存在")
+
+            # 更新 local_knowledge_info
+            local_knowledge_info['kno_path'] = target_dir_name
 
             # 获取目录的content_code（带重试）
             content_code = _get_content_code_with_retry(
                 know_client,
                 knowledge_id,
-                local_knowledge_info['kno_path']
+                target_dir_name  # 使用新的目录名
             )
 
             if not content_code:
-                logger.error(f"未找到目录 {local_knowledge_info['kno_path']} 的content_code")
+                logger.error(f"未找到目录 {target_dir_name} 的content_code")
                 return jsonify({'success': False, 'message': '未找到目录的content_code'}), 500
 
             return {
