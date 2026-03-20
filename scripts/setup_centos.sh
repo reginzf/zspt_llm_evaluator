@@ -340,3 +340,45 @@ step_models() {
 
     mark_done "step_models"
 }
+
+step_services() {
+    is_done "step_services" && log_info "step_services 已完成，跳过" && return 0
+    log_step "步骤 6/8: 注册 ai-ken-backend 服务"
+
+    local service_file="/etc/systemd/system/ai-ken-backend.service"
+
+    cat > "$service_file" << EOF
+[Unit]
+Description=AI-KEN Backend Service (Flask API)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${PROJECT_ROOT}
+Environment=PATH=${PROJECT_ROOT}/venv/bin
+Environment=FLASK_ENV=production
+Environment=CORS_ALLOW_ALL=false
+ExecStart=${PROJECT_ROOT}/venv/bin/python app.py --host 127.0.0.1 --port ${BACKEND_PORT}
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    log_info "服务文件已写入: $service_file"
+
+    systemctl daemon-reload || { log_error "daemon-reload 失败"; return 1; }
+    systemctl enable ai-ken-backend || { log_error "enable 失败"; return 1; }
+    systemctl start ai-ken-backend || {
+        log_error "服务启动失败，查看日志："
+        journalctl -u ai-ken-backend --no-pager -n 20
+        return 1
+    }
+
+    log_ok "ai-ken-backend 服务已启动"
+    mark_done "step_services"
+}
