@@ -151,19 +151,18 @@ step_python() {
         fi
 
         log_info "解压源码..."
-        tar -xzf "$tgz" -C /tmp/
+        tar -xzf "$tgz" -C /tmp/ || { log_error "解压失败，tgz 文件可能损坏"; return 1; }
 
         log_info "编译配置（约需 10-20 分钟）..."
-        cd /tmp/Python-3.12.5
-        ./configure --enable-optimizations --prefix=/usr/local || { log_error "configure 失败"; return 1; }
+        (
+            cd /tmp/Python-3.12.5 || { log_error "无法进入源码目录"; exit 1; }
+            ./configure --enable-optimizations --prefix=/usr/local || { log_error "configure 失败"; exit 1; }
+            log_info "编译中（使用 $(nproc) 核心）..."
+            make -j"$(nproc)" || { log_error "make 失败"; exit 1; }
+            log_info "安装..."
+            make altinstall || { log_error "make altinstall 失败"; exit 1; }
+        ) || return 1
 
-        log_info "编译中（使用 $(nproc) 核心）..."
-        make -j"$(nproc)" || { log_error "make 失败"; return 1; }
-
-        log_info "安装..."
-        make altinstall || { log_error "make altinstall 失败"; return 1; }
-
-        cd "$PROJECT_ROOT"
         save_var PYTHON_BIN "/usr/local/bin/python3.12"
         log_ok "Python 安装完成: $($PYTHON_BIN --version 2>&1)"
     fi
