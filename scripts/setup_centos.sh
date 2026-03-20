@@ -534,14 +534,14 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 
-    location / {
-        try_files \$uri \$uri/ /index.html;
+    location = /health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "healthy\n";
     }
 
-    location /health {
-        access_log off;
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
+    location / {
+        try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
