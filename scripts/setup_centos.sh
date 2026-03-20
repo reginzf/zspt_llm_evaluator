@@ -63,3 +63,55 @@ mark_done() {
 is_done() {
     echo "$COMPLETED_STEPS" | grep -qw "$1"
 }
+
+# ── 变量收集（启动阶段，所有步骤共用）────────────────────────────
+collect_inputs() {
+    # 若已有变量（断点续跑）则跳过询问
+    PYTHON_BIN="${PYTHON_BIN:-}"
+    FRONTEND_PORT="${FRONTEND_PORT:-}"
+    BACKEND_PORT="${BACKEND_PORT:-}"
+
+    if [ -z "$PYTHON_BIN" ] && [ -z "$FRONTEND_PORT" ] && [ -z "$BACKEND_PORT" ]; then
+        log_step "配置信息收集"
+        printf "\n"
+
+        printf "请输入 Python 3.12 可执行路径（留空则自动下载编译安装）: "
+        read -r input_python
+        save_var PYTHON_BIN "$input_python"
+
+        printf "前端端口（默认 5002）: "
+        read -r input_fe
+        save_var FRONTEND_PORT "${input_fe:-5002}"
+
+        printf "后端端口（默认 5001）: "
+        read -r input_be
+        save_var BACKEND_PORT "${input_be:-5001}"
+
+        printf "\n"
+        log_info "配置已保存到 $STATE_FILE"
+    else
+        log_info "使用已保存配置: Python=${PYTHON_BIN:-<自动安装>}, 前端端口=$FRONTEND_PORT, 后端端口=$BACKEND_PORT"
+    fi
+}
+
+# ── Wheel 文件提示（每次启动都执行）──────────────────────────────
+prompt_wheels() {
+    # 动态从 requirements 文件中提取 file:// 条目的文件名
+    local req_file="$PROJECT_ROOT/scripts/requirements_centos.txt"
+    local wheel_files
+    wheel_files=$(grep 'file:///' "$req_file" | sed 's|.*file:///[^/]*/||;s|#.*||' | tr -d ' ')
+
+    printf "\n"
+    log_info "requirements_centos.txt 中有以下本地 wheel 文件依赖，请确认已放置到以下位置之一："
+    printf "  - %s/scripts/wheels/  （推荐）\n" "$PROJECT_ROOT"
+    printf "  - %s/models/\n" "$PROJECT_ROOT"
+    printf "  - /tmp/\n\n"
+    printf "需要的文件:\n"
+    while IFS= read -r whl; do
+        [ -z "$whl" ] && continue
+        printf "  - %s\n" "$whl"
+    done <<< "$wheel_files"
+    printf "\n按 Enter 继续，或 Ctrl+C 退出后上传文件..."
+    read -r
+    printf "\n"
+}
