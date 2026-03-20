@@ -9,6 +9,8 @@ from env_config_init import settings
 from src.sql_funs import LocalKnowledgeCrud
 
 from src.flask_funcs.common_utils import generate_unique_id
+from src.utils.minio_client import MinIOClient
+UPLOAD_DIR = 'knowledge-files'
 
 # 创建logger
 logger = logging.getLogger(__name__)
@@ -161,10 +163,14 @@ def delete_local_knowledge(kno_id):
             # 获取该知识库下的所有文件
             local_files = crud.get_local_knowledge_file_list(kno_id=kno_id)
             for file_record in local_files:
-                # 删除本地文件
-                file_path = Path(settings.KNOWLEDGE_LOCAL_PATH) / file_record[4]  # knol_path 是第5列 (索引4)
-                if file_path.exists():
-                    file_path.unlink()
+                # 从 MinIO 删除文件
+                object_name = file_record[4].lstrip('/')
+                minio_client = MinIOClient(bucket_name=UPLOAD_DIR)
+                delete_success = minio_client.delete_file(object_name)
+                if delete_success:
+                    logger.info(f"MinIO文件已删除: {object_name}")
+                else:
+                    logger.warning(f"MinIO文件删除失败: {object_name}")
 
                 # 删除数据库记录
                 crud.local_knowledge_list_delete(knol_id=file_record[1])  # knol_id 是第2列 (索引1)
@@ -175,12 +181,6 @@ def delete_local_knowledge(kno_id):
                 query = "DELETE FROM ai_knowledge_bind WHERE kno_id = %s AND knowledge_id = %s"
                 params = (kno_id, binding[2])  # knowledge_id 是第3列 (索引2)
                 crud.execute_query(query, params)
-
-            kno_full_path = os.path.join(settings.KNOWLEDGE_LOCAL_PATH, crud.get_local_knowledge(kno_id=kno_id)[0][4])
-            # 删除本地目录
-            if os.path.exists(kno_full_path):
-                shutil.rmtree(kno_full_path)
-                logger.info(f"本地知识库目录已删除: {kno_full_path}")
 
             # 删除主要知识库记录
             success = crud.local_knowledge_delete(kno_id=kno_id)
