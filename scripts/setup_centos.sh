@@ -99,7 +99,7 @@ prompt_wheels() {
     # 动态从 requirements 文件中提取 file:// 条目的文件名
     local req_file="$PROJECT_ROOT/scripts/requirements_centos.txt"
     local wheel_files
-    wheel_files=$(grep 'file:///' "$req_file" | sed 's|.*file:///[^/]*/||;s|#.*||' | tr -d ' ')
+    wheel_files=$(grep 'file:///' "$req_file" | sed 's|.*file:///||;s|#.*||' | awk -F'/' '{print $NF}' | tr -d ' ')
 
     printf "\n"
     log_info "requirements_centos.txt 中有以下本地 wheel 文件依赖，请确认已放置到以下位置之一："
