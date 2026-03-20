@@ -193,3 +193,147 @@ step_venv() {
 
     mark_done "step_venv"
 }
+
+# 在多个目录中按优先级查找 wheel 文件，找到则输出绝对路径，找不到返回 1
+find_wheel() {
+    local filename="$1"
+    shift
+    local search_dirs=("$@")
+    for dir in "${search_dirs[@]}"; do
+        local candidate="$dir/$filename"
+        if [ -f "$candidate" ]; then
+            echo "$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
+            return 0
+        fi
+    done
+    return 1
+}
+
+step_wheels() {
+    is_done "step_wheels" && log_info "step_wheels 已完成，跳过" && return 0
+    log_step "步骤 3/8: 修复 requirements 中的 file:// 路径"
+
+    local req_src="$PROJECT_ROOT/scripts/requirements_centos.txt"
+    local req_dst="$PROJECT_ROOT/requirements_fixed.txt"
+    cp "$req_src" "$req_dst"
+
+    local wheels_dir="$PROJECT_ROOT/scripts/wheels"
+    local models_dir="$PROJECT_ROOT/models"
+    local missing=()
+
+    # 提取所有 file:// 行
+    local file_lines
+    file_lines=$(grep 'file:///' "$req_src" || true)
+
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+
+        # 提取文件名：取 file:/// 之后，# 之前的最后一段
+        local raw_path
+        raw_path=$(echo "$line" | sed 's|.*file:///||;s|#.*||')
+        local whl_basename
+        whl_basename=$(basename "$raw_path")
+
+        # zh_core_web_sm 优先从 models/ 找，其余优先从 scripts/wheels/ 找
+        local actual_path
+        if echo "$whl_basename" | grep -q 'zh_core_web_sm'; then
+            actual_path=$(find_wheel "$whl_basename" "$models_dir" "$wheels_dir" "/tmp") || true
+        else
+            actual_path=$(find_wheel "$whl_basename" "$wheels_dir" "$models_dir" "/tmp") || true
+        fi
+
+        if [ -n "$actual_path" ]; then
+            log_ok "找到: $whl_basename → $actual_path"
+            # 替换 file:///原路径（保留 #sha256= 部分）
+            sed -i "s|file:///[^#]*${whl_basename}|file://${actual_path}|g" "$req_dst"
+        else
+            log_warn "未找到: $whl_basename"
+            missing+=("$whl_basename")
+        fi
+    done <<< "$file_lines"
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        log_warn "以下 wheel 文件未找到："
+        for m in "${missing[@]}"; do
+            printf "  - %s\n" "$m"
+        done
+        printf "是否跳过这些包继续？[y/N] "
+        read -r answer
+        if [[ "$answer" =~ ^[Yy]$ ]]; then
+            for m in "${missing[@]}"; do
+                # 从 requirements_fixed.txt 中删除对应行
+                grep -v "$m" "$req_dst" > "${req_dst}.tmp" && mv "${req_dst}.tmp" "$req_dst"
+                log_info "已从安装列表移除: $m"
+            done
+        else
+            log_error "请将缺失的 wheel 文件放到 scripts/wheels/ 后重新运行"
+            return 1
+        fi
+    fi
+
+    log_ok "requirements_fixed.txt 已生成: $req_dst"
+    mark_done "step_wheels"
+}
+
+step_deps() {
+    is_done "step_deps" && log_info "step_deps 已完成，跳过" && return 0
+    log_step "步骤 4/8: 安装 Python 依赖"
+
+    local req_dst="$PROJECT_ROOT/requirements_fixed.txt"
+    if [ ! -f "$req_dst" ]; then
+        log_error "requirements_fixed.txt 不存在，请重置 step_wheels 后重新运行"
+        log_error "方法: 从 .setup_state 的 COMPLETED_STEPS 中删除 step_wheels"
+        return 1
+    fi
+
+    log_info "开始 pip install（大包较慢，请耐心等待）..."
+    "$PIP" install --no-cache-dir -r "$req_dst" || {
+        log_warn "pip install 返回非零，部分包可能安装失败"
+        printf "是否忽略错误继续？[y/N] "
+        read -r answer
+        if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+            log_error "请检查上方错误信息后重新运行"
+            return 1
+        fi
+    }
+
+    log_ok "依赖安装完成"
+    mark_done "step_deps"
+}
+
+step_models() {
+    is_done "step_models" && log_info "step_models 已完成，跳过" && return 0
+    log_step "步骤 5/8: 检测模型目录"
+
+    local models_dir="$PROJECT_ROOT/models"
+    local required_models=(
+        "bge-base-zh-v1.5"
+        "bge-reranker-base"
+        "paraphrase-multilingual-MiniLM-L12-v2"
+        "text2vec-base-chinese"
+        "text2vec-word2vec-tencent-chinese"
+    )
+    local missing_models=()
+
+    for model in "${required_models[@]}"; do
+        if [ -d "$models_dir/$model" ]; then
+            log_ok "模型存在: $model"
+        else
+            log_warn "模型缺失: $model"
+            missing_models+=("$model")
+        fi
+    done
+
+    if [ ${#missing_models[@]} -gt 0 ]; then
+        printf "\n"
+        log_warn "以下模型缺失，请后续上传到 %s/models/ 目录：\n" "$PROJECT_ROOT"
+        for m in "${missing_models[@]}"; do
+            printf "  - %s\n" "$m"
+        done
+        printf "\n（缺失模型不影响服务启动，但部分功能不可用）\n\n"
+    else
+        log_ok "所有模型均已就绪"
+    fi
+
+    mark_done "step_models"
+}
