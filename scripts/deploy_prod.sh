@@ -6,20 +6,27 @@
 #   bash scripts/deploy_prod.sh
 #
 # 依赖：
-#   - ssh/scp（或 sshpass）：用于连接服务器
+#   - ssh/rsync/sshpass：用于连接服务器
 #   - npm：用于前端构建
-#   - sshpass：免密 SSH（brew install sshpass / apt install sshpass）
+#
+# 环境变量：
+#   DEPLOY_PASS（必需）：SSH 密码
+#   DEPLOY_HOST（可选）：目标主机，默认 10.210.2.223
+#   DEPLOY_USER（可选）：SSH 用户，默认 root
+
+# 使用示例：
+#   DEPLOY_PASS=your_password bash scripts/deploy_prod.sh
 
 set -e  # 遇到错误立即退出
 
 # ============================================================
-# 配置
+# 配置（从环境变量读取，避免硬编码）
 # ============================================================
-REMOTE_HOST="10.210.2.223"
-REMOTE_USER="root"
-REMOTE_PASS="admin@123"
-REMOTE_PROJECT="/root/zlzspt_chunk"
-REMOTE_FRONTEND="/var/www/ai-ken"
+REMOTE_HOST="${DEPLOY_HOST:-10.210.2.223}"
+REMOTE_USER="${DEPLOY_USER:-root}"
+REMOTE_PASS="${DEPLOY_PASS:?错误：必须设置 DEPLOY_PASS 环境变量}"
+REMOTE_PROJECT="${DEPLOY_PROJECT:-/root/zlzspt_chunk}"
+REMOTE_FRONTEND="${DEPLOY_FRONTEND:-/var/www/ai-ken}"
 
 FRONTEND_DIR="$(cd "$(dirname "$0")/../frontend" && pwd)"
 DIST_DIR="$FRONTEND_DIR/dist"
@@ -63,7 +70,7 @@ scp_upload() {
 check_deps() {
     log_step "检查本地依赖..."
     local missing=()
-    for cmd in npm sshpass ssh scp; do
+    for cmd in npm sshpass ssh rsync; do
         if ! command -v "$cmd" &>/dev/null; then
             missing+=("$cmd")
         fi

@@ -95,52 +95,6 @@ restore_configs() {
     done
 }
 
-# Function to check if frontend code changed
-frontend_changed() {
-    # Check if there are changes in frontend directory since last sync
-    if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q "^frontend/"; then
-        return 0  # true - frontend changed
-    fi
-    return 1  # false - frontend not changed
-}
-
-# Function to rebuild frontend
-rebuild_frontend() {
-    log_step "Rebuilding frontend..."
-    
-    if [ ! -d "frontend" ]; then
-        log_warn "Frontend directory not found, skipping rebuild"
-        return
-    fi
-    
-    cd frontend
-    
-    # Check if node_modules exists
-    if [ ! -d "node_modules" ]; then
-        log_warn "node_modules not found, running npm install..."
-        npm install
-        if [ $? -ne 0 ]; then
-            log_error "npm install failed"
-            cd ..
-            return 1
-        fi
-    fi
-    
-    # Build frontend
-    log_info "Building frontend..."
-    npm run build-only
-    
-    if [ $? -eq 0 ]; then
-        log_info "Frontend built successfully"
-    else
-        log_error "Frontend build failed"
-        cd ..
-        return 1
-    fi
-    
-    cd ..
-}
-
 # Function to restart backend service
 restart_backend() {
     log_step "Restarting ai-ken-backend service..."
@@ -291,7 +245,6 @@ main() {
     log_info "  - Frontend (ai-ken-frontend): http://<server_ip>:5002"
     log_info ""
     log_info "Tips:"
-    log_info "  - Set FORCE_REBUILD=1 to force frontend rebuild"
     log_info "  - Use 'sudo journalctl -u ai-ken-backend -f' to view backend logs"
     log_info "  - Use 'sudo journalctl -u ai-ken-frontend -f' to view frontend logs"
 }
