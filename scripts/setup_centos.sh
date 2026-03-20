@@ -54,9 +54,7 @@ save_var() {
 mark_done() {
     local step="$1"
     COMPLETED_STEPS="$COMPLETED_STEPS $step"
-    grep -v '^COMPLETED_STEPS=' "$STATE_FILE" > "${STATE_FILE}.tmp" || true
-    mv "${STATE_FILE}.tmp" "$STATE_FILE"
-    printf 'COMPLETED_STEPS="%s"\n' "$COMPLETED_STEPS" >> "$STATE_FILE"
+    save_var COMPLETED_STEPS "$COMPLETED_STEPS"
 }
 
 # 判断步骤是否已完成
@@ -71,7 +69,10 @@ collect_inputs() {
     FRONTEND_PORT="${FRONTEND_PORT:-}"
     BACKEND_PORT="${BACKEND_PORT:-}"
 
-    if [ -z "$PYTHON_BIN" ] && [ -z "$FRONTEND_PORT" ] && [ -z "$BACKEND_PORT" ]; then
+    # 端口非空表示上次已完整收集（PYTHON_BIN 可合法为空，意为自动安装）
+    if [ -n "$FRONTEND_PORT" ] && [ -n "$BACKEND_PORT" ]; then
+        log_info "使用已保存配置: Python=${PYTHON_BIN:-<自动安装>}, 前端端口=$FRONTEND_PORT, 后端端口=$BACKEND_PORT"
+    else
         log_step "配置信息收集"
         printf "\n"
 
@@ -89,8 +90,6 @@ collect_inputs() {
 
         printf "\n"
         log_info "配置已保存到 $STATE_FILE"
-    else
-        log_info "使用已保存配置: Python=${PYTHON_BIN:-<自动安装>}, 前端端口=$FRONTEND_PORT, 后端端口=$BACKEND_PORT"
     fi
 }
 
@@ -205,7 +204,7 @@ find_wheel() {
     for dir in "${search_dirs[@]}"; do
         local candidate="$dir/$filename"
         if [ -f "$candidate" ]; then
-            echo "$(cd "$dir" && pwd)/$(basename "$filename")"
+            echo "$dir/$filename"
             return 0
         fi
     done
