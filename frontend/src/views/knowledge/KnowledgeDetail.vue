@@ -1574,7 +1574,7 @@ async function saveEditQuestionSet() {
     if (res.success) {
       ElMessage.success('修改成功')
       showEditQuestionSetDialog.value = false
-      loadQuestionSets()
+      loadQuestionSets(true)
     } else {
       ElMessage.error(res.message || '修改失败')
     }
