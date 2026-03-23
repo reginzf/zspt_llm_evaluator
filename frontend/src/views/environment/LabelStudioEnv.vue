@@ -220,12 +220,12 @@ async function handleSubmit() {
       res = await updateLabelStudioEnv({
         label_studio_id: form.label_studio_id,
         label_studio_url: form.label_studio_url,
-        label_studio_token: form.label_studio_api_key
+        label_studio_api_key: form.label_studio_api_key
       })
     } else {
       res = await createLabelStudioEnv({
         label_studio_url: form.label_studio_url,
-        label_studio_token: form.label_studio_api_key
+        label_studio_api_key: form.label_studio_api_key
       })
     }
 
