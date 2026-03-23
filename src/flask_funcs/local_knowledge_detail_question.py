@@ -134,6 +134,36 @@ def get_question_set_detail():
         return jsonify({'success': False, 'message': f'获取问题集详情时发生错误: {str(e)}'}), 500
 
 
+@local_knowledge_question_bp.route('/local_knowledge_detail/question_set/edit', methods=['POST'])
+@local_knowledge_question_bp.route('/api/local_knowledge_detail/question_set/edit', methods=['POST'])
+def edit_question_set():
+    """编辑问题集名称"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+
+        set_id = data.get('set_id')
+        new_name = data.get('new_name')
+
+        if not set_id:
+            return jsonify({'success': False, 'message': '缺少必要字段: set_id'}), 400
+        if not new_name or not new_name.strip():
+            return jsonify({'success': False, 'message': '缺少必要字段: new_name'}), 400
+
+        with QuestionsCRUD() as crud:
+            result = crud.question_config_update(question_id=set_id, question_name=new_name.strip())
+
+        if result:
+            return jsonify({'success': True, 'message': '问题集更新成功'})
+        else:
+            return jsonify({'success': False, 'message': '更新失败，问题集不存在或无变化'}), 400
+
+    except Exception as e:
+        logger.error(f"编辑问题集失败: {e}")
+        return jsonify({'success': False, 'message': f'服务器错误: {str(e)}'}), 500
+
+
 @local_knowledge_question_bp.route('/local_knowledge_detail/question/set/delete', methods=['DELETE'])
 @local_knowledge_question_bp.route('/api/local_knowledge_detail/question/set/delete', methods=['DELETE'])
 def delete_question_set():
