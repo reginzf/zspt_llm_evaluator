@@ -1,3 +1,6 @@
+# 本地启动脚本
+start-claude-kimi.bat
+
 # Python
 /.venv/
 __pycache__/
