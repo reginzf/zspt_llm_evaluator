@@ -355,6 +355,27 @@
       </template>
     </el-dialog>
 
+    <!-- 编辑问题集对话框 -->
+    <el-dialog v-model="showEditQuestionSetDialog" title="编辑问题集" width="500px">
+      <el-form
+        :model="editQuestionSetForm"
+        ref="editQuestionSetFormRef"
+        label-width="100px"
+        :rules="{ question_name: [{ required: true, message: '请输入名称', trigger: 'blur' }] }"
+      >
+        <el-form-item label="名称" prop="question_name">
+          <el-input v-model="editQuestionSetForm.question_name" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-input v-model="editQuestionSetForm.question_set_type" disabled />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditQuestionSetDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveEditQuestionSet" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 创建问题对话框 -->
     <el-dialog v-model="showCreateQuestionDialog" title="创建问题" width="600px">
       <el-form :model="questionForm" :rules="questionRules" ref="questionFormRef" label-width="100px">
@@ -726,7 +747,8 @@ import {
   deleteMetricTaskApi,
   uploadQuestionImport,
   confirmQuestionImport,
-  downloadQuestionTemplate
+  downloadQuestionTemplate,
+  editQuestionSetApi
 } from '@/api/knowledge'
 import {
   getEnvironmentList,
@@ -780,6 +802,10 @@ const questionSetRules: FormRules = {
   question_name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   question_set_type: [{ required: true, message: '请选择类型', trigger: 'change' }]
 }
+
+const showEditQuestionSetDialog = ref(false)
+const editQuestionSetFormRef = ref<FormInstance>()
+const editQuestionSetForm = reactive({ set_id: '', question_name: '', question_set_type: '' })
 
 // 问题
 const showCreateQuestionDialog = ref(false)
@@ -1530,8 +1556,33 @@ async function createQuestionSet() {
 }
 
 function editQuestionSet(set: any) {
-  // TODO: 编辑问题集 - 需要后端支持更新API
-  ElMessage.info('编辑功能开发中')
+  editQuestionSetForm.set_id = set.question_id
+  editQuestionSetForm.question_name = set.question_name
+  editQuestionSetForm.question_set_type = set.question_set_type || ''
+  showEditQuestionSetDialog.value = true
+}
+
+async function saveEditQuestionSet() {
+  const valid = await editQuestionSetFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  submitting.value = true
+  try {
+    const res = await editQuestionSetApi({
+      set_id: editQuestionSetForm.set_id,
+      new_name: editQuestionSetForm.question_name
+    })
+    if (res.success) {
+      ElMessage.success('修改成功')
+      showEditQuestionSetDialog.value = false
+      loadQuestionSets()
+    } else {
+      ElMessage.error(res.message || '修改失败')
+    }
+  } catch (error) {
+    ElMessage.error('修改失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function deleteQuestionSet(set: any) {
