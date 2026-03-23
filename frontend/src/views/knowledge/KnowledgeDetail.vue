@@ -1574,7 +1574,11 @@ async function saveEditQuestionSet() {
     if (res.success) {
       ElMessage.success('修改成功')
       showEditQuestionSetDialog.value = false
-      loadQuestionSets(true)
+      // 直接更新本地状态，保持用户当前的展开/分页状态
+      const target = questionSets.value.find((s: any) => s.question_id === editQuestionSetForm.set_id)
+      if (target) {
+        target.question_name = editQuestionSetForm.question_name
+      }
     } else {
       ElMessage.error(res.message || '修改失败')
     }
