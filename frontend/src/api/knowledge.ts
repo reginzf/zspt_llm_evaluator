@@ -217,6 +217,16 @@ export async function deleteQuestionSet(questionId: string): Promise<ApiResponse
 }
 
 /**
+ * 编辑问题集名称
+ */
+export async function editQuestionSetApi(data: {
+  set_id: string
+  new_name: string
+}): Promise<ApiResponse<void>> {
+  return legacyPost<ApiResponse<void>>('/api/local_knowledge_detail/question_set/edit', data)
+}
+
+/**
  * 获取问题列表
  */
 export async function getQuestions(setId: string, questionType: string): Promise<ApiResponse<Question[]>> {
@@ -386,7 +396,7 @@ export async function unbindLabelStudioEnvironment(knoId: string, lsId: string):
  */
 export async function createLabelStudioEnv(data: {
   label_studio_url: string
-  label_studio_token?: string
+  label_studio_api_key?: string
 }): Promise<ApiResponse<void>> {
   return legacyPost<ApiResponse<void>>('/api/label_studio_env/create/', data)
 }
@@ -397,7 +407,7 @@ export async function createLabelStudioEnv(data: {
 export async function updateLabelStudioEnv(data: {
   label_studio_id: string
   label_studio_url?: string
-  label_studio_token?: string
+  label_studio_api_key?: string
 }): Promise<ApiResponse<void>> {
   return legacyPut<ApiResponse<void>>('/api/label_studio_env/update/', data)
 }
